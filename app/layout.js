@@ -16,14 +16,6 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en">
         <body className={`${inter.className}`}>
-          <header>
-            <SignedOut>
-              <SignInButton/>
-            </SignedOut>
-            <SignedIn>
-              <UserButton/>
-            </SignedIn>
-          </header>
           <Header />
           <main className="min-h-screen"
           >{children}</main>

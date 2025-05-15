@@ -1,10 +1,28 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+
+const isProtectedRoute = createRouteMatcher([
+  "/checkout(.*)",
+  "/dashboard(.*)",
+  "/admin(.*)",
+  "/profile(.*)",
+  "/stock(.*)",
+  "/account(.*)",
+]);
+
+
 // Match all admin routes
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
+
+  const { userId } = await auth();
+  if (!userId && isProtectedRoute(req)) {
+    const { redirectToSignIn } = await auth();
+    return redirectToSignIn();
+  }
+
   // Protect all routes starting with `/admin`
   if (
     isAdminRoute(req) &&
@@ -14,6 +32,9 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(url);
   }
 });
+
+
+
 
 export const config = {
   matcher: [
