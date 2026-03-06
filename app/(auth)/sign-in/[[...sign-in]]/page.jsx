@@ -1,12 +1,13 @@
-import { SignUp } from '@clerk/nextjs'
-import React from 'react'
+import { SignIn } from "@clerk/nextjs";
+import React from "react";
 
-const SignIn = () => {
+const SignInPage = () => {
   return (
     <div>
-      <SignUp/>
+      {/* Redirects to our custom API route after successful login */}
+      <SignIn forceRedirectUrl="/api/auth/sync" />
     </div>
-  )
-}
+  );
+};
 
-export default SignIn
+export default SignInPage;

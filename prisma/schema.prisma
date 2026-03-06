@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model Location {
+  id          String      @id @default(uuid())
+  name        String
+  type        String      // 'warehouse' or 'retail_shop'
+  address     String?
+  createdAt   DateTime    @default(now())
+  
+  users       User[]
+  inventories Inventory[]
+  invoices    Invoice[]
+}
+
+model User {
+  id          String    @id // Matches Clerk User ID
+  role        String    @default("VISITOR") 
+  fullName    String?
+  createdAt   DateTime  @default(now())
+  
+  locationId  String?
+  location    Location? @relation(fields: [locationId], references: [id])
+  invoices    Invoice[]
+}
+
+model Product {
+  id          String         @id @default(uuid())
+  sku         String         @unique
+  brand       String         @default("Apollo")
+  modelName   String
+  size        String
+  basePrice   Float
+  gstRate     Int            @default(28)
+  createdAt   DateTime       @default(now())
+  
+  inventories Inventory[]
+  invoiceItems InvoiceItem[]
+}
+
+model Inventory {
+  id          String   @id @default(uuid())
+  quantity    Int      @default(0)
+  lastUpdated DateTime @default(now()) @updatedAt
+
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locationId])
+}
+
+model Customer {
+  id          String    @id @default(uuid())
+  type        String    // 'distributor', 'sub_dealer', 'retail'
+  name        String
+  phone       String?
+  gstNumber   String?
+  address     String?
+  createdAt   DateTime  @default(now())
+
+  invoices    Invoice[]
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  subtotal      Float
+  totalGst      Float
+  grandTotal    Float
+  status        String        @default("completed") // 'completed', 'pending'
+  createdAt     DateTime      @default(now())
+
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  
+  locationId    String?
+  location      Location?     @relation(fields: [locationId], references: [id])
+  
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+
+  items         InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+}
+
+
+enum UserRole {
+  ADMIN
+  SHOPKEEPER
+  DEALER
+  VISITOR
+}
