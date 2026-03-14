@@ -3,42 +3,46 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 model Location {
   id          String      @id @default(uuid())
   name        String
-  type        String      // 'warehouse' or 'retail_shop'
+  type        LocationType
   address     String?
   createdAt   DateTime    @default(now())
-  
+
   users       User[]
   inventories Inventory[]
   invoices    Invoice[]
 }
 
 model User {
-  id          String    @id // Matches Clerk User ID
-  role        String    @default("VISITOR") 
+  id          String   @id
+  role        UserRole @default(VISITOR)
   fullName    String?
-  createdAt   DateTime  @default(now())
-  
+  mobile      String?
+  createdAt   DateTime @default(now())
+
   locationId  String?
   location    Location? @relation(fields: [locationId], references: [id])
+
   invoices    Invoice[]
 }
 
 model Product {
-  id          String         @id @default(uuid())
-  sku         String         @unique
-  brand       String         @default("Apollo")
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  brand       String   @default("Apollo")
   modelName   String
   size        String
+  description String?
   basePrice   Float
-  gstRate     Int            @default(28)
-  createdAt   DateTime       @default(now())
-  
+  gstRate     Int      @default(28)
+  lowStock    Int      @default(5)
+  createdAt   DateTime @default(now())
+
   inventories Inventory[]
   invoiceItems InvoiceItem[]
 }
@@ -50,7 +54,7 @@ model Inventory {
 
   productId   String
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
+
   locationId  String
   location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
@@ -59,7 +63,7 @@ model Inventory {
 
 model Customer {
   id          String    @id @default(uuid())
-  type        String    // 'distributor', 'sub_dealer', 'retail'
+  type        CustomerType
   name        String
   phone       String?
   gstNumber   String?
@@ -70,22 +74,22 @@ model Customer {
 }
 
 model Invoice {
-  id            String        @id @default(uuid())
-  invoiceNumber String        @unique
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
   subtotal      Float
   totalGst      Float
   grandTotal    Float
-  status        String        @default("completed") // 'completed', 'pending'
-  createdAt     DateTime      @default(now())
+  status        InvoiceStatus @default(COMPLETED)
+  createdAt     DateTime @default(now())
 
   customerId    String?
-  customer      Customer?     @relation(fields: [customerId], references: [id])
-  
+  customer      Customer? @relation(fields: [customerId], references: [id])
+
   locationId    String?
-  location      Location?     @relation(fields: [locationId], references: [id])
-  
+  location      Location? @relation(fields: [locationId], references: [id])
+
   userId        String?
-  user          User?         @relation(fields: [userId], references: [id])
+  user          User? @relation(fields: [userId], references: [id])
 
   items         InvoiceItem[]
 }
@@ -97,16 +101,31 @@ model InvoiceItem {
   totalPrice  Float
 
   invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-}
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+}
 
 enum UserRole {
   ADMIN
   SHOPKEEPER
   DEALER
   VISITOR
+}
+
+enum LocationType {
+  WAREHOUSE
+  RETAIL_SHOP
+}
+
+enum CustomerType {
+  DISTRIBUTOR
+  SUB_DEALER
+  RETAIL
+}
+
+enum InvoiceStatus {
+  COMPLETED
+  PENDING
 }

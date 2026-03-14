@@ -1,10 +1,12 @@
-import Header from "@/components/Header";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 import "./globals.css";
-import {Inter} from "next/font/google"
-import Footer from "@/components/Footer";
-import { ClerkProvider, SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+
+import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "react-hot-toast";
-const inter = Inter({subsets: ['latin']})
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Unnati Traders",
@@ -15,13 +17,11 @@ export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.className}`}>
+        <body className={inter.className}>
           <Header />
-          <main className="min-h-screen">
-            {children}
-            <Toaster position="top-center" reverseOrder={false} />
-          </main>
+          <main className="min-h-screen">{children}</main>
           <Footer />
+          <Toaster position="top-center" />
         </body>
       </html>
     </ClerkProvider>

@@ -21,6 +21,8 @@ import {
   Receipt,
   PackageSearch,
   Truck,
+  TruckIcon,
+  ShoppingBag,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -55,7 +57,7 @@ const Header = () => {
       <nav className="container mx-auto px-4 py-3 relative flex items-center justify-between">
         {/* Logo - Left */}
         <Link
-          href={"/"}
+          href={"/dashboard"}
           className="cursor-pointer transition-transform hover:scale-105"
         >
           <Image
@@ -209,8 +211,17 @@ const Header = () => {
                     variant="secondary"
                     className="cursor-pointer font-medium"
                   >
+                    <Link href={"/inventory"}>
+                      <Truck size={16} className="mr-2" /> Inventory
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="secondary"
+                    className="cursor-pointer font-medium"
+                  >
                     <Link href={"/orders"}>
-                      <Truck size={16} className="mr-2" /> Orders
+                      <ShoppingBag size={16} className="mr-2" /> Orders
                     </Link>
                   </Button>
                 </div>

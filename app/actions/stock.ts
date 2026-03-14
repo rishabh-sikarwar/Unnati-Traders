@@ -10,26 +10,37 @@ export async function addTyreProduct(formData) {
     const size = formData.get("size");
     const basePrice = parseFloat(formData.get("basePrice"));
 
-    // Insert the new tyre into the database
+    // fetch all locations
+    const locations = await prisma.location.findMany();
+
     await prisma.product.create({
       data: {
         sku,
         modelName,
         size,
         basePrice,
-        brand: "Apollo", // Hardcoded since he is an Apollo distributor
-        gstRate: 28, // Standard GST for tyres in India
+        brand: "Apollo",
+        gstRate: 28,
+
+        inventories: {
+          create: locations.map((loc) => ({
+            locationId: loc.id,
+            quantity: 0,
+          })),
+        },
       },
     });
 
-    // This tells Next.js to refresh the page instantly to show the new data
     revalidatePath("/stock");
+    revalidatePath("/inventory");
+
     return { success: true };
   } catch (error) {
     console.error("Failed to add product:", error);
+
     return {
       success: false,
-      error: "Could not add tyre. Check if SKU already exists.",
+      error: "Could not add tyre",
     };
   }
 }
