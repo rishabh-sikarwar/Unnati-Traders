@@ -111,6 +111,19 @@ const AdminDashboard = () => {
             </Card>
           </Link>
 
+          <Link href="/admin/transfer">
+            <Card className="cursor-pointer hover:shadow-lg transition">
+              <CardContent className="p-6 flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-500">Inventory</p>
+                  <h3 className="text-lg font-semibold">Transfer Stock</h3>
+                </div>
+
+                <Package className="text-orange-600 w-8 h-8" />
+              </CardContent>
+            </Card>
+          </Link>
+
           <Card
             className="cursor-pointer hover:shadow-lg transition"
             onClick={fetchDashboard}

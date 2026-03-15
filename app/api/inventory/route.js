@@ -11,7 +11,9 @@ export async function GET() {
         location: true,
       },
       orderBy: {
-        lastUpdated: "desc",
+        product: {
+          modelName: "asc",
+        },
       },
     });
 
