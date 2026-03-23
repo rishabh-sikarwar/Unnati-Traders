@@ -29,6 +29,7 @@ import {
   Store,
   Users,
   Loader2,
+  Receipt,
 } from "lucide-react";
 
 const COLORS = ["#522874", "#10B981", "#F59E0B"];
@@ -71,7 +72,7 @@ const AdminDashboard = () => {
   const categoryData = dashboardData?.categoryData || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8 pt-24">
+    <div className="min-h-screen bg-gray-50 px-6 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -93,47 +94,74 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
-        {/* ACTION CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* PRIMARY ACTION CARDS - High Usage */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Link href="/inventory">
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white">
+              <CardContent className="p-8 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-purple-500 uppercase tracking-widest mb-1">
+                    Daily Operations
+                  </p>
+                  <h3 className="text-2xl font-black text-gray-900 group-hover:text-[#522874]">
+                    Inventory Hub
+                  </h3>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Update stock, view levels, and manage shop availability.
+                  </p>
+                </div>
+                <Package className="text-[#522874] w-12 h-12 group-hover:scale-110 transition-transform" />
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/billing">
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-green-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white">
+              <CardContent className="p-8 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-green-500 uppercase tracking-widest mb-1">
+                    Quick Action
+                  </p>
+                  <h3 className="text-2xl font-black text-gray-900 group-hover:text-green-700">
+                    New Bill / Sale
+                  </h3>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Generate retail or wholesale invoices instantly.
+                  </p>
+                </div>
+                <ShoppingCart className="text-green-600 w-12 h-12 group-hover:scale-110 transition-transform" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* SECONDARY SETTINGS - Lower Usage */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           {[
             {
               title: "Shops",
-              subtitle: "Manage",
               icon: Store,
               href: "/admin/shops",
-              color: "text-purple-600",
+              color: "text-blue-600",
             },
             {
               title: "Users",
-              subtitle: "Manage",
               icon: Users,
               href: "/admin/users",
-              color: "text-green-600",
+              color: "text-teal-600",
             },
             {
               title: "Transfer Stock",
-              subtitle: "Inventory",
-              icon: Package,
+              icon: RefreshCw,
               href: "/admin/transfer",
               color: "text-orange-600",
             },
           ].map((card, idx) => (
             <Link key={idx} href={card.href}>
-              <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-200 transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-6 flex justify-between items-center bg-gradient-to-br from-white to-gray-50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-                      {card.subtitle}
-                    </p>
-                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-[#522874] transition-colors">
-                      {card.title}
-                    </h3>
-                  </div>
-                  <div
-                    className={`p-3 rounded-xl bg-white shadow-sm group-hover:scale-110 transition-transform ${card.color}`}
-                  >
-                    <card.icon className="w-7 h-7" />
-                  </div>
+              <Card className="cursor-pointer hover:bg-gray-50 transition-colors shadow-sm">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <card.icon className={`${card.color} w-6 h-6`} />
+                  <span className="font-bold text-gray-700">{card.title}</span>
                 </CardContent>
               </Card>
             </Link>

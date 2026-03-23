@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 
 const DealerDashboard = () => {
   return (
-    <div className="min-h-screen bg-gray-50 p-6 pt-24">
+    <div className="min-h-screen bg-gray-50 px-6 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dealer Portal</h1>

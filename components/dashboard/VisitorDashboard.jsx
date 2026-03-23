@@ -7,7 +7,7 @@ import { Wrench, ShieldCheck } from "lucide-react";
 
 const VisitorDashboard = () => {
   return (
-    <div className="min-h-screen bg-gray-50 p-6 pt-24">
+    <div className="min-h-screen bg-gray-50 px-6 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
