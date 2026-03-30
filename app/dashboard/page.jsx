@@ -11,6 +11,8 @@ import VisitorDashboard from "@/components/dashboard/VisitorDashboard";
 // Import our new invisible toast component
 import DashboardToasts from "@/components/dashboard/DashboardToasts";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   // 1. Verify Clerk Auth
   const clerkUser = await currentUser();

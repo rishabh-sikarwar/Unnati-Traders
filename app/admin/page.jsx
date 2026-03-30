@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboard({ searchParams }) {
   if (!checkRole("admin")) {
     redirect("/");
@@ -42,7 +44,7 @@ export default async function AdminDashboard({ searchParams }) {
                 <div className="text-gray-500">
                   {
                     user.emailAddresses.find(
-                      (email) => email.id === user.primaryEmailAddressId
+                      (email) => email.id === user.primaryEmailAddressId,
                     )?.emailAddress
                   }
                 </div>

@@ -3,6 +3,8 @@ import ManageStockForm from "@/components/inventory/manage-stock-form";
 import { ArrowLeft, PlusSquare } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function ManageStockPage() {
   // Include inventories so the client form knows the current stock levels!
   const products = await prisma.product.findMany({

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import TransferStockForm from "@/components/admin/transfer-stock-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function TransferPage() {
   const products = await prisma.product.findMany({
     orderBy: { modelName: "asc" },

@@ -7,11 +7,11 @@ datasource db {
 }
 
 model Location {
-  id          String      @id @default(uuid())
-  name        String
-  type        LocationType
-  address     String?
-  createdAt   DateTime    @default(now())
+  id        String       @id @default(uuid())
+  name      String
+  type      LocationType
+  address   String?
+  createdAt DateTime     @default(now())
 
   users       User[]
   inventories Inventory[]
@@ -19,31 +19,35 @@ model Location {
 }
 
 model User {
-  id          String   @id
-  role        UserRole @default(VISITOR)
-  fullName    String?
-  mobile      String?
-  createdAt   DateTime @default(now())
+  id        String   @id
+  role      UserRole @default(VISITOR)
+  fullName  String?
+  mobile    String?
+  createdAt DateTime @default(now())
 
-  locationId  String?
-  location    Location? @relation(fields: [locationId], references: [id])
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
 
-  invoices    Invoice[]
+  invoices Invoice[]
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  sku         String   @unique
-  brand       String   @default("Apollo")
-  modelName   String
-  size        String
+  id        String @id @default(uuid())
+  sku       String @unique
+  brand     String @default("Apollo")
+  modelName String
+  size      String
+
+  category TyreCategory @default(GENERAL)
+  tubeType String       @default("T/L")
+
   description String?
   basePrice   Float
   gstRate     Int      @default(28)
   lowStock    Int      @default(5)
   createdAt   DateTime @default(now())
 
-  inventories Inventory[]
+  inventories  Inventory[]
   invoiceItems InvoiceItem[]
 }
 
@@ -52,59 +56,59 @@ model Inventory {
   quantity    Int      @default(0)
   lastUpdated DateTime @default(now()) @updatedAt
 
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  locationId  String
-  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locationId])
 }
 
 model Customer {
-  id          String    @id @default(uuid())
-  type        CustomerType
-  name        String
-  phone       String?
-  gstNumber   String?
-  address     String?
-  createdAt   DateTime  @default(now())
+  id        String       @id @default(uuid())
+  type      CustomerType
+  name      String
+  phone     String?
+  gstNumber String?
+  address   String?
+  createdAt DateTime     @default(now())
 
-  invoices    Invoice[]
+  invoices Invoice[]
 }
 
 model Invoice {
-  id            String   @id @default(uuid())
-  invoiceNumber String   @unique
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
   subtotal      Float
   totalGst      Float
   grandTotal    Float
   status        InvoiceStatus @default(COMPLETED)
-  createdAt     DateTime @default(now())
+  createdAt     DateTime      @default(now())
 
-  customerId    String?
-  customer      Customer? @relation(fields: [customerId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
 
-  locationId    String?
-  location      Location? @relation(fields: [locationId], references: [id])
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
 
-  userId        String?
-  user          User? @relation(fields: [userId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 
-  items         InvoiceItem[]
+  items InvoiceItem[]
 }
 
 model InvoiceItem {
-  id          String   @id @default(uuid())
-  quantity    Int
-  unitPrice   Float
-  totalPrice  Float
+  id         String @id @default(uuid())
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
 
-  invoiceId   String
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
-  productId   String
-  product     Product @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 enum UserRole {
@@ -128,4 +132,25 @@ enum CustomerType {
 enum InvoiceStatus {
   COMPLETED
   PENDING
+}
+
+enum TyreCategory {
+  TRUCK_BUS_BIAS
+  TRUCK_BUS_RADIAL
+  TRACTOR_FARM
+  TRACTOR_FRONT
+  LIGHT_COMMERCIAL
+  PICKUP_BIAS
+  PICKUP_RADIAL
+  LCV_RADIAL
+  SMALL_COMMERCIAL
+  TRACTOR_TRAILER
+  TWO_WHEELER
+  THREE_WHEELER
+  INDUSTRIAL
+  JEEP
+  SCV_RADIAL
+  PASSENGER_CAR
+  PREMIUM_CAR
+  GENERAL
 }

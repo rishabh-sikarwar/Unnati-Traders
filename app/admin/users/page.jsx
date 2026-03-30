@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import UpdateUser from "@/components/admin/update-user";
 import { Users } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsersPage() {
   const users = await prisma.user.findMany({
     include: { location: true },

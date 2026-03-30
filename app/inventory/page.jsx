@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowRightLeft, PlusSquare, Package } from "lucide-react";
 import InventoryTable from "./InventoryTable"; 
 
+export const dynamic = "force-dynamic";
+
 export default async function InventoryPage() {
   // Fetch products and their nested inventory counts
   const products = await prisma.product.findMany({

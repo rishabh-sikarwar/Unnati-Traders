@@ -5,16 +5,17 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/dist/server/api-utils";
 import DeleteShopButton from "@/components/admin/delete-shop-button";
 
+export const dynamic = "force-dynamic";
+
 export default async function ShopsPage() {
+  const clerkUser = await currentUser();
+  const dbUser = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+  });
 
-    const clerkUser = await currentUser()
-    const dbUser = await prisma.user.findUnique({
-        where:{id: clerkUser.id},
-    })
-
-    if (!dbUser || dbUser.role !== "ADMIN") {
-        redirect("/") 
-    }
+  if (!dbUser || dbUser.role !== "ADMIN") {
+    redirect("/");
+  }
 
   const shops = await prisma.location.findMany({
     orderBy: { createdAt: "desc" },
