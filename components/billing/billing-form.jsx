@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Plus, Trash2, Loader2, User, Truck, Receipt } from "lucide-react";
+import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
 export default function BillingForm({ inventory, locationId, userId }) {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
     b2b: false,
     name: "",
     phone: "",
-    address: "", // Kept address as it's useful, removed vehicle/gstin
+    address: "",
     paymentMode: "Cash",
   });
 
@@ -22,9 +23,19 @@ export default function BillingForm({ inventory, locationId, userId }) {
   const [cart, setCart] = useState([]);
 
   // --- MANUAL FINANCIALS ---
-  const [discount, setDiscount] = useState(0);
-  const [cgst, setCgst] = useState(0);
-  const [sgst, setSgst] = useState(0);
+  const [discount, setDiscount] = useState("");
+  const [cgst, setCgst] = useState("");
+  const [sgst, setSgst] = useState("");
+
+  // --- ADAPT INVENTORY FOR SMART SEARCH ---
+  const searchableInventory = useMemo(() => {
+    return inventory.map((inv) => ({
+      id: inv.id,
+      modelName: inv.product.modelName,
+      size: inv.product.size,
+      sku: inv.product.sku,
+    }));
+  }, [inventory]);
 
   // --- ADD ITEM TO CART ---
   const addItem = () => {
@@ -44,22 +55,29 @@ export default function BillingForm({ inventory, locationId, userId }) {
   // --- LIVE MATH CALCULATIONS ---
   const totals = useMemo(() => {
     let rawItemsTotal = 0;
-    cart.forEach(item => {
+    cart.forEach((item) => {
       const qty = Number(item.quantity) || 0;
       const price = Number(item.unitPrice) || 0;
-      rawItemsTotal += (qty * price);
+      rawItemsTotal += qty * price;
     });
 
-    // Apply manual inputs
     const discountAmount = Number(discount) || 0;
     const cgstAmount = Number(cgst) || 0;
     const sgstAmount = Number(sgst) || 0;
 
-    const subtotal = Math.max(0, rawItemsTotal - discountAmount); // Taxable value after discount
+    const subtotal = Math.max(0, rawItemsTotal - discountAmount);
     const totalGst = cgstAmount + sgstAmount;
     const grandTotal = subtotal + totalGst;
 
-    return { rawItemsTotal, discountAmount, subtotal, totalGst, grandTotal, cgstAmount, sgstAmount };
+    return {
+      rawItemsTotal,
+      discountAmount,
+      subtotal,
+      totalGst,
+      grandTotal,
+      cgstAmount,
+      sgstAmount,
+    };
   }, [cart, discount, cgst, sgst]);
 
   // --- SUBMIT INVOICE ---
@@ -68,26 +86,32 @@ export default function BillingForm({ inventory, locationId, userId }) {
 
     if (cart.length === 0) return toast.error("Cart is empty!");
 
-    const formattedItems = cart.map(item => {
-      const invRecord = inventory.find(i => i.id === item.inventoryId);
-      if (!invRecord) throw new Error("Invalid tyre selected");
-      
-      const qty = Number(item.quantity);
-      if (qty > invRecord.quantity) throw new Error(`Only ${invRecord.quantity} left for ${invRecord.product.modelName}`);
-
-      return {
-        productId: invRecord.productId,
-        modelName: invRecord.product.modelName,
-        quantity: qty,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: qty * Number(item.unitPrice),
-      };
-    });
-
-    setLoading(true);
-    const loadingToast = toast.loading("Generating Bill...");
-
     try {
+      const formattedItems = cart.map((item, index) => {
+        if (!item.inventoryId)
+          throw new Error(`Please select a tyre for item #${index + 1}`);
+
+        const invRecord = inventory.find((i) => i.id === item.inventoryId);
+        if (!invRecord) throw new Error("Invalid tyre selected");
+
+        const qty = Number(item.quantity);
+        if (qty > invRecord.quantity)
+          throw new Error(
+            `Only ${invRecord.quantity} left for ${invRecord.product.modelName}`,
+          );
+
+        return {
+          productId: invRecord.productId,
+          modelName: invRecord.product.modelName,
+          quantity: qty,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: qty * Number(item.unitPrice),
+        };
+      });
+
+      setLoading(true);
+      const loadingToast = toast.loading("Generating Bill...");
+
       const res = await fetch("/api/billing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,7 +120,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
           items: formattedItems,
           locationId,
           userId,
-          totals
+          totals,
         }),
       });
 
@@ -104,185 +128,323 @@ export default function BillingForm({ inventory, locationId, userId }) {
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Invoice Generated!", { id: loadingToast });
-      
-      // REDIRECT TO RECEIPT PAGE
       router.push(`/billing/receipt/${data.invoiceId}`);
-
     } catch (error) {
-      toast.error(error.message, { id: loadingToast });
+      toast.error(error.message);
       setLoading(false);
-    } 
+    }
   };
 
   return (
-    <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      
+    <form
+      onSubmit={handleCheckout}
+      className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8"
+    >
       {/* LEFT COLUMN: Customer & Cart */}
       <div className="lg:col-span-2 space-y-6">
-        
         {/* --- CUSTOMER INFO SECTION --- */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex justify-between items-center mb-4">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5">
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <User className="w-5 h-5 text-[#522874]" /> Customer Details
             </h2>
-            <div className="flex items-center gap-2 text-sm font-bold">
-              <span className={!customer.b2b ? "text-[#522874]" : "text-gray-400"}>B2C (Retail)</span>
-              <button 
-                type="button"
-                onClick={() => setCustomer({...customer, b2b: !customer.b2b})}
-                className={`w-12 h-6 rounded-full p-1 transition-colors ${customer.b2b ? 'bg-[#522874]' : 'bg-gray-300'}`}
+            <div className="flex items-center gap-2 text-sm font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 self-start sm:self-auto">
+              <span
+                className={!customer.b2b ? "text-[#522874]" : "text-gray-400"}
               >
-                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${customer.b2b ? 'translate-x-6' : ''}`} />
+                B2C (Retail)
+              </span>
+              <button
+                type="button"
+                onClick={() => setCustomer({ ...customer, b2b: !customer.b2b })}
+                className={`w-12 h-6 rounded-full p-1 transition-colors ${customer.b2b ? "bg-[#522874]" : "bg-gray-300"}`}
+              >
+                <div
+                  className={`w-4 h-4 bg-white rounded-full transition-transform ${customer.b2b ? "translate-x-6" : ""}`}
+                />
               </button>
-              <span className={customer.b2b ? "text-[#522874]" : "text-gray-400"}>B2B (Dealer)</span>
+              <span
+                className={customer.b2b ? "text-[#522874]" : "text-gray-400"}
+              >
+                B2B (Dealer)
+              </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Customer / Dealer Name</label>
-              <input required value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none" placeholder="e.g. Unnati Traders" />
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Customer / Dealer Name
+              </label>
+              <input
+                required
+                value={customer.name}
+                onChange={(e) =>
+                  setCustomer({ ...customer, name: e.target.value })
+                }
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
+                placeholder="e.g. Unnati Traders"
+              />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone Number</label>
-              <input type="tel" value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none" placeholder="9876543210" />
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={customer.phone}
+                onChange={(e) =>
+                  setCustomer({ ...customer, phone: e.target.value })
+                }
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
+                placeholder="9876543210"
+              />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address / Notes</label>
-              <input value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none" placeholder="Optional..." />
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Address / Notes
+              </label>
+              <input
+                value={customer.address}
+                onChange={(e) =>
+                  setCustomer({ ...customer, address: e.target.value })
+                }
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
+                placeholder="Optional notes or shipping address..."
+              />
             </div>
           </div>
         </div>
 
         {/* --- CART SECTION --- */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex justify-between items-center mb-4">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <Truck className="w-5 h-5 text-[#522874]" /> Material / Items
             </h2>
-            <button type="button" onClick={addItem} className="text-sm bg-purple-50 text-[#522874] px-3 py-1.5 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1 transition-colors">
+            <button
+              type="button"
+              onClick={addItem}
+              className="text-sm bg-purple-50 text-[#522874] px-3 py-2 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1 transition-colors active:scale-95"
+            >
               <Plus className="w-4 h-4" /> Add Item
             </button>
           </div>
 
           <div className="space-y-4">
             {cart.length === 0 && (
-              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-medium">
-                No items added to the bill yet.
+              <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-medium bg-gray-50">
+                Click{" "}
+                <span className="text-[#522874] font-bold">"Add Item"</span> to
+                start billing tyres.
               </div>
             )}
 
             {cart.map((item, index) => {
-              const selectedInv = inventory.find(i => i.id === item.inventoryId);
+              const selectedInv = inventory.find(
+                (i) => i.id === item.inventoryId,
+              );
               const maxStock = selectedInv ? selectedInv.quantity : 0;
-              const lineTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+              const lineTotal =
+                (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
 
               return (
-                <div key={index} className="flex flex-wrap items-end gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="flex-grow min-w-[200px]">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Tyre</label>
-                    <select required value={item.inventoryId} onChange={(e) => updateItem(index, "inventoryId", e.target.value)} className="w-full px-3 py-2 border bg-white rounded-lg focus:ring-2 focus:ring-[#522874] outline-none">
-                      <option value="">-- Choose Material --</option>
-                      {inventory.map((inv) => (
-                        <option key={inv.id} value={inv.id}>
-                          {inv.product.modelName} ({inv.product.size}) - Stock: {inv.quantity}
-                        </option>
-                      ))}
-                    </select>
+                <div
+                  key={index}
+                  className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-sm relative group"
+                >
+                  {/* ROW 1: Smart Search takes full width */}
+                  <div className="w-full relative">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                      Select Tyre
+                    </label>
+                    <SmartTyreSelector
+                      products={searchableInventory}
+                      selectedProductId={item.inventoryId}
+                      onSelect={(val) => updateItem(index, "inventoryId", val)}
+                    />
                   </div>
-                  <div className="w-24">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Qty <span className="text-purple-600">({maxStock} max)</span></label>
-                    <input required type="number" min="1" max={maxStock || 1} value={item.quantity} onChange={(e) => updateItem(index, "quantity", e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none" />
+
+                  {/* ROW 2: Financials & Action aligned perfectly */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-end gap-3">
+                    {/* QTY */}
+                    <div className="flex-1 sm:flex-none sm:w-24">
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 truncate">
+                        Qty{" "}
+                        <span className="text-purple-600">({maxStock})</span>
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        max={maxStock || 1}
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateItem(index, "quantity", e.target.value)
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none h-[42px] transition-all"
+                      />
+                    </div>
+
+                    {/* UNIT PRICE */}
+                    <div className="flex-1 sm:flex-none sm:w-32">
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 truncate">
+                        Unit Price
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        value={item.unitPrice}
+                        onChange={(e) =>
+                          updateItem(index, "unitPrice", e.target.value)
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none h-[42px] transition-all"
+                        placeholder="₹0.00"
+                      />
+                    </div>
+
+                    {/* LINE TOTAL */}
+                    <div className="w-full sm:w-auto sm:flex-1 bg-white border border-gray-200 px-4 py-2.5 rounded-lg text-right font-black text-gray-800 h-[42px] flex items-center justify-end shadow-inner">
+                      ₹
+                      {lineTotal.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+
+                    {/* DELETE BUTTON */}
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 bg-white border border-gray-200 rounded-lg transition-all active:scale-95 shadow-sm"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div className="w-32">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Unit Price</label>
-                    <input required type="number" min="1" value={item.unitPrice} onChange={(e) => updateItem(index, "unitPrice", e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none" placeholder="₹0.00" />
-                  </div>
-                  <div className="w-28 bg-white border border-gray-200 px-3 py-2 rounded-lg text-right font-bold text-gray-700">
-                    ₹{lineTotal.toLocaleString()}
-                  </div>
-                  <button type="button" onClick={() => removeItem(index)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </div>
               );
             })}
           </div>
         </div>
-
       </div>
 
       {/* RIGHT COLUMN: Invoice Summary */}
       <div className="space-y-6">
-        <div className="bg-[#3d1d56] text-white p-6 rounded-xl shadow-lg sticky top-24">
-          <h2 className="text-lg font-bold flex items-center gap-2 mb-6 border-b border-white/20 pb-4">
+        <div className="bg-[#3d1d56] text-white p-6 md:p-8 rounded-xl shadow-lg lg:sticky lg:top-28 border border-[#522874]">
+          <h2 className="text-lg font-bold flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
             <Receipt className="w-5 h-5 text-purple-300" /> Invoice Summary
           </h2>
 
           <div className="space-y-4 mb-6 text-sm font-medium">
-            <div className="flex justify-between text-white/80">
+            <div className="flex justify-between text-white/80 items-center">
               <span>Items Total</span>
-              <span>₹{totals.rawItemsTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+              <span className="text-base font-bold">
+                ₹
+                {totals.rawItemsTotal.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
 
             {/* MANUAL FINANCIAL INPUTS */}
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Discount (₹)</span>
-              <input type="number" min="0" value={discount} onChange={e => setDiscount(e.target.value)} className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300" placeholder="0" />
+            <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10">
+              <span className="text-white/90">Discount (₹)</span>
+              <input
+                type="number"
+                min="0"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                className="w-24 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
+                placeholder="0"
+              />
             </div>
 
             <div className="flex justify-between items-center pt-2 border-t border-white/10">
-              <span className="font-bold text-white">Taxable Value</span>
-              <span className="font-bold">₹{totals.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+              <span className="font-bold text-white text-base">
+                Taxable Value
+              </span>
+              <span className="font-bold text-base">
+                ₹
+                {totals.subtotal.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">CGST (₹)</span>
-              <input type="number" min="0" value={cgst} onChange={e => setCgst(e.target.value)} className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300" placeholder="0" />
+            <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10">
+              <span className="text-white/90">CGST (₹)</span>
+              <input
+                type="number"
+                min="0"
+                value={cgst}
+                onChange={(e) => setCgst(e.target.value)}
+                className="w-24 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
+                placeholder="0"
+              />
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">SGST (₹)</span>
-              <input type="number" min="0" value={sgst} onChange={e => setSgst(e.target.value)} className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300" placeholder="0" />
+            <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10">
+              <span className="text-white/90">SGST (₹)</span>
+              <input
+                type="number"
+                min="0"
+                value={sgst}
+                onChange={(e) => setSgst(e.target.value)}
+                className="w-24 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
+                placeholder="0"
+              />
             </div>
           </div>
 
-          <div className="border-t border-white/20 pt-4 mb-6">
+          <div className="border-t border-white/20 pt-5 mb-6">
             <div className="flex justify-between items-end">
               <span className="text-lg font-bold text-white">Grand Total</span>
-              <span className="text-3xl font-black text-green-400">
-                ₹{totals.grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
+              <span className="text-3xl md:text-4xl font-black text-green-400 drop-shadow-md">
+                ₹
+                {totals.grandTotal.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
 
           {/* Payment Mode */}
-          <div className="mb-6">
-            <label className="block text-xs font-bold text-purple-200 uppercase mb-2">Payment Mode</label>
+          <div className="mb-8">
+            <label className="block text-xs font-bold text-purple-200 uppercase mb-2">
+              Payment Mode
+            </label>
             <select
               value={customer.paymentMode}
-              onChange={(e) => setCustomer({...customer, paymentMode: e.target.value})}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white outline-none cursor-pointer"
+              onChange={(e) =>
+                setCustomer({ ...customer, paymentMode: e.target.value })
+              }
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none cursor-pointer focus:border-purple-300 transition-all"
             >
-              <option className="text-black" value="Cash">Cash</option>
-              <option className="text-black" value="UPI">UPI</option>
-              <option className="text-black" value="Card">Credit/Debit Card</option>
-              <option className="text-black" value="Credit">Store Credit</option>
+              <option className="text-black font-medium" value="Cash">
+                Cash 💵
+              </option>
+              <option className="text-black font-medium" value="UPI">
+                UPI 📱
+              </option>
+              <option className="text-black font-medium" value="Card">
+                Credit/Debit Card 💳
+              </option>
+              <option className="text-black font-medium" value="Credit">
+                Store Credit 🏦
+              </option>
             </select>
           </div>
 
           <button
             type="submit"
             disabled={loading || cart.length === 0}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-3.5 rounded-lg font-black text-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95"
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)]"
           >
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
-            Generate Bill
+            GENERATE BILL
           </button>
         </div>
       </div>
-
     </form>
   );
 }
