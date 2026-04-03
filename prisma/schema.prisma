@@ -75,6 +75,7 @@ model Customer {
   createdAt DateTime     @default(now())
 
   invoices Invoice[]
+  payments PaymentLog[]
 }
 
 model Invoice {
@@ -85,6 +86,9 @@ model Invoice {
   grandTotal    Float
   status        InvoiceStatus @default(COMPLETED)
   createdAt     DateTime      @default(now())
+
+  paymentMode PaymentMode @default(CASH)
+  amountPaid  Float       @default(0)
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
@@ -109,6 +113,17 @@ model InvoiceItem {
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
+}
+
+model PaymentLog {
+  id          String      @id @default(uuid())
+  amount      Float
+  paymentMode PaymentMode
+  remarks     String?
+  createdAt   DateTime    @default(now())
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  userId      String?
 }
 
 enum UserRole {
@@ -153,4 +168,11 @@ enum TyreCategory {
   PASSENGER_CAR
   PREMIUM_CAR
   GENERAL
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  CREDIT
 }
