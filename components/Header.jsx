@@ -15,13 +15,13 @@ import {
   ContactRound,
   LayoutDashboard,
   PhoneCallIcon,
-  ShoppingCartIcon,
   Users2Icon,
   MenuIcon,
   Receipt,
   PackageSearch,
-  Truck,
-  ShoppingBag,
+  ShoppingCartIcon,
+  ScrollText,
+  UsersRound,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -50,7 +50,6 @@ const Header = () => {
 
   const isInternalUser = dbRole === "ADMIN" || dbRole === "SHOPKEEPER";
 
-  // Organize links for cleaner rendering
   const publicLinks = [
     { name: "Tyres", icon: LayoutDashboard, href: "/tyres" },
     { name: "About Us", icon: Users2Icon, href: "/about-us" },
@@ -58,11 +57,12 @@ const Header = () => {
     { name: "Support", icon: ContactRound, href: "/support" },
   ];
 
+  // UPDATED ADMIN LINKS: Replaced Inventory with Customers, organized logically
   const adminLinks = [
     { name: "Billing", icon: Receipt, href: "/billing" },
+    { name: "Customers", icon: UsersRound, href: "/customers" },
+    { name: "Orders", icon: ScrollText, href: "/orders" },
     { name: "Stock", icon: PackageSearch, href: "/stock" },
-    { name: "Inventory", icon: Truck, href: "/inventory" },
-    { name: "Orders", icon: ShoppingBag, href: "/orders" },
   ];
 
   return (
@@ -113,13 +113,13 @@ const Header = () => {
             <div className="flex items-center gap-3">
               {/* Internal Nav for Admin/Employee (Hidden on Mobile) */}
               {isInternalUser && (
-                <div className="hidden lg:flex gap-1 mr-2 bg-black/10 p-1 rounded-lg border border-white/10">
+                <div className="hidden lg:flex gap-1 mr-2 bg-black/20 p-1.5 rounded-xl border border-white/10 shadow-inner">
                   {adminLinks.map((item) => (
                     <Button
                       key={item.name}
                       asChild
                       variant="ghost"
-                      className="cursor-pointer font-medium text-white/90 hover:text-white hover:bg-white/20 transition-all duration-300 rounded-md px-3"
+                      className="cursor-pointer font-bold text-white/90 hover:text-white hover:bg-white/20 transition-all duration-300 rounded-lg px-4"
                     >
                       <Link href={item.href}>
                         <item.icon size={16} className="mr-2 opacity-80" />{" "}
@@ -147,16 +147,16 @@ const Header = () => {
               )}
 
               {/* PERFECT CIRCLE User Avatar */}
-              <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/40 transition-all duration-300 shrink-0 cursor-pointer shadow-sm">
+              <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/40 transition-all duration-300 shrink-0 cursor-pointer shadow-sm ml-2">
                 <UserButton
                   afterSignOutUrl="/"
-                  appearance={{ elements: { avatarBox: "w-8 h-8" } }} // Forces Clerk image to be perfectly square
+                  appearance={{ elements: { avatarBox: "w-9 h-9" } }}
                 />
               </div>
             </div>
           </SignedIn>
 
-          {/* MOBILE MENU (Now handles BOTH Public and Admin Links) */}
+          {/* MOBILE MENU (Handles BOTH Public and Admin Links) */}
           <div className="lg:hidden flex items-center">
             <Sheet>
               <SheetTrigger asChild>
@@ -165,7 +165,7 @@ const Header = () => {
                   size="icon"
                   className="text-white hover:bg-white/20 cursor-pointer transition-colors duration-200"
                 >
-                  <MenuIcon size={24} />
+                  <MenuIcon size={26} />
                 </Button>
               </SheetTrigger>
               <SheetContent
@@ -191,7 +191,7 @@ const Header = () => {
                     </Button>
                   ))}
 
-                  {/* Admin Links (Only injected if logged in as Admin/Shopkeeper) */}
+                  {/* Admin Links */}
                   {isInternalUser && (
                     <>
                       <div className="h-px bg-gray-100 my-3 w-full" />

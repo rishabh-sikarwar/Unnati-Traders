@@ -16,6 +16,7 @@ model Location {
   users       User[]
   inventories Inventory[]
   invoices    Invoice[]
+  purchases   Purchase[]
 }
 
 model User {
@@ -29,6 +30,7 @@ model User {
   location   Location? @relation(fields: [locationId], references: [id])
 
   invoices Invoice[]
+  purchases Purchase[]
 }
 
 model Product {
@@ -49,6 +51,7 @@ model Product {
 
   inventories  Inventory[]
   invoiceItems InvoiceItem[]
+  purchaseItems PurchaseItem[]
 }
 
 model Inventory {
@@ -124,6 +127,44 @@ model PaymentLog {
   customerId  String
   customer    Customer    @relation(fields: [customerId], references: [id])
   userId      String?
+}
+
+
+model Purchase {
+  id            String   @id @default(uuid())
+  invoiceNumber String   // The official Apollo Invoice Number
+  supplierName  String   @default("Apollo Tyres")
+  totalAmount   Float
+  status        PurchaseStatus @default(COMPLETED)
+  createdAt     DateTime @default(now())
+
+  locationId    String
+  location      Location @relation(fields: [locationId], references: [id])
+
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+
+  items         PurchaseItem[]
+}
+
+
+model PurchaseItem {
+  id          String   @id @default(uuid())
+  quantity    Int
+  unitCost    Float    // Buying price (Cost), not selling price
+  totalCost   Float
+
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+}
+
+
+enum PurchaseStatus {
+  COMPLETED
+  PENDING
 }
 
 enum UserRole {

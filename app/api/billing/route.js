@@ -43,6 +43,11 @@ export async function POST(req) {
       // 3. Generate Invoice Number
       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
 
+      const isCredit = customerInfo.paymentMode === "Credit";
+      const upfrontPayment = isCredit ? 0 : totals.grandTotal;
+
+      const modeEnum = customerInfo.paymentMode.toUpperCase();
+
       // 4. Create the Invoice
       const invoice = await tx.invoice.create({
         data: {
@@ -50,6 +55,8 @@ export async function POST(req) {
           subtotal: totals.subtotal,
           totalGst: totals.totalGst,
           grandTotal: totals.grandTotal,
+          paymentMode: modeEnum,
+          upfrontPayment: upfrontPayment,
           status: "COMPLETED",
           customerId: customer.id,
           locationId: locationId,
