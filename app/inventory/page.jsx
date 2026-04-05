@@ -16,7 +16,7 @@ export default async function InventoryPage() {
   });
 
   return (
-    <div className="px-4 md:px-8 pb-8 pt-24 md:pt-32 bg-gray-50 min-h-screen">
+    <div className="px-4 md:px-8 pb-8 pt-20 md:pt-36 lg:pt-28 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 pb-6">
           <div>

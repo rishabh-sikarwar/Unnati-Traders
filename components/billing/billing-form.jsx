@@ -169,7 +169,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
               <button
                 type="button"
                 onClick={() => setCustomer({ ...customer, b2b: !customer.b2b })}
-                className={`w-12 h-6 rounded-full p-1 transition-colors ${customer.b2b ? "bg-[#522874]" : "bg-gray-300"}`}
+                className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${customer.b2b ? "bg-[#522874]" : "bg-gray-300"}`}
               >
                 <div
                   className={`w-4 h-4 bg-white rounded-full transition-transform ${customer.b2b ? "translate-x-6" : ""}`}
@@ -237,7 +237,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
             <button
               type="button"
               onClick={addItem}
-              className="text-sm bg-purple-50 text-[#522874] px-3 py-2 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1 transition-colors active:scale-95"
+              className="text-sm bg-purple-50 text-[#522874] px-3 py-2 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" /> Add Item
             </button>
@@ -318,7 +318,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
-                      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 bg-white border border-gray-200 rounded-lg transition-all active:scale-95 shadow-sm"
+                      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 bg-white border border-gray-200 rounded-lg transition-all active:scale-95 shadow-sm cursor-pointer"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
@@ -468,10 +468,10 @@ export default function BillingForm({ inventory, locationId, userId }) {
           <button
             type="submit"
             disabled={loading || cart.length === 0}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)]"
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)]"
           >
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
-            GENERATE BILL
+            {loading ? "Generating Bill..." : "GENERATE BILL"}
           </button>
         </div>
       </div>

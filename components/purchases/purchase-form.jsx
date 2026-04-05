@@ -143,7 +143,7 @@ export default function PurchaseForm({ products, locations, userId }) {
             <button
               type="button"
               onClick={addItem}
-              className="text-sm bg-purple-50 text-[#522874] px-3 py-2 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1"
+              className="text-sm bg-purple-50 text-[#522874] px-3 py-2 rounded-md font-bold hover:bg-purple-100 flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" /> Add Item
             </button>
@@ -213,7 +213,7 @@ export default function PurchaseForm({ products, locations, userId }) {
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
-                      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 bg-white border border-gray-200 rounded-lg transition-all active:scale-95"
+                      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 bg-white border border-gray-200 rounded-lg transition-all active:scale-95 cursor-pointer"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
@@ -247,10 +247,10 @@ export default function PurchaseForm({ products, locations, userId }) {
           <button
             type="submit"
             disabled={loading || cart.length === 0}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 active:scale-95 flex justify-center items-center gap-2"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 active:scale-95 flex justify-center items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : null}{" "}
-            Record Purchase & Inward Stock
+            {loading ? "Processing..." : "Record Purchase & Inward Stock"}
           </button>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { Printer, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import ReceiptActions from "@/components/billing/receipt-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,21 +24,7 @@ export default async function ReceiptPage({ params }) {
     <div className="min-h-screen bg-gray-100 p-6 md:p-8 pt-24">
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Controls (Hidden during printing via Tailwind's print:hidden) */}
-        <div className="flex justify-between items-center print:hidden">
-          <Link
-            href="/billing"
-            className="text-[#522874] font-bold flex items-center gap-2 hover:underline"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Billing
-          </Link>
-          {/* Add a client component or vanilla JS onclick to print */}
-          <button
-            onClick="window.print()"
-            className="bg-[#522874] text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-[#3d1d56]"
-          >
-            <Printer className="w-4 h-4" /> Print Invoice
-          </button>
-        </div>
+        <ReceiptActions />
 
         {/* The Printable A4 Canvas */}
         <div className="bg-white p-10 rounded-sm shadow-md print:shadow-none print:p-0">

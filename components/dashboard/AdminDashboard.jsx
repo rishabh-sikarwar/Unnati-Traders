@@ -20,6 +20,7 @@ const AdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingHref, setLoadingHref] = useState(null);
 
   const fetchDashboard = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -50,7 +51,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-24 md:pt-32">
+    <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-20 md:pt-36 lg:pt-28">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -76,7 +77,7 @@ const AdminDashboard = () => {
 
         {/* PRIMARY ACTION CARDS (Now 3 Columns for Inward Stock) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/inventory">
+          <Link href="/inventory" onClick={() => setLoadingHref("/inventory")}>
             <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
               <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
                 <div>
@@ -87,13 +88,17 @@ const AdminDashboard = () => {
                     Inventory Hub
                   </h3>
                 </div>
-                <Package className="text-[#522874] w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                {loadingHref === "/inventory" ? (
+                  <Loader2 className="text-[#522874] w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <Package className="text-[#522874] w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/purchases">
-            <Card className="cursor-float cursor-pointer group hover:shadow-lg hover:border-blue-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
+          <Link href="/purchases" onClick={() => setLoadingHref("/purchases")}>
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-blue-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
               <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
                 <div>
                   <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
@@ -103,12 +108,16 @@ const AdminDashboard = () => {
                     Inward Stock
                   </h3>
                 </div>
-                <PackagePlus className="text-blue-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                {loadingHref === "/purchases" ? (
+                  <Loader2 className="text-blue-600 w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <PackagePlus className="text-blue-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/billing">
+          <Link href="/billing" onClick={() => setLoadingHref("/billing")}>
             <Card className="cursor-pointer group hover:shadow-lg hover:border-green-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
               <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
                 <div>
@@ -119,7 +128,11 @@ const AdminDashboard = () => {
                     New Sale Bill
                   </h3>
                 </div>
-                <ShoppingCart className="text-green-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                {loadingHref === "/billing" ? (
+                  <Loader2 className="text-green-600 w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <ShoppingCart className="text-green-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
               </CardContent>
             </Card>
           </Link>
@@ -147,11 +160,15 @@ const AdminDashboard = () => {
               color: "text-orange-600",
             },
           ].map((card, idx) => (
-            <Link key={idx} href={card.href}>
+            <Link key={idx} href={card.href} onClick={() => setLoadingHref(card.href)}>
               <Card className="cursor-pointer hover:bg-gray-50 transition-colors shadow-sm border border-gray-100">
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className={`p-2 rounded-lg bg-gray-100 ${card.color}`}>
-                    <card.icon className="w-5 h-5" />
+                    {loadingHref === card.href ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <card.icon className="w-5 h-5" />
+                    )}
                   </div>
                   <span className="font-bold text-gray-700">{card.title}</span>
                 </CardContent>

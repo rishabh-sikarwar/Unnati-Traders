@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Printer, FileText } from "lucide-react";
+import { Search, Printer, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 export default function OrdersTable({ initialOrders, userRole }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
 
   const filteredOrders = initialOrders.filter((order) => {
     const query = searchQuery.toLowerCase();
@@ -173,9 +174,15 @@ export default function OrdersTable({ initialOrders, userRole }) {
                   <td className="block md:table-cell md:p-4 md:text-right border-t md:border-none pt-4 md:pt-0">
                     <Link
                       href={`/billing/receipt/${order.id}`}
+                      onClick={() => setLoadingOrderId(order.id)}
                       className="flex items-center justify-center md:justify-end gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-3 py-2.5 md:py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 w-full md:w-auto"
                     >
-                      <Printer className="w-4 h-4" /> View / Print
+                      {loadingOrderId === order.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Printer className="w-4 h-4" />
+                      )}
+                      {loadingOrderId === order.id ? "Loading..." : "View / Print"}
                     </Link>
                   </td>
                 </tr>

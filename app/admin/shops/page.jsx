@@ -22,7 +22,7 @@ export default async function ShopsPage() {
   });
 
   return (
-    <div className="p-8 pt-24 bg-gray-50 min-h-screen">
+    <div className="p-8 pt-20 md:pt-36 lg:pt-24 bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto space-y-6">
         <h1 className="text-3xl font-bold">Manage Shops</h1>
 

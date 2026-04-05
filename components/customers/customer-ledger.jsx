@@ -85,7 +85,7 @@ export default function CustomerLedger({ customers, userId }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterDuesOnly(!filterDuesOnly)}
-            className={`px-4 py-2 rounded-lg font-bold border transition-all ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
+            className={`px-4 py-2 rounded-lg font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
           >
             {filterDuesOnly ? "Showing Dues Only" : "Filter: Has Dues"}
           </button>
@@ -283,10 +283,11 @@ export default function CustomerLedger({ customers, userId }) {
               <div className="pt-4 border-t border-gray-100 flex gap-3">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() =>
                     setPaymentModal({ isOpen: false, customer: null })
                   }
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>

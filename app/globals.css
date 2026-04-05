@@ -119,4 +119,41 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Global: all buttons and links should show pointer cursor */
+  button,
+  [role="button"],
+  a,
+  label[for],
+  select,
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+
+  /* Global: buttons that are disabled should show not-allowed */
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Global: subtle active press feedback on clickable elements */
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+    transition: transform 0.08s ease;
+  }
 }
+
+/* Hide scrollbar utility for the horizontal nav strip */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+

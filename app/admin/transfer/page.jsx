@@ -17,7 +17,7 @@ export default async function TransferPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8 pt-24 md:pt-32">
+    <div className="min-h-screen bg-gray-50 p-6 md:p-8 pt-20 md:pt-36 lg:pt-28">
       <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>
           <Link

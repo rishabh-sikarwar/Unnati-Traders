@@ -83,7 +83,11 @@ export default function UpdateStock({ productId, locationId, currentQty }) {
         className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 h-9 w-10 p-0 rounded-lg cursor-pointer transition-transform active:scale-95 disabled:opacity-50 shrink-0 shadow-sm"
         title="Remove from stock"
       >
-        <Minus className="w-5 h-5" />
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Minus className="w-5 h-5" />
+        )}
       </Button>
     </div>
   );

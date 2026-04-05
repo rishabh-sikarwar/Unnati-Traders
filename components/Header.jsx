@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   SignedIn,
   SignedOut,
@@ -10,7 +10,7 @@ import {
 } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "./ui/button";
+import { usePathname } from "next/navigation";
 import {
   ContactRound,
   LayoutDashboard,
@@ -22,12 +22,47 @@ import {
   ShoppingCartIcon,
   ScrollText,
   UsersRound,
+  X,
+  ChevronRight,
+  LayoutGrid,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const Header = () => {
   const { user } = useUser();
+  const pathname = usePathname();
   const [dbRole, setDbRole] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const drawerRef = useRef(null);
+
+  // Close drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Track scroll for enhanced blur
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Close drawer on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (drawerRef.current && !drawerRef.current.contains(e.target)) {
+        setMobileOpen(false);
+      }
+    };
+    if (mobileOpen) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [mobileOpen]);
+
+  // Lock body scroll when mobile menu open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   useEffect(() => {
     const fetchUserRole = async (retries = 3) => {
@@ -57,172 +92,342 @@ const Header = () => {
     { name: "Support", icon: ContactRound, href: "/support" },
   ];
 
-  // UPDATED ADMIN LINKS: Replaced Inventory with Customers, organized logically
   const adminLinks = [
-    { name: "Billing", icon: Receipt, href: "/billing" },
-    { name: "Khata", icon: UsersRound, href: "/customers" },
-    { name: "Orders", icon: ScrollText, href: "/orders" },
-    { name: "Stock", icon: PackageSearch, href: "/stock" },
+    { name: "Billing", icon: Receipt, href: "/billing", color: "text-green-300" },
+    { name: "Khata", icon: UsersRound, href: "/customers", color: "text-blue-300" },
+    { name: "Orders", icon: ScrollText, href: "/orders", color: "text-yellow-300" },
+    { name: "Stock", icon: PackageSearch, href: "/stock", color: "text-purple-300" },
   ];
 
+  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+
   return (
-    <div className="fixed top-0 w-full bg-[#522874]/95 backdrop-blur-lg z-50 border-b border-[#3d1d56] shadow-md transition-all">
-      <nav className="container mx-auto px-4 py-3 relative flex items-center justify-between">
-        {/* Logo - Left */}
-        <Link
-          href={isInternalUser ? "/dashboard" : "/"}
-          className="cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95 shrink-0"
-        >
-          <Image
-            src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
-            alt="Logo"
-            className="h-14 md:h-16 w-auto object-contain drop-shadow-sm"
-            height={60}
-            width={200}
-            priority
-          />
-        </Link>
+    <>
+      {/* ─────────────────────────── HEADER SHELL ─────────────────────────── */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled
+            ? "bg-[#3d1d56]/98 shadow-[0_4px_30px_rgba(0,0,0,0.35)]"
+            : "bg-[#522874]/95"
+        } backdrop-blur-xl border-b border-white/10`}
+      >
+        {/* ── TOP BAR: Logo · Desktop Nav · User Controls ── */}
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-16 md:h-[70px]">
 
-        {/* Center Nav Items (Always Visible on Extra Large Screens) */}
-        <div className="hidden xl:flex gap-2 items-center absolute left-1/2 -translate-x-1/2 w-max">
-          {publicLinks.map((item) => (
-            <Button
-              key={item.name}
-              asChild
-              variant="ghost"
-              className="text-white/90 hover:text-[#522874] hover:bg-white cursor-pointer transition-all duration-300 hover:shadow-sm"
+            {/* ── LOGO ── */}
+            <Link
+              href={isInternalUser ? "/dashboard" : "/"}
+              className="shrink-0 transition-transform duration-300 hover:scale-105 active:scale-95"
             >
-              <Link href={item.href}>
-                <item.icon size={18} className="mr-2" /> {item.name}
-              </Link>
-            </Button>
-          ))}
-        </div>
+              <Image
+                src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
+                alt="Unnati Traders"
+                className="h-12 md:h-14 w-auto object-contain drop-shadow"
+                height={56}
+                width={180}
+                priority
+              />
+            </Link>
 
-        {/* Right Side */}
-        <div className="flex items-center gap-2 md:gap-4 ml-auto">
-          <SignedOut>
-            <SignInButton forceRedirectUrl="/api/auth/sync">
-              <Button className="bg-white text-[#522874] hover:bg-gray-50 font-bold cursor-pointer shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0">
-                Sign In
-              </Button>
-            </SignInButton>
-          </SignedOut>
+            {/* ── CENTER: Public Nav (visible lg+ only, and only for non-internal users OR when no internal nav shown) ── */}
+            {/* We show public links in center for public users on lg+, or for internal users only on xl+ */}
+            <nav className={`hidden ${isInternalUser ? "xl:flex" : "lg:flex"} items-center gap-1`}>
+              {publicLinks.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    isActive(item.href)
+                      ? "bg-white text-[#522874] shadow-sm"
+                      : "text-white/85 hover:text-white hover:bg-white/15"
+                  }`}
+                >
+                  <item.icon size={15} />
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
 
-          <SignedIn>
-            <div className="flex items-center gap-3">
-              {/* Internal Nav for Admin/Employee (Hidden on Mobile) */}
-              {isInternalUser && (
-                <div className="hidden lg:flex gap-1 mr-2 bg-black/20 p-1.5 rounded-xl border border-white/10 shadow-inner">
-                  {adminLinks.map((item) => (
-                    <Button
-                      key={item.name}
-                      asChild
-                      variant="ghost"
-                      className="cursor-pointer font-bold text-white/90 hover:text-white hover:bg-white/20 transition-all duration-300 rounded-lg px-4"
-                    >
-                      <Link href={item.href}>
-                        <item.icon size={16} className="mr-2 opacity-80" />{" "}
+            {/* ── RIGHT: Admin ERP Pill + User Controls ── */}
+            <div className="flex items-center gap-2 sm:gap-3">
+
+              {/* Admin ERP Nav Pill — desktop (lg+) */}
+              <SignedIn>
+                {isInternalUser && (
+                  <nav className="hidden lg:flex items-center gap-0.5 bg-black/25 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-white/10 shadow-inner">
+                    {adminLinks.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                          isActive(item.href)
+                            ? "bg-white/20 text-white shadow-sm border border-white/15"
+                            : "text-white/80 hover:text-white hover:bg-white/15"
+                        }`}
+                      >
+                        <item.icon size={14} className={`${item.color} opacity-90`} />
                         {item.name}
                       </Link>
-                    </Button>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </nav>
+                )}
 
-              {/* Cart button (Only for visitors/dealers) */}
-              {!isInternalUser && (
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="text-white hover:bg-white/20 cursor-pointer transition-all duration-300 hover:scale-105"
-                >
-                  <Link href={"/cart"}>
-                    <ShoppingCartIcon size={20} />
-                    <span className="hidden md:inline ml-2 font-medium">
-                      Cart
-                    </span>
+                {/* Cart (dealers/visitors only — desktop) */}
+                {!isInternalUser && (
+                  <Link
+                    href="/cart"
+                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white/85 hover:text-white hover:bg-white/15 transition-all duration-200"
+                  >
+                    <ShoppingCartIcon size={18} />
+                    <span>Cart</span>
                   </Link>
-                </Button>
-              )}
+                )}
 
-              {/* PERFECT CIRCLE User Avatar */}
-              <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/40 transition-all duration-300 shrink-0 cursor-pointer shadow-sm ml-2">
-                <UserButton
-                  afterSignOutUrl="/"
-                  appearance={{ elements: { avatarBox: "w-9 h-9" } }}
-                />
-              </div>
-            </div>
-          </SignedIn>
-
-          {/* MOBILE MENU (Handles BOTH Public and Admin Links) */}
-          <div className="lg:hidden flex items-center">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/20 cursor-pointer transition-colors duration-200"
-                >
-                  <MenuIcon size={26} />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="bg-white border-l-0 shadow-2xl w-72 overflow-y-auto"
-              >
-                <div className="flex flex-col gap-2 mt-8">
-                  {/* Public Links */}
-                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 px-3 mt-4">
-                    Main Menu
-                  </div>
-                  {publicLinks.map((item) => (
-                    <Button
-                      key={item.name}
-                      asChild
-                      variant="ghost"
-                      className="w-full justify-start cursor-pointer hover:bg-purple-50 hover:text-[#522874] transition-colors"
-                    >
-                      <Link href={item.href}>
-                        <item.icon size={18} className="mr-3 text-gray-500" />{" "}
-                        {item.name}
-                      </Link>
-                    </Button>
-                  ))}
-
-                  {/* Admin Links */}
-                  {isInternalUser && (
-                    <>
-                      <div className="h-px bg-gray-100 my-3 w-full" />
-                      <div className="text-xs font-bold text-[#522874] uppercase tracking-wider mb-1 px-3">
-                        Admin Controls
-                      </div>
-                      {adminLinks.map((item) => (
-                        <Button
-                          key={item.name}
-                          asChild
-                          variant="ghost"
-                          className="w-full justify-start cursor-pointer hover:bg-purple-50 hover:text-[#522874] transition-colors"
-                        >
-                          <Link href={item.href}>
-                            <item.icon
-                              size={18}
-                              className="mr-3 text-[#522874]/60"
-                            />{" "}
-                            {item.name}
-                          </Link>
-                        </Button>
-                      ))}
-                    </>
-                  )}
+                {/* User Avatar */}
+                <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/30 transition-all duration-300 shrink-0 ml-1">
+                  <UserButton
+                    afterSignOutUrl="/"
+                    appearance={{ elements: { avatarBox: "w-9 h-9" } }}
+                  />
                 </div>
-              </SheetContent>
-            </Sheet>
+              </SignedIn>
+
+              <SignedOut>
+                <SignInButton forceRedirectUrl="/api/auth/sync">
+                  <button className="hidden sm:flex items-center gap-2 bg-white text-[#522874] hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 cursor-pointer">
+                    Sign In
+                  </button>
+                </SignInButton>
+              </SignedOut>
+
+              {/* ── Hamburger (visible below lg) ── */}
+              <button
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open menu"
+                className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition-colors cursor-pointer"
+              >
+                <MenuIcon size={22} />
+              </button>
+            </div>
           </div>
         </div>
-      </nav>
-    </div>
+
+        {/* ── BOTTOM BAR: Admin ERP nav for medium screens (md only, below lg) ── */}
+        <SignedIn>
+          {isInternalUser && (
+            <div className="hidden md:flex lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-sm">
+              <div className="max-w-screen-xl mx-auto px-4 flex items-center gap-1 py-1.5 w-full overflow-x-auto scrollbar-none">
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mr-2 shrink-0 flex items-center gap-1">
+                  <LayoutGrid size={10} /> Nav
+                </span>
+                {adminLinks.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                      isActive(item.href)
+                        ? "bg-white/20 text-white border border-white/15"
+                        : "text-white/75 hover:text-white hover:bg-white/15"
+                    }`}
+                  >
+                    <item.icon size={13} className={item.color} />
+                    {item.name}
+                  </Link>
+                ))}
+                {/* Separator + public links condensed */}
+                <div className="h-4 w-px bg-white/20 mx-2 shrink-0" />
+                {publicLinks.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                      isActive(item.href)
+                        ? "bg-white/20 text-white"
+                        : "text-white/55 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </SignedIn>
+      </header>
+
+      {/* ─────────────────────────── MOBILE DRAWER ─────────────────────────── */}
+      {/* Backdrop */}
+      <div
+        onClick={() => setMobileOpen(false)}
+        className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        aria-hidden="true"
+      />
+
+      {/* Drawer Panel */}
+      <div
+        ref={drawerRef}
+        className={`fixed top-0 right-0 bottom-0 z-[70] w-[300px] sm:w-[320px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out lg:hidden ${
+          mobileOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-[#522874] shrink-0">
+          <div className="flex items-center gap-3">
+            <Image
+              src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
+              alt="Unnati Traders"
+              className="h-9 w-auto object-contain"
+              height={36}
+              width={120}
+            />
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/20 text-white transition-colors cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Drawer Body */}
+        <div className="flex-1 overflow-y-auto py-4 px-3">
+
+          {/* Sign In (mobile, for signed-out users) */}
+          <SignedOut>
+            <div className="px-2 mb-4">
+              <SignInButton forceRedirectUrl="/api/auth/sync">
+                <button className="w-full flex items-center justify-center gap-2 bg-[#522874] text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md hover:bg-[#3d1d56] transition-colors cursor-pointer">
+                  Sign In to Your Account
+                </button>
+              </SignInButton>
+            </div>
+          </SignedOut>
+
+          {/* ERP Admin Section */}
+          <SignedIn>
+            {isInternalUser && (
+              <section className="mb-5">
+                <div className="flex items-center gap-2 px-3 mb-2">
+                  <LayoutGrid size={12} className="text-[#522874]" />
+                  <span className="text-[10px] font-bold text-[#522874] uppercase tracking-widest">
+                    Admin Controls
+                  </span>
+                </div>
+                <div className="bg-[#522874]/5 rounded-xl p-1.5 border border-[#522874]/10 space-y-0.5">
+                  {adminLinks.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between px-3 py-3 rounded-lg font-bold text-sm transition-all duration-200 group ${
+                        isActive(item.href)
+                          ? "bg-[#522874] text-white shadow-sm"
+                          : "text-gray-700 hover:bg-[#522874]/10 hover:text-[#522874]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1.5 rounded-md ${isActive(item.href) ? "bg-white/15" : "bg-[#522874]/10"}`}>
+                          <item.icon size={15} className={isActive(item.href) ? "text-white" : "text-[#522874]"} />
+                        </div>
+                        {item.name}
+                      </div>
+                      <ChevronRight size={14} className={`opacity-40 group-hover:opacity-80 transition-opacity ${isActive(item.href) ? "text-white" : ""}`} />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </SignedIn>
+
+          {/* Public / General Links */}
+          <section className="mb-5">
+            <div className="flex items-center gap-2 px-3 mb-2">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Main Menu
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              {publicLinks.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center justify-between px-3 py-3 rounded-lg font-semibold text-sm transition-all duration-200 group ${
+                    isActive(item.href)
+                      ? "bg-purple-50 text-[#522874]"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon size={16} className={isActive(item.href) ? "text-[#522874]" : "text-gray-400"} />
+                    {item.name}
+                  </div>
+                  <ChevronRight size={14} className="opacity-30 group-hover:opacity-60 transition-opacity" />
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Cart link (visitors/dealers only) */}
+          <SignedIn>
+            {!isInternalUser && (
+              <section className="mb-5">
+                <div className="space-y-0.5">
+                  <Link
+                    href="/cart"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center justify-between px-3 py-3 rounded-lg font-semibold text-sm transition-all duration-200 group ${
+                      isActive("/cart")
+                        ? "bg-purple-50 text-[#522874]"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShoppingCartIcon size={16} className={isActive("/cart") ? "text-[#522874]" : "text-gray-400"} />
+                      Cart
+                    </div>
+                    <ChevronRight size={14} className="opacity-30 group-hover:opacity-60 transition-opacity" />
+                  </Link>
+                </div>
+              </section>
+            )}
+          </SignedIn>
+        </div>
+
+        {/* Drawer Footer — User info */}
+        <SignedIn>
+          <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{ elements: { avatarBox: "w-10 h-10" } }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800 truncate">
+                  {user?.fullName || "My Account"}
+                </p>
+                {dbRole && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#522874]/10 text-[#522874]">
+                    {dbRole}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </SignedIn>
+        <SignedOut>
+          <div className="shrink-0 border-t border-gray-100 px-5 py-3">
+            <p className="text-xs text-gray-400 text-center">
+              Unnati Traders · Apollo Distributor
+            </p>
+          </div>
+        </SignedOut>
+      </div>
+    </>
   );
 };
 
