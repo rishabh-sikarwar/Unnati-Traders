@@ -28,7 +28,7 @@ export async function POST(req) {
         sku: body.sku,
         modelName: body.modelName,
         size: body.size,
-        category: body.category || "Two Wheeler", // Default if not provided
+        category: body.category || "TWO_WHEELER",
         basePrice: parseFloat(body.basePrice),
         brand: "Apollo",
         gstRate: 28,

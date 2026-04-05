@@ -29,7 +29,7 @@ export default function StockPage() {
   const [newSku, setNewSku] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newSize, setNewSize] = useState("");
-  const [newCategory, setNewCategory] = useState("Two Wheeler");
+  const [newCategory, setNewCategory] = useState("TWO_WHEELER");
   const [newPrice, setNewPrice] = useState("");
   const [addingTyre, setAddingTyre] = useState(false);
 
@@ -108,7 +108,7 @@ export default function StockPage() {
       setNewSku("");
       setNewModel("");
       setNewSize("");
-      setNewCategory("Two Wheeler");
+      setNewCategory("TWO_WHEELER");
       setNewPrice("");
       loadCatalogue();
     } catch (error) {
@@ -458,11 +458,16 @@ export default function StockPage() {
                 onChange={(e) => setNewCategory(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
               >
-                <option value="Two Wheeler">Two Wheeler</option>
-                <option value="Car/SUV">Car/SUV</option>
-                <option value="Commercial">Commercial</option>
-                <option value="Farm">Farm</option>
-                <option value="Off-Highway">Off-Highway</option>
+                <option value="TWO_WHEELER">Two Wheeler</option>
+                <option value="THREE_WHEELER">Three Wheeler</option>
+                <option value="PASSENGER_CAR">Passenger Car</option>
+                <option value="PREMIUM_CAR">Premium Car</option>
+                <option value="TRUCK_BUS_RADIAL">Truck/Bus Radial</option>
+                <option value="TRUCK_BUS_BIAS">Truck/Bus Bias</option>
+                <option value="LIGHT_COMMERCIAL">Light Commercial (LCV)</option>
+                <option value="TRACTOR_FARM">Tractor/Farm</option>
+                <option value="INDUSTRIAL">Industrial</option>
+                <option value="GENERAL">General</option>
               </select>
             </div>
             <div>
