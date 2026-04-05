@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   PackageSearch,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 export default function StockPage() {
+  const router = useRouter();
   const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +28,6 @@ export default function StockPage() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
 
   // --- NEW TYRE FORM ---
-  const [newSku, setNewSku] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newSize, setNewSize] = useState("");
   const [newCategory, setNewCategory] = useState("TWO_WHEELER");
@@ -83,18 +84,21 @@ export default function StockPage() {
   // --- ADD NEW TYRE ---
   async function handleAddTyre(e) {
     e.preventDefault();
-    if (!newSku || !newModel || !newSize || !newPrice)
+    if (!newModel || !newSize || !newPrice)
       return toast.error("Please fill all details");
 
     setAddingTyre(true);
     const loadingToast = toast.loading("Adding new tyre...");
+    
+    // Auto-generate SKU from Size + Model name (strip special chars, uppercase)
+    const autoSku = `APL-${(newSize + newModel).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
     try {
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sku: newSku,
+          sku: autoSku,
           modelName: newModel,
           size: newSize,
           category: newCategory,
@@ -105,12 +109,14 @@ export default function StockPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Tyre added successfully!", { id: loadingToast });
-      setNewSku("");
       setNewModel("");
       setNewSize("");
       setNewCategory("TWO_WHEELER");
       setNewPrice("");
       loadCatalogue();
+      
+      // Bust Next.js client-side router cache so the Purchases page immediately shows the new tyre
+      router.refresh();
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
     } finally {
@@ -410,20 +416,8 @@ export default function StockPage() {
           </h2>
           <form
             onSubmit={handleAddTyre}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 items-end"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end"
           >
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                SKU
-              </label>
-              <input
-                required
-                value={newSku}
-                onChange={(e) => setNewSku(e.target.value)}
-                placeholder="e.g. APL-AMZ"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
-              />
-            </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                 Model Name
