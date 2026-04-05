@@ -12,17 +12,19 @@ export default function InventoryTable({ products, locations }) {
     let rows = [];
     products.forEach((p) => {
       p.inventories.forEach((inv) => {
-        rows.push({
-          id: inv.id,
-          modelName: p.modelName,
-          size: p.size,
-          sku: p.sku,
-          lowStockThreshold: p.lowStock,
-          locationId: inv.locationId,
-          locationName:
-            locations.find((l) => l.id === inv.locationId)?.name || "Unknown",
-          quantity: inv.quantity,
-        });
+        if (inv.quantity > 0) {
+          rows.push({
+            id: inv.id,
+            modelName: p.modelName,
+            size: p.size,
+            sku: p.sku,
+            lowStockThreshold: p.lowStock,
+            locationId: inv.locationId,
+            locationName:
+              locations.find((l) => l.id === inv.locationId)?.name || "Unknown",
+            quantity: inv.quantity,
+          });
+        }
       });
     });
     return rows;

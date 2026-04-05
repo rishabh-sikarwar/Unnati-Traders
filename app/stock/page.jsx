@@ -29,6 +29,7 @@ export default function StockPage() {
   const [newSku, setNewSku] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newSize, setNewSize] = useState("");
+  const [newCategory, setNewCategory] = useState("Two Wheeler");
   const [newPrice, setNewPrice] = useState("");
   const [addingTyre, setAddingTyre] = useState(false);
 
@@ -96,6 +97,7 @@ export default function StockPage() {
           sku: newSku,
           modelName: newModel,
           size: newSize,
+          category: newCategory,
           basePrice: newPrice,
         }),
       });
@@ -106,6 +108,7 @@ export default function StockPage() {
       setNewSku("");
       setNewModel("");
       setNewSize("");
+      setNewCategory("Two Wheeler");
       setNewPrice("");
       loadCatalogue();
     } catch (error) {
@@ -407,7 +410,7 @@ export default function StockPage() {
           </h2>
           <form
             onSubmit={handleAddTyre}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 items-end"
           >
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
@@ -444,6 +447,23 @@ export default function StockPage() {
                 placeholder="165/80 R14"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Category
+              </label>
+              <select
+                required
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+              >
+                <option value="Two Wheeler">Two Wheeler</option>
+                <option value="Car/SUV">Car/SUV</option>
+                <option value="Commercial">Commercial</option>
+                <option value="Farm">Farm</option>
+                <option value="Off-Highway">Off-Highway</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
