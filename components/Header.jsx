@@ -60,7 +60,7 @@ const Header = () => {
   // UPDATED ADMIN LINKS: Replaced Inventory with Customers, organized logically
   const adminLinks = [
     { name: "Billing", icon: Receipt, href: "/billing" },
-    { name: "Customers", icon: UsersRound, href: "/customers" },
+    { name: "Khata", icon: UsersRound, href: "/customers" },
     { name: "Orders", icon: ScrollText, href: "/orders" },
     { name: "Stock", icon: PackageSearch, href: "/stock" },
   ];

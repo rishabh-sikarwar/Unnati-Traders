@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
-// Setup Nodemailer Transporter
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -43,12 +42,15 @@ export async function POST(req) {
       // 3. Generate Invoice Number
       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
 
+      // 4. Handle "Udhaar" Partial Payments
       const isCredit = customerInfo.paymentMode === "Credit";
-      const upfrontPayment = isCredit ? 0 : totals.grandTotal;
-
+      // If Udhaar, use the partial payment amount. Otherwise, they paid the full Grand Total.
+      const actualAmountPaid = isCredit
+        ? Number(customerInfo.initialPayment) || 0
+        : totals.grandTotal;
       const modeEnum = customerInfo.paymentMode.toUpperCase();
 
-      // 4. Create the Invoice
+      // 5. Create the Invoice
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber,
@@ -56,7 +58,7 @@ export async function POST(req) {
           totalGst: totals.totalGst,
           grandTotal: totals.grandTotal,
           paymentMode: modeEnum,
-          upfrontPayment: upfrontPayment,
+          amountPaid: actualAmountPaid, // FIXED: Changed from upfrontPayment to amountPaid
           status: "COMPLETED",
           customerId: customer.id,
           locationId: locationId,
@@ -70,10 +72,10 @@ export async function POST(req) {
             })),
           },
         },
-        include: { location: true }, // Include location so we know which shop made the sale
+        include: { location: true },
       });
 
-      // 5. Deduct from Inventory
+      // 6. Deduct from Inventory
       for (const item of items) {
         await tx.inventory.update({
           where: {
@@ -87,10 +89,9 @@ export async function POST(req) {
     });
 
     // --- ASYNCHRONOUS EMAIL NOTIFICATION ---
-    // We do not await this, so it doesn't slow down the user's screen while they wait for the email to send!
     const mailOptions = {
       from: `"Unnati Traders ERP" <${process.env.EMAIL_USER}>`,
-      to: "binaybhadoria@gmail.com", // Sending to Admin
+      to: "binaybhadoria@gmail.com",
       subject: `New Sale Alert: ${result.invoiceNumber} (₹${result.grandTotal.toLocaleString()})`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-w: 600px; border: 1px solid #ddd; border-radius: 10px;">
@@ -109,7 +110,6 @@ export async function POST(req) {
     transporter
       .sendMail(mailOptions)
       .catch((err) => console.error("Email failed to send:", err));
-    
 
     return NextResponse.json({ success: true, invoiceId: result.id });
   } catch (error) {

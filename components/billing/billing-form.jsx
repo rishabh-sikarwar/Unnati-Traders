@@ -19,6 +19,9 @@ export default function BillingForm({ inventory, locationId, userId }) {
     paymentMode: "Cash",
   });
 
+  // NEW STATE: For Udhaar partial payments
+  const [initialPayment, setInitialPayment] = useState("");
+
   // --- CART STATE ---
   const [cart, setCart] = useState([]);
 
@@ -37,17 +40,16 @@ export default function BillingForm({ inventory, locationId, userId }) {
     }));
   }, [inventory]);
 
-  // --- ADD ITEM TO CART ---
   const addItem = () => {
     setCart([...cart, { inventoryId: "", quantity: 1, unitPrice: "" }]);
   };
 
-  // --- UPDATE/REMOVE CART ITEM ---
   const updateItem = (index, field, value) => {
     const newCart = [...cart];
     newCart[index][field] = value;
     setCart(newCart);
   };
+
   const removeItem = (index) => {
     setCart(cart.filter((_, i) => i !== index));
   };
@@ -86,6 +88,16 @@ export default function BillingForm({ inventory, locationId, userId }) {
 
     if (cart.length === 0) return toast.error("Cart is empty!");
 
+    // Validate Udhaar Initial Payment
+    if (
+      customer.paymentMode === "Credit" &&
+      Number(initialPayment) > totals.grandTotal
+    ) {
+      return toast.error(
+        "Initial payment cannot be greater than the Grand Total!",
+      );
+    }
+
     try {
       const formattedItems = cart.map((item, index) => {
         if (!item.inventoryId)
@@ -116,7 +128,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerInfo: customer,
+          customerInfo: { ...customer, initialPayment: initialPayment }, // Add initial payment to payload
           items: formattedItems,
           locationId,
           userId,
@@ -253,7 +265,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
                   key={index}
                   className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-sm relative group"
                 >
-                  {/* ROW 1: Smart Search takes full width */}
                   <div className="w-full relative">
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                       Select Tyre
@@ -264,10 +275,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
                       onSelect={(val) => updateItem(index, "inventoryId", val)}
                     />
                   </div>
-
-                  {/* ROW 2: Financials & Action aligned perfectly */}
                   <div className="flex flex-wrap sm:flex-nowrap items-end gap-3">
-                    {/* QTY */}
                     <div className="flex-1 sm:flex-none sm:w-24">
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1 truncate">
                         Qty{" "}
@@ -285,8 +293,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none h-[42px] transition-all"
                       />
                     </div>
-
-                    {/* UNIT PRICE */}
                     <div className="flex-1 sm:flex-none sm:w-32">
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1 truncate">
                         Unit Price
@@ -303,16 +309,12 @@ export default function BillingForm({ inventory, locationId, userId }) {
                         placeholder="₹0.00"
                       />
                     </div>
-
-                    {/* LINE TOTAL */}
                     <div className="w-full sm:w-auto sm:flex-1 bg-white border border-gray-200 px-4 py-2.5 rounded-lg text-right font-black text-gray-800 h-[42px] flex items-center justify-end shadow-inner">
                       ₹
                       {lineTotal.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                       })}
                     </div>
-
-                    {/* DELETE BUTTON */}
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
@@ -346,7 +348,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
               </span>
             </div>
 
-            {/* MANUAL FINANCIAL INPUTS */}
             <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10">
               <span className="text-white/90">Discount (₹)</span>
               <input
@@ -408,16 +409,17 @@ export default function BillingForm({ inventory, locationId, userId }) {
             </div>
           </div>
 
-          {/* Payment Mode */}
+          {/* Payment Mode & Udhaar Logic */}
           <div className="mb-8">
             <label className="block text-xs font-bold text-purple-200 uppercase mb-2">
               Payment Mode
             </label>
             <select
               value={customer.paymentMode}
-              onChange={(e) =>
-                setCustomer({ ...customer, paymentMode: e.target.value })
-              }
+              onChange={(e) => {
+                setCustomer({ ...customer, paymentMode: e.target.value });
+                setInitialPayment(""); // Reset initial payment if they switch modes
+              }}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none cursor-pointer focus:border-purple-300 transition-all"
             >
               <option className="text-black font-medium" value="Cash">
@@ -430,9 +432,37 @@ export default function BillingForm({ inventory, locationId, userId }) {
                 Credit/Debit Card 💳
               </option>
               <option className="text-black font-medium" value="Credit">
-                Store Credit 🏦
+                Udhaar 🏦
               </option>
             </select>
+
+            {/* DYNAMIC UDHAAR INPUT */}
+            {customer.paymentMode === "Credit" && (
+              <div className="mt-4 animate-in fade-in zoom-in duration-300 bg-black/20 p-4 rounded-xl border border-orange-500/30">
+                <label className="block text-xs font-bold text-orange-300 uppercase mb-2">
+                  Initial Payment Received (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={totals.grandTotal}
+                  value={initialPayment}
+                  onChange={(e) => setInitialPayment(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/10 border border-orange-400/50 rounded-lg text-white font-bold outline-none focus:border-orange-400 transition-all placeholder-white/30"
+                  placeholder="e.g. 500"
+                />
+                <div className="flex justify-between mt-2 text-sm font-medium">
+                  <span className="text-white/70">Remaining Udhaar:</span>
+                  <span className="text-orange-400 font-bold">
+                    ₹
+                    {Math.max(
+                      0,
+                      totals.grandTotal - (Number(initialPayment) || 0),
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <button

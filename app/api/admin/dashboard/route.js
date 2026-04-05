@@ -3,61 +3,109 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // TOTAL REVENUE (Only sum up COMPLETED invoices using the strict Enum)
+    // 1. GLOBAL METRICS
     const sales = await prisma.invoice.aggregate({
       _sum: { grandTotal: true },
       where: { status: "COMPLETED" },
     });
 
-    const orders = await prisma.invoice.count();
+    const purchases = await prisma.purchase.aggregate({
+      _sum: { totalAmount: true },
+    });
+
+    const orders = await prisma.invoice.count({
+      where: { status: "COMPLETED" },
+    });
     const stock = await prisma.inventory.aggregate({
       _sum: { quantity: true },
     });
 
-    const users = await prisma.user.count();
-    const shops = await prisma.location.count();
-    const products = await prisma.product.count();
+    // 2. REVENUE VS PURCHASES (Last 6 Months Logic)
+    // Generate the last 6 months array to ensure the chart is always full, even with 0 sales
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      return {
+        month: d.toLocaleString("default", { month: "short" }),
+        year: d.getFullYear(),
+      };
+    }).reverse();
 
-    // ----------------------------------------------------
-    // FIX: Properly group sales by month for the Bar Chart
-    // ----------------------------------------------------
-    const invoices = await prisma.invoice.findMany({
+    const monthlyDataMap = {};
+    last6Months.forEach(({ month }) => {
+      monthlyDataMap[month] = { month, sales: 0, purchases: 0 };
+    });
+
+    // Fetch and map Sales
+    const recentInvoices = await prisma.invoice.findMany({
       where: { status: "COMPLETED" },
       select: { grandTotal: true, createdAt: true },
     });
-
-    const monthlySalesMap = {};
-    invoices.forEach((inv) => {
-      // Formats date to "Jan", "Feb", etc.
+    recentInvoices.forEach((inv) => {
       const month = new Date(inv.createdAt).toLocaleString("default", {
         month: "short",
       });
-      monthlySalesMap[month] = (monthlySalesMap[month] || 0) + inv.grandTotal;
+      if (monthlyDataMap[month]) monthlyDataMap[month].sales += inv.grandTotal;
     });
 
-    // Convert the map back into an array for Recharts
-    const salesData = Object.keys(monthlySalesMap).map((month) => ({
-      month,
-      sales: monthlySalesMap[month],
-      purchases: 0, // Ready for future purchase logic
-    }));
+    // Fetch and map Purchases
+    const recentPurchases = await prisma.purchase.findMany({
+      select: { totalAmount: true, createdAt: true },
+    });
+    recentPurchases.forEach((pur) => {
+      const month = new Date(pur.createdAt).toLocaleString("default", {
+        month: "short",
+      });
+      if (monthlyDataMap[month])
+        monthlyDataMap[month].purchases += pur.totalAmount;
+    });
 
-    // CATEGORY DATA (Demo data for the Pie Chart)
-    const categoryData = [
-      { name: "Car Tyres", value: 45 },
-      { name: "Bike Tyres", value: 25 },
-      { name: "Truck Tyres", value: 30 },
-    ];
+    const salesData = Object.values(monthlyDataMap);
+
+    // 3. DYNAMIC CATEGORY DATA (Revenue per Category)
+    // Fetch all items from completed invoices, including their product's category
+    const invoiceItems = await prisma.invoiceItem.findMany({
+      where: { invoice: { status: "COMPLETED" } },
+      include: { product: { select: { category: true } } },
+    });
+
+    // Aggregate revenue by category
+    const categoryRevenueMap = {};
+    invoiceItems.forEach((item) => {
+      // Convert ENUM like "TWO_WHEELER" to readable "Two Wheeler"
+      const rawCategory = item.product.category || "GENERAL";
+      const cleanCategory = rawCategory
+        .replace(/_/g, " ")
+        .replace(/\w\S*/g, (w) => w.replace(/^\w/, (c) => c.toUpperCase()));
+
+      categoryRevenueMap[cleanCategory] =
+        (categoryRevenueMap[cleanCategory] || 0) + item.totalPrice;
+    });
+
+    // Convert map to array, sort highest to lowest
+    let categoryData = Object.keys(categoryRevenueMap)
+      .map((key) => ({
+        name: key,
+        value: categoryRevenueMap[key],
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // If there are more than 5 categories, bundle the rest into "Other" to keep the pie chart clean
+    if (categoryData.length > 5) {
+      const top5 = categoryData.slice(0, 5);
+      const othersValue = categoryData
+        .slice(5)
+        .reduce((sum, cat) => sum + cat.value, 0);
+      top5.push({ name: "Other", value: othersValue });
+      categoryData = top5;
+    }
 
     return NextResponse.json({
       summary: {
         totalSales: sales._sum.grandTotal || 0,
-        totalPurchases: 0,
+        totalPurchases: purchases._sum.totalAmount || 0, // Now dynamic!
         totalOrders: orders,
         totalStock: stock._sum.quantity || 0,
-        totalUsers: users,
-        totalShops: shops,
-        totalProducts: products,
       },
       salesData,
       categoryData,
