@@ -12,7 +12,6 @@ export default function PageLoadingBar() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    // When the route changes, stop loading
     setLoading(false);
     setProgress(100);
 
@@ -20,13 +19,9 @@ export default function PageLoadingBar() {
       setProgress(0);
     }, 400);
 
-    return () => {
-      clearTimeout(timerRef.current);
-    };
+    return () => clearTimeout(timerRef.current);
   }, [pathname, searchParams]);
 
-  // We need a way to trigger loading when a link is clicked
-  // We do this by intercepting click events on <a> tags
   useEffect(() => {
     const handleClick = (e) => {
       const anchor = e.target.closest("a");
@@ -35,23 +30,19 @@ export default function PageLoadingBar() {
       const href = anchor.getAttribute("href");
       if (!href) return;
 
-      // Only trigger for internal navigation links
-      const isInternal =
-        href.startsWith("/") ||
-        href.startsWith(window.location.origin);
+      const isInternal = href.startsWith("/") || href.startsWith(window.location.origin);
       const isNewTab = anchor.target === "_blank";
       const isDownload = anchor.hasAttribute("download");
       const isSameUrl = href === pathname;
 
       if (isInternal && !isNewTab && !isDownload && !isSameUrl) {
         setLoading(true);
-        setProgress(15);
+        setProgress(20);
 
-        let currentProgress = 15;
+        let currentProgress = 20;
         intervalRef.current = setInterval(() => {
-          // Ease slowly toward 85%, never reaching 100 until done
-          currentProgress += (85 - currentProgress) * 0.08;
-          setProgress(Math.min(currentProgress, 85));
+          currentProgress += (90 - currentProgress) * 0.1;
+          setProgress(Math.min(currentProgress, 90));
         }, 200);
       }
     };
@@ -67,19 +58,23 @@ export default function PageLoadingBar() {
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-[9999] h-[3px] pointer-events-none"
+      className="fixed top-0 left-0 right-0 z-[99999] pointer-events-none"
       aria-hidden="true"
     >
+      {/* Thicker, more visible track */}
       <div
-        className="h-full bg-gradient-to-r from-purple-500 via-[#522874] to-purple-400 shadow-[0_0_10px_rgba(82,40,116,0.7)]"
+        className="h-[4px] md:h-[5px] bg-[#522874] relative shadow-[0_0_15px_rgba(82,40,116,0.8)]"
         style={{
           width: `${progress}%`,
           transition: loading
-            ? "width 0.2s ease-out"
+            ? "width 0.15s ease-out"
             : "width 0.3s ease-out, opacity 0.4s ease-out",
           opacity: loading || progress < 100 ? 1 : 0,
         }}
-      />
+      >
+        {/* Bright glowing leading edge */}
+        <div className="absolute right-0 top-0 h-full w-[100px] bg-gradient-to-r from-transparent to-white/80 blur-[2px]" />
+      </div>
     </div>
   );
 }
