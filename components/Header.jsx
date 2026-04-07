@@ -194,7 +194,10 @@ const Header = () => {
               </SignedIn>
 
               <SignedOut>
-                <SignInButton forceRedirectUrl="/api/auth/sync">
+                <SignInButton
+                forceRedirectUrl="/api/auth/sync"
+                afterSignUpUrl="/api/auth/sync"
+              >
                   <button className="hidden sm:flex items-center gap-2 bg-white text-[#522874] hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 cursor-pointer">
                     Sign In
                   </button>
@@ -299,7 +302,10 @@ const Header = () => {
           {/* Sign In (mobile, for signed-out users) */}
           <SignedOut>
             <div className="px-2 mb-4">
-              <SignInButton forceRedirectUrl="/api/auth/sync">
+              <SignInButton
+                forceRedirectUrl="/api/auth/sync"
+                afterSignUpUrl="/api/auth/sync"
+              >
                 <button className="w-full flex items-center justify-center gap-2 bg-[#522874] text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md hover:bg-[#3d1d56] transition-colors cursor-pointer">
                   Sign In to Your Account
                 </button>
