@@ -21,6 +21,7 @@ model Location {
 
 model User {
   id        String   @id
+  email     String?   @unique
   role      UserRole @default(VISITOR)
   fullName  String?
   mobile    String?

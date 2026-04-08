@@ -91,7 +91,7 @@ export async function POST(req) {
     // --- ASYNCHRONOUS EMAIL NOTIFICATION ---
     const mailOptions = {
       from: `"Unnati Traders ERP" <${process.env.EMAIL_USER}>`,
-      to: "binaybhadoria@gmail.com",
+      to: ["binaybhadoria@gmail.com", "neeluchouhan222@gmail.com", "rishabhsikarwar200@gmail.com"],
       subject: `New Sale Alert: ${result.invoiceNumber} (₹${result.grandTotal.toLocaleString()})`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-w: 600px; border: 1px solid #ddd; border-radius: 10px;">

@@ -103,7 +103,6 @@ const Header = () => {
 
   return (
     <>
-      {/* ─────────────────────────── HEADER SHELL ─────────────────────────── */}
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
@@ -111,7 +110,6 @@ const Header = () => {
             : "bg-[#522874]/95"
         } backdrop-blur-xl border-b border-white/10`}
       >
-        {/* ── TOP BAR: Logo · Desktop Nav · User Controls ── */}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16 md:h-[70px]">
 
@@ -130,8 +128,7 @@ const Header = () => {
               />
             </Link>
 
-            {/* ── CENTER: Public Nav (visible lg+ only, and only for non-internal users OR when no internal nav shown) ── */}
-            {/* We show public links in center for public users on lg+, or for internal users only on xl+ */}
+            {/* ── CENTER: Public Nav ── */}
             <nav className={`hidden ${isInternalUser ? "xl:flex" : "lg:flex"} items-center gap-1`}>
               {publicLinks.map((item) => (
                 <Link
@@ -152,7 +149,6 @@ const Header = () => {
             {/* ── RIGHT: Admin ERP Pill + User Controls ── */}
             <div className="flex items-center gap-2 sm:gap-3">
 
-              {/* Admin ERP Nav Pill — desktop (lg+) */}
               <SignedIn>
                 {isInternalUser && (
                   <nav className="hidden lg:flex items-center gap-0.5 bg-black/25 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-white/10 shadow-inner">
@@ -173,7 +169,6 @@ const Header = () => {
                   </nav>
                 )}
 
-                {/* Cart (dealers/visitors only — desktop) */}
                 {!isInternalUser && (
                   <Link
                     href="/cart"
@@ -194,17 +189,18 @@ const Header = () => {
               </SignedIn>
 
               <SignedOut>
+                {/* FIX APPLIED HERE: Added signUpForceRedirectUrl */}
                 <SignInButton
-                forceRedirectUrl="/api/auth/sync"
-                afterSignUpUrl="/api/auth/sync"
-              >
+                  forceRedirectUrl="/api/auth/sync"
+                  signUpForceRedirectUrl="/api/auth/sync"
+                >
                   <button className="hidden sm:flex items-center gap-2 bg-white text-[#522874] hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 cursor-pointer">
                     Sign In
                   </button>
                 </SignInButton>
               </SignedOut>
 
-              {/* ── Hamburger (visible below lg) ── */}
+              {/* Hamburger */}
               <button
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open menu"
@@ -216,7 +212,7 @@ const Header = () => {
           </div>
         </div>
 
-        {/* ── BOTTOM BAR: Admin ERP nav for medium screens (md only, below lg) ── */}
+        {/* ── BOTTOM BAR: Admin ERP nav for medium screens ── */}
         <SignedIn>
           {isInternalUser && (
             <div className="hidden md:flex lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-sm">
@@ -238,7 +234,6 @@ const Header = () => {
                     {item.name}
                   </Link>
                 ))}
-                {/* Separator + public links condensed */}
                 <div className="h-4 w-px bg-white/20 mx-2 shrink-0" />
                 {publicLinks.map((item) => (
                   <Link
@@ -260,7 +255,6 @@ const Header = () => {
       </header>
 
       {/* ─────────────────────────── MOBILE DRAWER ─────────────────────────── */}
-      {/* Backdrop */}
       <div
         onClick={() => setMobileOpen(false)}
         className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
@@ -269,14 +263,12 @@ const Header = () => {
         aria-hidden="true"
       />
 
-      {/* Drawer Panel */}
       <div
         ref={drawerRef}
         className={`fixed top-0 right-0 bottom-0 z-[70] w-[300px] sm:w-[320px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out lg:hidden ${
           mobileOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Drawer Header */}
         <div className="flex items-center justify-between px-5 py-4 bg-[#522874] shrink-0">
           <div className="flex items-center gap-3">
             <Image
@@ -296,15 +288,13 @@ const Header = () => {
           </button>
         </div>
 
-        {/* Drawer Body */}
         <div className="flex-1 overflow-y-auto py-4 px-3">
-
-          {/* Sign In (mobile, for signed-out users) */}
           <SignedOut>
             <div className="px-2 mb-4">
+              {/* FIX APPLIED HERE TOO: Added signUpForceRedirectUrl */}
               <SignInButton
                 forceRedirectUrl="/api/auth/sync"
-                afterSignUpUrl="/api/auth/sync"
+                signUpForceRedirectUrl="/api/auth/sync"
               >
                 <button className="w-full flex items-center justify-center gap-2 bg-[#522874] text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md hover:bg-[#3d1d56] transition-colors cursor-pointer">
                   Sign In to Your Account
@@ -313,7 +303,6 @@ const Header = () => {
             </div>
           </SignedOut>
 
-          {/* ERP Admin Section */}
           <SignedIn>
             {isInternalUser && (
               <section className="mb-5">
@@ -349,7 +338,6 @@ const Header = () => {
             )}
           </SignedIn>
 
-          {/* Public / General Links */}
           <section className="mb-5">
             <div className="flex items-center gap-2 px-3 mb-2">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -378,7 +366,6 @@ const Header = () => {
             </div>
           </section>
 
-          {/* Cart link (visitors/dealers only) */}
           <SignedIn>
             {!isInternalUser && (
               <section className="mb-5">
@@ -404,7 +391,6 @@ const Header = () => {
           </SignedIn>
         </div>
 
-        {/* Drawer Footer — User info */}
         <SignedIn>
           <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-4">
             <div className="flex items-center gap-3">

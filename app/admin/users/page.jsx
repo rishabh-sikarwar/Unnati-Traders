@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import UpdateUser from "@/components/admin/update-user";
-import { Users } from "lucide-react";
+import { Users, Mail } from "lucide-react"; // Added Mail icon
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +29,11 @@ export default async function UsersPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            {/* Added strict min-width to prevent squishing */}
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead className="bg-gray-50/50 border-b border-gray-100">
                 <tr>
                   <th className="p-4 text-sm font-semibold text-gray-600 w-1/4">
-                    Employee Name
+                    Employee Info
                   </th>
                   <th className="p-4 text-sm font-semibold text-gray-600 w-3/4">
                     Profile Settings & Permissions
@@ -52,8 +51,10 @@ export default async function UsersPage() {
                       <div className="font-bold text-gray-900">
                         {user.fullName || "Unnamed User"}
                       </div>
-                      <div className="text-xs text-gray-400 mt-0.5 font-mono">
-                        ID: {user.id.slice(0, 15)}...
+                      {/* REPLACED ID WITH EMAIL */}
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1 font-medium">
+                        <Mail className="w-3 h-3 text-gray-400" />
+                        {user.email || "No email recorded"}
                       </div>
                     </td>
 
