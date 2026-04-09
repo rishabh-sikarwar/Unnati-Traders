@@ -13,8 +13,9 @@ import {
   Users,
   Loader2,
   PackagePlus,
+  FileBarChart2, // IMPORT THE NEW ICON
 } from "lucide-react";
-import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard"; // IMPORT THE NEW COMPONENT
+import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard"; 
 
 const AdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -75,7 +76,7 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
-        {/* PRIMARY ACTION CARDS (Now 3 Columns for Inward Stock) */}
+        {/* PRIMARY ACTION CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link href="/inventory" onClick={() => setLoadingHref("/inventory")}>
             <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
@@ -138,8 +139,8 @@ const AdminDashboard = () => {
           </Link>
         </div>
 
-        {/* SECONDARY SETTINGS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* SECONDARY SETTINGS (Now a 4-column grid) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
               title: "Manage Shops",
@@ -158,6 +159,13 @@ const AdminDashboard = () => {
               icon: RefreshCw,
               href: "/inventory/manage",
               color: "text-orange-600",
+            },
+            // NEW REPORTS LINK ADDED HERE
+            {
+              title: "Tax & Reports",
+              icon: FileBarChart2,
+              href: "/reports",
+              color: "text-rose-600",
             },
           ].map((card, idx) => (
             <Link key={idx} href={card.href} onClick={() => setLoadingHref(card.href)}>
