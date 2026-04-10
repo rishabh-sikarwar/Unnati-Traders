@@ -13,7 +13,8 @@ import {
   Users,
   Loader2,
   PackagePlus,
-  FileBarChart2, // IMPORT THE NEW ICON
+  FileBarChart2,
+  Undo2, // IMPORT THE NEW ICON
 } from "lucide-react";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard"; 
 
@@ -160,11 +161,16 @@ const AdminDashboard = () => {
               href: "/inventory/manage",
               color: "text-orange-600",
             },
-            // NEW REPORTS LINK ADDED HERE
             {
               title: "Tax & Reports",
               icon: FileBarChart2,
               href: "/reports",
+              color: "text-rose-600",
+            },
+            {
+              title: "Tyre Return",
+              icon: Undo2,
+              href: "/returns",
               color: "text-rose-600",
             },
           ].map((card, idx) => (
