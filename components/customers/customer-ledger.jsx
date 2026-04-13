@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Search, Loader2, IndianRupee, HandCoins, X } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  IndianRupee,
+  HandCoins,
+  X,
+  ArchiveX,
+  AlertCircle,
+} from "lucide-react";
 
 export default function CustomerLedger({ customers, userId }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDuesOnly, setFilterDuesOnly] = useState(false);
 
-  // Modal State
+  // --- MODAL STATES ---
   const [paymentModal, setPaymentModal] = useState({
     isOpen: false,
     customer: null,
@@ -20,7 +28,15 @@ export default function CustomerLedger({ customers, userId }) {
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter Logic
+  // NEW: Archive Modal State
+  const [archiveModal, setArchiveModal] = useState({
+    isOpen: false,
+    customerId: null,
+    customerName: "",
+  });
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  // --- FILTER LOGIC ---
   const filteredCustomers = customers.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -29,7 +45,7 @@ export default function CustomerLedger({ customers, userId }) {
     return matchesSearch && matchesDues;
   });
 
-  // Handle Payment Submission
+  // --- HANDLE PAYMENT ---
   const handlePayment = async (e) => {
     e.preventDefault();
     if (!payAmount || Number(payAmount) <= 0)
@@ -65,6 +81,32 @@ export default function CustomerLedger({ customers, userId }) {
       toast.error(error.message, { id: loadingToast });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- EXECUTE ARCHIVE ---
+  const executeArchive = async () => {
+    setIsArchiving(true);
+    const toastId = toast.loading("Archiving account...");
+
+    try {
+      const res = await fetch("/api/customers/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: archiveModal.customerId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to archive");
+
+      toast.success(`${archiveModal.customerName} archived successfully.`, {
+        id: toastId,
+      });
+      setArchiveModal({ isOpen: false, customerId: null, customerName: "" });
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message, { id: toastId });
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -121,7 +163,7 @@ export default function CustomerLedger({ customers, userId }) {
                   colSpan="5"
                   className="block md:table-cell p-8 text-center text-gray-500 border-b"
                 >
-                  No customers found.
+                  No active customers found.
                 </td>
               </tr>
             )}
@@ -182,24 +224,93 @@ export default function CustomerLedger({ customers, userId }) {
                   </div>
                 </td>
 
-                {/* Actions */}
+                {/* DYNAMIC ACTIONS */}
                 <td className="block md:table-cell md:p-4 md:text-right border-t md:border-none pt-4 md:pt-0">
-                  <button
-                    onClick={() => {
-                      setPayAmount(c.outstandingDues);
-                      setPaymentModal({ isOpen: true, customer: c });
-                    }}
-                    disabled={c.outstandingDues <= 0}
-                    className="w-full md:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-                  >
-                    <HandCoins className="w-4 h-4" /> Settle Dues
-                  </button>
+                  {c.outstandingDues > 0 ? (
+                    // IF THEY OWE MONEY: Show Settle Dues button
+                    <button
+                      onClick={() => {
+                        setPayAmount(c.outstandingDues);
+                        setPaymentModal({ isOpen: true, customer: c });
+                      }}
+                      className="w-full md:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                    >
+                      <HandCoins className="w-4 h-4" /> Settle Dues
+                    </button>
+                  ) : (
+                    // IF SETTLED: Show Archive Trigger
+                    <button
+                      onClick={() =>
+                        setArchiveModal({
+                          isOpen: true,
+                          customerId: c.id,
+                          customerName: c.name,
+                        })
+                      }
+                      className="w-full md:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                    >
+                      <ArchiveX className="w-4 h-4" />
+                      Archive Account
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* --- CUSTOM ARCHIVE CONFIRMATION MODAL --- */}
+      {archiveModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-6 mx-auto border border-gray-200">
+              <ArchiveX className="w-8 h-8 text-gray-600" />
+            </div>
+
+            <h3 className="text-2xl font-bold text-center text-gray-900 mb-2">
+              Archive Customer?
+            </h3>
+            <p className="text-center text-gray-500 mb-8 leading-relaxed">
+              Are you sure you want to archive{" "}
+              <strong className="text-gray-900">
+                {archiveModal.customerName}
+              </strong>
+              ? <br />
+              They will be hidden from this active ledger, but all their billing
+              and payment history will be safely preserved in the database.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() =>
+                  setArchiveModal({
+                    isOpen: false,
+                    customerId: null,
+                    customerName: "",
+                  })
+                }
+                disabled={isArchiving}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeArchive}
+                disabled={isArchiving}
+                className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-black transition-colors flex justify-center items-center gap-2 cursor-pointer shadow-md disabled:opacity-70"
+              >
+                {isArchiving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ArchiveX className="w-5 h-5" />
+                )}
+                Yes, Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- PAYMENT MODAL --- */}
       {paymentModal.isOpen && paymentModal.customer && (
@@ -214,7 +325,7 @@ export default function CustomerLedger({ customers, userId }) {
                 onClick={() =>
                   setPaymentModal({ isOpen: false, customer: null })
                 }
-                className="text-gray-400 hover:text-red-500 transition-colors"
+                className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -294,7 +405,7 @@ export default function CustomerLedger({ customers, userId }) {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex justify-center items-center gap-2 shadow-sm"
+                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex justify-center items-center gap-2 shadow-sm cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

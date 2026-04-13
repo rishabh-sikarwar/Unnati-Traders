@@ -13,12 +13,10 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(async (tx) => {
+      // 1. Check Source Shop
       const source = await tx.inventory.findUnique({
         where: {
-          productId_locationId: {
-            productId,
-            locationId: fromLocation,
-          },
+          productId_locationId: { productId, locationId: fromLocation },
         },
       });
 
@@ -26,34 +24,19 @@ export async function POST(req) {
         throw new Error("Not enough stock in source shop");
       }
 
-      // remove from source
+      // 2. Remove from Source
       await tx.inventory.update({
         where: {
-          productId_locationId: {
-            productId,
-            locationId: fromLocation,
-          },
+          productId_locationId: { productId, locationId: fromLocation },
         },
-        data: {
-          quantity: {
-            decrement: quantity,
-          },
-        },
+        data: { quantity: { decrement: quantity } },
       });
 
-      // add to destination
-      await tx.inventory.update({
-        where: {
-          productId_locationId: {
-            productId,
-            locationId: toLocation,
-          },
-        },
-        data: {
-          quantity: {
-            increment: quantity,
-          },
-        },
+      // 3. Add to Destination
+      await tx.inventory.upsert({
+        where: { productId_locationId: { productId, locationId: toLocation } },
+        update: { quantity: { increment: quantity } },
+        create: { productId, locationId: toLocation, quantity },
       });
     });
 

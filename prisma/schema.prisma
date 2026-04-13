@@ -22,7 +22,7 @@ model Location {
 
 model User {
   id        String   @id
-  email     String?   @unique
+  email     String?  @unique
   role      UserRole @default(VISITOR)
   fullName  String?
   mobile    String?
@@ -31,7 +31,7 @@ model User {
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id])
 
-  invoices Invoice[]
+  invoices  Invoice[]
   purchases Purchase[]
   returns   ReturnLog[]
 }
@@ -52,10 +52,10 @@ model Product {
   lowStock    Int      @default(5)
   createdAt   DateTime @default(now())
 
-  inventories  Inventory[]
-  invoiceItems InvoiceItem[]
+  inventories   Inventory[]
+  invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
-  returns      ReturnLog[]
+  returns       ReturnLog[]
 }
 
 model Inventory {
@@ -73,13 +73,14 @@ model Inventory {
 }
 
 model Customer {
-  id        String       @id @default(uuid())
-  type      CustomerType
-  name      String
-  phone     String?
-  gstNumber String?
-  address   String?
-  createdAt DateTime     @default(now())
+  id         String       @id @default(uuid())
+  type       CustomerType
+  name       String
+  phone      String?
+  gstNumber  String?
+  address    String?
+  isArchived Boolean      @default(false)
+  createdAt  DateTime     @default(now())
 
   invoices Invoice[]
   payments PaymentLog[]
@@ -120,7 +121,7 @@ model InvoiceItem {
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model PaymentLog {
@@ -134,38 +135,35 @@ model PaymentLog {
   userId      String?
 }
 
-
 model Purchase {
-  id            String   @id @default(uuid())
-  invoiceNumber String   // The official Apollo Invoice Number
-  supplierName  String   @default("Apollo Tyres")
+  id            String         @id @default(uuid())
+  invoiceNumber String // The official Apollo Invoice Number
+  supplierName  String         @default("Apollo Tyres")
   totalAmount   Float
   status        PurchaseStatus @default(COMPLETED)
-  createdAt     DateTime @default(now())
+  createdAt     DateTime       @default(now())
 
-  locationId    String
-  location      Location @relation(fields: [locationId], references: [id])
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
 
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 
-  items         PurchaseItem[]
+  items PurchaseItem[]
 }
-
 
 model PurchaseItem {
-  id          String   @id @default(uuid())
-  quantity    Int
-  unitCost    Float    // Buying price (Cost), not selling price
-  totalCost   Float
+  id        String @id @default(uuid())
+  quantity  Int
+  unitCost  Float // Buying price (Cost), not selling price
+  totalCost Float
 
-  purchaseId  String
-  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
-
 
 model ReturnLog {
   id           String          @id @default(uuid())
@@ -175,19 +173,18 @@ model ReturnLog {
   reason       String?
   createdAt    DateTime        @default(now())
 
-  customerId   String
-  customer     Customer        @relation(fields: [customerId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
-  productId    String
-  product      Product         @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 
-  locationId   String
-  location     Location        @relation(fields: [locationId], references: [id])
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
 
-  userId       String?
-  user         User?           @relation(fields: [userId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 }
-
 
 enum PurchaseStatus {
   COMPLETED
@@ -246,7 +243,7 @@ enum PaymentMode {
   RETURN_CREDIT
 }
 
-enum ReturnCondition{
+enum ReturnCondition {
   GOOD
   DEFECTIVE
 }

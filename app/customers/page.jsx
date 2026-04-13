@@ -18,6 +18,9 @@ export default async function CustomersPage() {
 
   // Fetch all customers, their invoices, and their payment logs
   const customers = await prisma.customer.findMany({
+    where: {
+      isArchived: false,
+    },
     include: {
       invoices: {
         select: { grandTotal: true, amountPaid: true },
