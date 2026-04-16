@@ -19,7 +19,7 @@ export default async function PurchasesPage() {
 
   // Fetch the master catalogue so Smart Search works
   const products = await prisma.product.findMany({
-    select: { id: true, modelName: true, size: true, sku: true },
+    select: { id: true, modelName: true, size: true, sku: true, basePrice: true },
     orderBy: { modelName: "asc" },
   });
 

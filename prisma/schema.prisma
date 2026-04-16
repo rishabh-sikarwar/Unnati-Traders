@@ -116,6 +116,7 @@ model InvoiceItem {
   quantity   Int
   unitPrice  Float
   totalPrice Float
+  tyreCode   String?
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)

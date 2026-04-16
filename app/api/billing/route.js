@@ -36,11 +36,14 @@ export async function POST(req) {
           name: customerInfo.name || "Walk-in Customer",
           phone: customerInfo.phone || null,
           address: customerInfo.address || null,
+          gstNumber: customerInfo.gstNumber || null,
         },
       });
 
       // 3. Generate Invoice Number
-      const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+     const shortTime = Date.now().toString().slice(-4);
+     const randomTag = Math.floor(Math.random() * 90) + 10;
+     const invoiceNumber = `INV-${shortTime}-${randomTag}`;
 
       // 4. Handle "Udhaar" Partial Payments
       const isCredit = customerInfo.paymentMode === "Credit";
@@ -69,6 +72,7 @@ export async function POST(req) {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice,
+              tyreCode: item.tyreCode || null, 
             })),
           },
         },
