@@ -38,6 +38,22 @@ export default async function BillingPage() {
     orderBy: { product: { modelName: "asc" } },
   });
 
+  //fetch existing B2B customers
+  const b2bCustomers = await prisma.customer.findMany({
+    where: {
+      type: { in: ["SUB_DEALER", "DISTRIBUTOR"] },
+      isArchived: false,
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      address: true,
+      gstNumber: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8 pt-28 md:pt-32">
       <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -57,6 +73,7 @@ export default async function BillingPage() {
           inventory={localInventory}
           locationId={dbUser.locationId}
           userId={dbUser.id}
+          b2bCustomers={b2bCustomers}
         />
       </div>
     </div>

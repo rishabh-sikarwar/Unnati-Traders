@@ -11,6 +11,7 @@ import {
   X,
   ArchiveX,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 
 export default function CustomerLedger({ customers, userId }) {
@@ -225,34 +226,43 @@ export default function CustomerLedger({ customers, userId }) {
                 </td>
 
                 {/* DYNAMIC ACTIONS */}
-                <td className="block md:table-cell md:p-4 md:text-right border-t md:border-none pt-4 md:pt-0">
-                  {c.outstandingDues > 0 ? (
-                    // IF THEY OWE MONEY: Show Settle Dues button
+                {/* DYNAMIC ACTIONS */}
+                <td className="block md:table-cell md:p-4 border-t md:border-none pt-4 md:pt-0">
+                  <div className="flex flex-col sm:flex-row md:justify-end gap-2">
+                    {/* NEW: View Detailed Ledger Button */}
                     <button
-                      onClick={() => {
-                        setPayAmount(c.outstandingDues);
-                        setPaymentModal({ isOpen: true, customer: c });
-                      }}
-                      className="w-full md:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                      onClick={() => router.push(`/customers/${c.id}`)}
+                      className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
                     >
-                      <HandCoins className="w-4 h-4" /> Settle Dues
+                      <FileText className="w-4 h-4" /> Statement
                     </button>
-                  ) : (
-                    // IF SETTLED: Show Archive Trigger
-                    <button
-                      onClick={() =>
-                        setArchiveModal({
-                          isOpen: true,
-                          customerId: c.id,
-                          customerName: c.name,
-                        })
-                      }
-                      className="w-full md:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                    >
-                      <ArchiveX className="w-4 h-4" />
-                      Archive Account
-                    </button>
-                  )}
+
+                    {c.outstandingDues > 0 ? (
+                      <button
+                        onClick={() => {
+                          setPayAmount(c.outstandingDues);
+                          setPaymentModal({ isOpen: true, customer: c });
+                        }}
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                      >
+                        <HandCoins className="w-4 h-4" /> Settle
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setArchiveModal({
+                            isOpen: true,
+                            customerId: c.id,
+                            customerName: c.name,
+                          })
+                        }
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                      >
+                        <ArchiveX className="w-4 h-4" />
+                        Archive
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -1,17 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Loader2, User, Truck, Receipt, Tag } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  User,
+  Truck,
+  Receipt,
+  Tag,
+  Building2,
+} from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
-export default function BillingForm({ inventory, locationId, userId }) {
+export default function BillingForm({
+  inventory,
+  locationId,
+  userId,
+  b2bCustomers,
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Added gstNumber to state
+  // Added 'id' to state to track if they selected an existing dealer
   const [customer, setCustomer] = useState({
+    id: null,
     b2b: false,
     name: "",
     phone: "",
@@ -19,6 +34,10 @@ export default function BillingForm({ inventory, locationId, userId }) {
     gstNumber: "",
     paymentMode: "Cash",
   });
+
+  // Smart Dropdown State
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   const [initialPayment, setInitialPayment] = useState("");
   const [cart, setCart] = useState([]);
@@ -43,7 +62,38 @@ export default function BillingForm({ inventory, locationId, userId }) {
     [cart],
   );
 
-  // Added tyreCode to the initial item state
+  // --- SMART AUTOCOMPLETE LOGIC ---
+  const filteredB2BCustomers = useMemo(() => {
+    if (!customer.name) return b2bCustomers;
+    return b2bCustomers.filter((c) =>
+      c.name.toLowerCase().includes(customer.name.toLowerCase()),
+    );
+  }, [customer.name, b2bCustomers]);
+
+  const handleCustomerSelect = (selectedCustomer) => {
+    setCustomer({
+      ...customer,
+      id: selectedCustomer.id,
+      name: selectedCustomer.name,
+      phone: selectedCustomer.phone || "",
+      address: selectedCustomer.address || "",
+      gstNumber: selectedCustomer.gstNumber || "",
+    });
+    setShowDropdown(false);
+  };
+
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  // --------------------------------
+
   const addItem = () => {
     setCart([
       {
@@ -136,7 +186,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
           quantity: qty,
           unitPrice: Number(item.unitPrice),
           totalPrice: qty * Number(item.unitPrice),
-          tyreCode: item.tyreCode, // Send the tyre code to API
+          tyreCode: item.tyreCode,
         };
       });
 
@@ -147,7 +197,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerInfo: { ...customer, initialPayment: initialPayment },
+          customerInfo: { ...customer, initialPayment: initialPayment }, // Sends customer.id if selected!
           items: formattedItems,
           locationId,
           userId,
@@ -189,6 +239,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
                 onClick={() =>
                   setCustomer({
                     ...customer,
+                    id: null,
                     b2b: !customer.b2b,
                     gstNumber: "",
                   })
@@ -208,20 +259,60 @@ export default function BillingForm({ inventory, locationId, userId }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            {/* SMART AUTOCOMPLETE FIELD */}
+            <div className="relative" ref={dropdownRef}>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                Customer Name
+                {customer.b2b ? "Dealer Shop Name" : "Customer Name"}
               </label>
               <input
                 required
                 value={customer.name}
-                onChange={(e) =>
-                  setCustomer({ ...customer, name: e.target.value })
+                onFocus={() => customer.b2b && setShowDropdown(true)}
+                onChange={(e) => {
+                  // If they type manually, clear the 'id' so it creates a new customer
+                  setCustomer({ ...customer, name: e.target.value, id: null });
+                  if (customer.b2b) setShowDropdown(true);
+                }}
+                className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all ${customer.id ? "bg-purple-50 border-purple-300 font-bold text-[#522874]" : "border-gray-300"}`}
+                placeholder={
+                  customer.b2b ? "Search existing dealer..." : "e.g. Rahul"
                 }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
-                placeholder="e.g. Unnati Traders"
+                autoComplete="off"
               />
+
+              {/* DROPDOWN MENU */}
+              {customer.b2b && showDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                  {filteredB2BCustomers.length > 0 ? (
+                    filteredB2BCustomers.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => handleCustomerSelect(c)}
+                        className="px-4 py-3 hover:bg-purple-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-bold text-gray-800">
+                            {c.name}
+                          </div>
+                          {c.phone && (
+                            <div className="text-xs text-gray-500">
+                              {c.phone}
+                            </div>
+                          )}
+                        </div>
+                        <Building2 className="w-4 h-4 text-gray-400" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 italic flex items-center gap-2">
+                      <Plus className="w-4 h-4" /> Create new dealer: "
+                      {customer.name}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                 Phone Number
@@ -237,6 +328,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
               />
             </div>
 
+            {customer.b2b && (
               <div className="sm:col-span-2 animate-in fade-in zoom-in duration-300">
                 <label className="block text-xs font-bold text-[#522874] uppercase mb-1">
                   GST Number (Optional)
@@ -253,7 +345,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
                   placeholder="23XXXXX..."
                 />
               </div>
-            
+            )}
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
@@ -302,7 +394,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
               const maxStock = selectedInv ? selectedInv.quantity : 0;
               const lineTotal =
                 (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
-
               const availableInventory = searchableInventory.filter(
                 (inv) =>
                   !selectedInventoryIds.includes(inv.id) ||
@@ -318,7 +409,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                       Select Tyre
                     </label>
-                    {/* NO AUTO PRICING HERE */}
                     <SmartTyreSelector
                       products={availableInventory}
                       selectedProductId={item.inventoryId}
@@ -328,7 +418,6 @@ export default function BillingForm({ inventory, locationId, userId }) {
                     />
                   </div>
 
-                  {/* NEW WARRANTY CODE INPUT */}
                   <div className="w-full relative">
                     <label className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase mb-1">
                       <Tag className="w-3 h-3" /> Unique Tyre Code / Serial No.
@@ -345,7 +434,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
                         )
                       }
                       className="w-full px-3 py-2 border border-orange-200 bg-orange-50/50 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm uppercase placeholder-gray-400"
-                      placeholder="e.g. AP12345 (Comma separate for multiple qty)"
+                      placeholder="e.g. AP12345"
                     />
                   </div>
 
@@ -404,7 +493,7 @@ export default function BillingForm({ inventory, locationId, userId }) {
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Invoice Summary (Remains Unchanged) */}
+      {/* RIGHT COLUMN: Invoice Summary */}
       <div className="space-y-6">
         <div className="bg-[#3d1d56] text-white p-6 md:p-8 rounded-xl shadow-lg lg:sticky lg:top-28 border border-[#522874]">
           <h2 className="text-lg font-bold flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
