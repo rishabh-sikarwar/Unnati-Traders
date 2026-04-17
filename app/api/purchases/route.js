@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { maxTime } from "date-fns/constants";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
@@ -54,7 +55,10 @@ export async function POST(req) {
       }
 
       return purchase;
-    });
+    }, {
+      maxTime: 5000, // Set a maximum time for the transaction to prevent hanging,
+      timeout: 20000,
+    } );
 
     return NextResponse.json({ success: true, purchaseId: result.id });
   } catch (error) {
