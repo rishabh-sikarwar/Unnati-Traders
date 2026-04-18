@@ -24,10 +24,9 @@ export default function BillingForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Added 'id' to state to track if they selected an existing dealer
   const [customer, setCustomer] = useState({
     id: null,
-    b2b: false,
+    b2b: true, // FIX: Defaulting to true (B2B Dealer)
     name: "",
     phone: "",
     address: "",
@@ -35,7 +34,6 @@ export default function BillingForm({
     paymentMode: "Cash",
   });
 
-  // Smart Dropdown State
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -62,7 +60,6 @@ export default function BillingForm({
     [cart],
   );
 
-  // --- SMART AUTOCOMPLETE LOGIC ---
   const filteredB2BCustomers = useMemo(() => {
     if (!customer.name) return b2bCustomers;
     return b2bCustomers.filter((c) =>
@@ -82,7 +79,6 @@ export default function BillingForm({
     setShowDropdown(false);
   };
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -92,7 +88,6 @@ export default function BillingForm({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  // --------------------------------
 
   const addItem = () => {
     setCart([
@@ -111,6 +106,26 @@ export default function BillingForm({
     const newCart = cart.map((item) =>
       item.rowId === id ? { ...item, [field]: value } : item,
     );
+    setCart(newCart);
+  };
+
+  // --- FIX: Auto-Pricing Logic Restored ---
+  const handleInventorySelect = (rowId, inventoryId) => {
+    const selectedInv = inventory.find((i) => i.id === inventoryId);
+
+    const newCart = cart.map((item) => {
+      if (item.rowId === rowId) {
+        return {
+          ...item,
+          inventoryId: inventoryId,
+          // Auto-fill the price! Since it sets the state, you can still edit it in the input box manually.
+          unitPrice: selectedInv?.product
+            ? selectedInv.product.basePrice
+            : item.unitPrice,
+        };
+      }
+      return item;
+    });
     setCart(newCart);
   };
 
@@ -197,7 +212,7 @@ export default function BillingForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerInfo: { ...customer, initialPayment: initialPayment }, // Sends customer.id if selected!
+          customerInfo: { ...customer, initialPayment: initialPayment },
           items: formattedItems,
           locationId,
           userId,
@@ -269,7 +284,6 @@ export default function BillingForm({
                 value={customer.name}
                 onFocus={() => customer.b2b && setShowDropdown(true)}
                 onChange={(e) => {
-                  // If they type manually, clear the 'id' so it creates a new customer
                   setCustomer({ ...customer, name: e.target.value, id: null });
                   if (customer.b2b) setShowDropdown(true);
                 }}
@@ -280,7 +294,6 @@ export default function BillingForm({
                 autoComplete="off"
               />
 
-              {/* DROPDOWN MENU */}
               {customer.b2b && showDropdown && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                   {filteredB2BCustomers.length > 0 ? (
@@ -412,9 +425,7 @@ export default function BillingForm({
                     <SmartTyreSelector
                       products={availableInventory}
                       selectedProductId={item.inventoryId}
-                      onSelect={(val) =>
-                        updateItem(item.rowId, "inventoryId", val)
-                      }
+                      onSelect={(val) => handleInventorySelect(item.rowId, val)} // FIX: Using handleInventorySelect to auto-fetch price
                     />
                   </div>
 
