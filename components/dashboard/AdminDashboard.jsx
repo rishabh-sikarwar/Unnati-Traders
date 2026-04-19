@@ -14,7 +14,8 @@ import {
   Loader2,
   PackagePlus,
   FileBarChart2,
-  Undo2, // IMPORT THE NEW ICON
+  Undo2,
+  Truck, // IMPORT THE NEW ICON
 } from "lucide-react";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard"; 
 
@@ -171,6 +172,12 @@ const AdminDashboard = () => {
               title: "Tyre Return",
               icon: Undo2,
               href: "/returns",
+              color: "text-rose-600",
+            },
+            {
+              title: "Purchase Statement",
+              icon: Truck,
+              href: "/purchases/ledger",
               color: "text-rose-600",
             },
           ].map((card, idx) => (
