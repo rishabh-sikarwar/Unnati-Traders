@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Search,
   CalendarDays,
@@ -10,32 +10,87 @@ import {
   ChevronRight,
   X,
   Package,
+  Filter,
 } from "lucide-react";
+import { format, subDays, isAfter } from "date-fns";
 
-export default function PurchaseList({ purchases }) {
+export default function PurchaseList({ purchases, locations = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState(null);
 
-  // Filter purchases by invoice number or supplier name
-  const filteredPurchases = purchases.filter(
-    (p) =>
-      p.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.supplierName.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // Filters
+  const [dateFilter, setDateFilter] = useState("ALL");
+  const [shopFilter, setShopFilter] = useState("ALL");
+
+  const filteredPurchases = useMemo(() => {
+    const now = new Date();
+
+    return purchases.filter((p) => {
+      // Text Search
+      const query = searchQuery.toLowerCase();
+      const invMatch = p.invoiceNumber.toLowerCase().includes(query);
+      const supMatch = p.supplierName.toLowerCase().includes(query);
+      if (searchQuery && !invMatch && !supMatch) return false;
+
+      // Date Filter
+      if (dateFilter !== "ALL") {
+        const cutoffDate = subDays(now, parseInt(dateFilter));
+        if (!isAfter(new Date(p.createdAt), cutoffDate)) return false;
+      }
+
+      // Shop Filter
+      if (shopFilter !== "ALL") {
+        if (p.locationId !== shopFilter) return false;
+      }
+
+      return true;
+    });
+  }, [purchases, searchQuery, dateFilter, shopFilter]);
 
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      {/* TOOLBAR: SEARCH & FILTERS */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search by Invoice No. or Supplier Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all bg-gray-50"
+            className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all bg-gray-50 font-medium text-gray-800"
           />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 text-gray-400 font-bold text-xs uppercase tracking-widest pl-2">
+            <Filter className="w-4 h-4" /> Filters:
+          </div>
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+          >
+            <option value="ALL">All Time</option>
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+          </select>
+
+          {locations.length > 0 && (
+            <select
+              value={shopFilter}
+              onChange={(e) => setShopFilter(e.target.value)}
+              className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+            >
+              <option value="ALL">All Shops</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -59,7 +114,10 @@ export default function PurchaseList({ purchases }) {
                     colSpan="5"
                     className="py-12 text-center text-gray-400 font-medium"
                   >
-                    No purchase records found.
+                    <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <p className="font-bold text-gray-700 text-lg">
+                      No purchases match your filters.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -81,13 +139,9 @@ export default function PurchaseList({ purchases }) {
                         </div>
                         <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
                           <CalendarDays className="w-3 h-3" />
-                          {new Date(purchase.createdAt).toLocaleDateString(
-                            "en-IN",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            },
+                          {format(
+                            new Date(purchase.createdAt),
+                            "dd MMM yyyy, hh:mm a",
                           )}
                         </div>
                       </td>
@@ -112,7 +166,7 @@ export default function PurchaseList({ purchases }) {
                       </td>
 
                       {/* Total Amount */}
-                      <td className="py-4 px-6 text-right font-black text-gray-900 text-lg">
+                      <td className="py-4 px-6 text-right font-black text-green-600 text-lg">
                         ₹
                         {purchase.totalAmount.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
@@ -138,12 +192,12 @@ export default function PurchaseList({ purchases }) {
         </div>
       </div>
 
-      {/* --- DETAILED VIEW MODAL --- */}
+      {/* DETAILED VIEW MODAL REMAINS UNCHANGED */}
       {selectedPurchase && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="flex justify-between items-start p-6 border-b border-gray-100 bg-[#1a0a2e] text-white">
+            <div className="flex justify-between items-start p-6 border-b border-gray-100 bg-[#1a0a2e] text-white shrink-0">
               <div>
                 <h3 className="text-xl font-black mb-1">
                   Purchase Invoice Details
@@ -152,8 +206,9 @@ export default function PurchaseList({ purchases }) {
                   <span>{selectedPurchase.invoiceNumber}</span>
                   <span>|</span>
                   <span>
-                    {new Date(selectedPurchase.createdAt).toLocaleDateString(
-                      "en-IN",
+                    {format(
+                      new Date(selectedPurchase.createdAt),
+                      "dd MMM yyyy, hh:mm a",
                     )}
                   </span>
                 </p>
@@ -166,9 +221,8 @@ export default function PurchaseList({ purchases }) {
               </button>
             </div>
 
-            {/* Modal Body (Scrollable) */}
+            {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
-              {/* Info Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                   <p className="text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
@@ -196,7 +250,6 @@ export default function PurchaseList({ purchases }) {
                 </div>
               </div>
 
-              {/* Items List */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -215,7 +268,7 @@ export default function PurchaseList({ purchases }) {
                     {selectedPurchase.items.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-b border-gray-100 last:border-0"
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                       >
                         <td className="py-4 px-4">
                           <div className="font-bold text-gray-900">
@@ -225,16 +278,16 @@ export default function PurchaseList({ purchases }) {
                             Size: {item.product.size} | SKU: {item.product.sku}
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-center font-bold text-gray-800">
+                        <td className="py-4 px-4 text-center font-black text-gray-800 text-lg">
                           {item.quantity}
                         </td>
-                        <td className="py-4 px-4 text-right text-gray-600">
+                        <td className="py-4 px-4 text-right text-gray-600 font-medium">
                           ₹
                           {item.unitCost.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}
                         </td>
-                        <td className="py-4 px-4 text-right font-black text-gray-900">
+                        <td className="py-4 px-4 text-right font-black text-gray-900 text-lg">
                           ₹
                           {item.totalCost.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
@@ -252,7 +305,7 @@ export default function PurchaseList({ purchases }) {
               <span className="font-bold text-gray-500 uppercase tracking-widest text-sm">
                 Grand Total
               </span>
-              <span className="text-2xl font-black text-green-600">
+              <span className="text-3xl font-black text-green-600">
                 ₹
                 {selectedPurchase.totalAmount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,

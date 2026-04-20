@@ -199,7 +199,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* PLUG IN THE CLEAN SEPARATED ANALYTICS COMPONENT */}
-        {dashboardData && <AnalyticsDashboard dashboardData={dashboardData} />}
+        {dashboardData && <AnalyticsDashboard dashboardData={dashboardData} locations={dashboardData?.locations} />}
       </div>
     </div>
   );

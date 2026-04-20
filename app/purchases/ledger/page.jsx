@@ -14,6 +14,10 @@ export default async function PurchaseLedgerPage() {
     where: { id: clerkUser.id },
   });
 
+  const locations = await prisma.location.findMany({
+    orderBy: { name: "asc" },
+  })
+
   if (!dbUser || (dbUser.role !== "ADMIN" && dbUser.role !== "SHOPKEEPER")) {
     redirect("/dashboard");
   }
@@ -48,7 +52,7 @@ export default async function PurchaseLedgerPage() {
           </p>
         </div>
 
-        <PurchaseList purchases={purchases} />
+        <PurchaseList purchases={purchases} locations={locations} />
       </div>
     </div>
   );

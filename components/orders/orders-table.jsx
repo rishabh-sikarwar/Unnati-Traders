@@ -1,35 +1,123 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Printer, FileText, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { Search, Printer, FileText, Loader2, Filter } from "lucide-react";
+import { format, subDays, isAfter } from "date-fns";
 
-export default function OrdersTable({ initialOrders, userRole }) {
+export default function OrdersTable({
+  initialOrders,
+  userRole,
+  locations = [],
+}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingOrderId, setLoadingOrderId] = useState(null);
 
-  const filteredOrders = initialOrders.filter((order) => {
-    const query = searchQuery.toLowerCase();
-    const invMatch = order.invoiceNumber.toLowerCase().includes(query);
-    const nameMatch = order.customer?.name?.toLowerCase().includes(query);
-    const phoneMatch = order.customer?.phone?.toLowerCase().includes(query);
+  // New Filter States
+  const [dateFilter, setDateFilter] = useState("ALL"); // ALL, 7, 30, 90
+  const [shopFilter, setShopFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, B2B, B2C
 
-    return invMatch || nameMatch || phoneMatch;
-  });
+  const filteredOrders = useMemo(() => {
+    const now = new Date();
+
+    return initialOrders.filter((order) => {
+      // 1. Text Search
+      const query = searchQuery.toLowerCase();
+      const invMatch = order.invoiceNumber.toLowerCase().includes(query);
+      const nameMatch = order.customer?.name?.toLowerCase().includes(query);
+      const phoneMatch = order.customer?.phone?.toLowerCase().includes(query);
+      if (searchQuery && !invMatch && !nameMatch && !phoneMatch) return false;
+
+      // 2. Date Filter
+      if (dateFilter !== "ALL") {
+        const cutoffDate = subDays(now, parseInt(dateFilter));
+        if (!isAfter(new Date(order.createdAt), cutoffDate)) return false;
+      }
+
+      // 3. Shop Filter (Only applicable if Admin)
+      if (userRole === "ADMIN" && shopFilter !== "ALL") {
+        if (order.locationId !== shopFilter) return false;
+      }
+
+      // 4. B2B / Retail Filter
+      if (typeFilter !== "ALL") {
+        const isB2B =
+          order.customer?.type === "SUB_DEALER" ||
+          order.customer?.type === "DISTRIBUTOR";
+        if (typeFilter === "B2B" && !isB2B) return false;
+        if (typeFilter === "B2C" && isB2B) return false;
+      }
+
+      return true;
+    });
+  }, [
+    initialOrders,
+    searchQuery,
+    dateFilter,
+    shopFilter,
+    typeFilter,
+    userRole,
+  ]);
 
   return (
     <div className="space-y-6">
-      {/* SEARCH BAR */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center relative">
-        <Search className="w-5 h-5 text-gray-400 absolute left-7" />
-        <input
-          type="text"
-          placeholder="Search by Invoice Number, Customer Name, or Phone..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border-none outline-none focus:ring-0 text-gray-700 font-medium bg-transparent"
-        />
+      {/* TOOLBAR: SEARCH & FILTERS */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search Invoice, Customer, or Phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#522874] transition-all font-medium text-gray-700"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 text-gray-400 font-bold text-xs uppercase tracking-widest pl-2">
+            <Filter className="w-4 h-4" /> Filters:
+          </div>
+
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+          >
+            <option value="ALL">All Time</option>
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+          >
+            <option value="ALL">All Sales (B2B + B2C)</option>
+            <option value="B2B">B2B (Dealers Only)</option>
+            <option value="B2C">B2C (Retail Only)</option>
+          </select>
+
+          {userRole === "ADMIN" && locations.length > 0 && (
+            <select
+              value={shopFilter}
+              onChange={(e) => setShopFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+            >
+              <option value="ALL">All Shops</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* MOBILE-RESPONSIVE ORDERS TABLE */}
@@ -69,9 +157,11 @@ export default function OrdersTable({ initialOrders, userRole }) {
                   className="block md:table-cell p-10 text-center text-gray-500"
                 >
                   <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="font-bold">No invoices found.</p>
-                  <p className="text-sm">
-                    Generate a bill in the Billing section to see it here.
+                  <p className="font-bold text-gray-700 text-lg">
+                    No invoices match your filters.
+                  </p>
+                  <p className="text-sm mt-1">
+                    Try adjusting your search or date range.
                   </p>
                 </td>
               </tr>
@@ -79,7 +169,7 @@ export default function OrdersTable({ initialOrders, userRole }) {
               filteredOrders.map((order) => (
                 <tr
                   key={order.id}
-                  className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
+                  className="block md:table-row border-b border-gray-100 hover:bg-purple-50/20 transition-colors p-4 md:p-0"
                 >
                   {/* DATE */}
                   <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
@@ -105,16 +195,12 @@ export default function OrdersTable({ initialOrders, userRole }) {
                         Invoice:
                       </span>
                       <div className="text-right md:text-left">
-                        <div className="font-bold text-[#522874]">
+                        <div className="font-black text-[#522874]">
                           {order.invoiceNumber}
                         </div>
-                        <div className="text-xs text-gray-500 font-medium mt-0.5">
-                          {order._count.items}{" "}
-                          {order._count.items === 1 ? "Item" : "Items"}
+                        <div className="text-xs text-gray-500 font-bold mt-0.5 bg-gray-100 w-fit px-2 py-0.5 rounded">
+                          {order._count?.items || 0} Items
                         </div>
-                        <span className="inline-block mt-1 md:mt-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-black rounded uppercase tracking-wider">
-                          {order.status}
-                        </span>
                       </div>
                     </div>
                   </td>
@@ -127,13 +213,14 @@ export default function OrdersTable({ initialOrders, userRole }) {
                       </span>
                       <div className="text-right md:text-left">
                         <div className="font-bold text-gray-900">
-                          {order.customer?.name || "Walk-in"}
+                          {order.customer?.name || "Walk-in Customer"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
                           {order.customer?.phone || "No Phone"}
                         </div>
-                        {order.customer?.type === "SUB_DEALER" && (
-                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded">
+                        {(order.customer?.type === "SUB_DEALER" ||
+                          order.customer?.type === "DISTRIBUTOR") && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 text-[9px] font-black rounded uppercase tracking-wider">
                             B2B DEALER
                           </span>
                         )}
@@ -148,7 +235,7 @@ export default function OrdersTable({ initialOrders, userRole }) {
                         <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
                           Shop:
                         </span>
-                        <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded uppercase tracking-wide">
+                        <span className="text-xs font-bold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-1 rounded uppercase tracking-wide">
                           {order.location?.name || "Unknown"}
                         </span>
                       </div>
@@ -182,7 +269,9 @@ export default function OrdersTable({ initialOrders, userRole }) {
                       ) : (
                         <Printer className="w-4 h-4" />
                       )}
-                      {loadingOrderId === order.id ? "Loading..." : "View / Print"}
+                      {loadingOrderId === order.id
+                        ? "Loading..."
+                        : "View Receipt"}
                     </Link>
                   </td>
                 </tr>

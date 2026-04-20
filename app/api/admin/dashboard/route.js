@@ -1,27 +1,72 @@
 import { prisma } from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req) {
   try {
-    // 1. GLOBAL METRICS
+    const clerkUser = await currentUser();
+    if (!clerkUser)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const user = await prisma.user.findUnique({
+      where: { id: clerkUser.id },
+      include: { location: true },
+    });
+
+    const locations = await prisma.location.findMany({
+      select: { id: true, name: true },
+    });
+
+    // --- 1. PARSE FILTERS FROM URL ---
+    const { searchParams } = new URL(req.url);
+    const days = parseInt(searchParams.get("days")) || 30;
+    const urlLocationId = searchParams.get("locationId");
+
+    let locationId;
+
+    if (urlLocationId) {
+      locationId = urlLocationId;
+    } else if (user?.locationId) {
+      locationId = user.locationId;
+    } else {
+      locationId = "ALL";
+    }
+
+    // Calculate the cutoff date
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Build the dynamic WHERE clauses
+    const dateFilter = { gte: cutoffDate };
+    const locationFilter = locationId !== "ALL" ? { locationId } : {};
+
+    const baseWhere = {
+      createdAt: dateFilter,
+      ...locationFilter,
+    };
+
+    // --- 2. GLOBAL METRICS (Filtered) ---
     const sales = await prisma.invoice.aggregate({
       _sum: { grandTotal: true },
-      where: { status: "COMPLETED" },
+      where: { status: "COMPLETED", ...baseWhere },
     });
 
     const purchases = await prisma.purchase.aggregate({
       _sum: { totalAmount: true },
+      where: baseWhere,
     });
 
     const orders = await prisma.invoice.count({
-      where: { status: "COMPLETED" },
-    });
-    const stock = await prisma.inventory.aggregate({
-      _sum: { quantity: true },
+      where: { status: "COMPLETED", ...baseWhere },
     });
 
-    // 2. REVENUE VS PURCHASES (Last 6 Months Logic)
-    // Generate the last 6 months array to ensure the chart is always full, even with 0 sales
+    // Stock ignores the date filter, but respects the location filter!
+    const stock = await prisma.inventory.aggregate({
+      _sum: { quantity: true },
+      where: locationId !== "ALL" ? { locationId } : {},
+    });
+
+    // --- 3. REVENUE VS PURCHASES (Bar Chart) ---
+    // We keep the 6-month visual structure, but strictly filter the data by Location
     const last6Months = Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -36,9 +81,15 @@ export async function GET() {
       monthlyDataMap[month] = { month, sales: 0, purchases: 0 };
     });
 
-    // Fetch and map Sales
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
     const recentInvoices = await prisma.invoice.findMany({
-      where: { status: "COMPLETED" },
+      where: {
+        status: "COMPLETED",
+        createdAt: { gte: sixMonthsAgo },
+        ...locationFilter,
+      },
       select: { grandTotal: true, createdAt: true },
     });
     recentInvoices.forEach((inv) => {
@@ -48,8 +99,8 @@ export async function GET() {
       if (monthlyDataMap[month]) monthlyDataMap[month].sales += inv.grandTotal;
     });
 
-    // Fetch and map Purchases
     const recentPurchases = await prisma.purchase.findMany({
+      where: { createdAt: { gte: sixMonthsAgo }, ...locationFilter },
       select: { totalAmount: true, createdAt: true },
     });
     recentPurchases.forEach((pur) => {
@@ -62,17 +113,14 @@ export async function GET() {
 
     const salesData = Object.values(monthlyDataMap);
 
-    // 3. DYNAMIC CATEGORY DATA (Revenue per Category)
-    // Fetch all items from completed invoices, including their product's category
+    // --- 4. DYNAMIC CATEGORY DATA (Pie Chart - Filtered) ---
     const invoiceItems = await prisma.invoiceItem.findMany({
-      where: { invoice: { status: "COMPLETED" } },
+      where: { invoice: { status: "COMPLETED", ...baseWhere } },
       include: { product: { select: { category: true } } },
     });
 
-    // Aggregate revenue by category
     const categoryRevenueMap = {};
     invoiceItems.forEach((item) => {
-      // Convert ENUM like "TWO_WHEELER" to readable "Two Wheeler"
       const rawCategory = item.product.category || "GENERAL";
       const cleanCategory = rawCategory
         .replace(/_/g, " ")
@@ -82,15 +130,10 @@ export async function GET() {
         (categoryRevenueMap[cleanCategory] || 0) + item.totalPrice;
     });
 
-    // Convert map to array, sort highest to lowest
     let categoryData = Object.keys(categoryRevenueMap)
-      .map((key) => ({
-        name: key,
-        value: categoryRevenueMap[key],
-      }))
+      .map((key) => ({ name: key, value: categoryRevenueMap[key] }))
       .sort((a, b) => b.value - a.value);
 
-    // If there are more than 5 categories, bundle the rest into "Other" to keep the pie chart clean
     if (categoryData.length > 5) {
       const top5 = categoryData.slice(0, 5);
       const othersValue = categoryData
@@ -103,12 +146,15 @@ export async function GET() {
     return NextResponse.json({
       summary: {
         totalSales: sales._sum.grandTotal || 0,
-        totalPurchases: purchases._sum.totalAmount || 0, // Now dynamic!
+        totalPurchases: purchases._sum.totalAmount || 0,
         totalOrders: orders,
         totalStock: stock._sum.quantity || 0,
       },
       salesData,
       categoryData,
+      user,
+      defaultLocationId: locationId,
+      locations,
     });
   } catch (error) {
     console.error("Dashboard API Error:", error);

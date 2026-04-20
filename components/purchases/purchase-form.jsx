@@ -112,7 +112,7 @@ export default function PurchaseForm({ products, locations, userId }) {
       if (!res.ok) throw new Error("Failed to inward stock");
 
       toast.success("Stock Inwarded Successfully!", { id: loadingToast });
-      router.push("/admin/dashboard");
+      router.push("/dashboard");
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
       setLoading(false);

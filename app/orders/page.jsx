@@ -10,6 +10,10 @@ export default async function OrdersPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
+  const locations = await prisma.location.findMany({
+    orderBy: { name: "asc" },
+  });
+
   const dbUser = await prisma.user.findUnique({
     where: { id: clerkUser.id },
     include: { location: true },
@@ -78,7 +82,7 @@ export default async function OrdersPage() {
         </div>
 
         {/* Pass data to the interactive client table */}
-        <OrdersTable initialOrders={invoices} userRole={dbUser.role} />
+        <OrdersTable initialOrders={invoices} userRole={dbUser.role} locations={locations} />
       </div>
     </div>
   );
