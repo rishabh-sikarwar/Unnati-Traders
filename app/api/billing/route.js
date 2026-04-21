@@ -4,56 +4,72 @@ import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { customerInfo, items, locationId, userId, totals } = body;
+    const { customerInfo, items, locationId, userId, totals } =
+      await req.json();
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Verify Stock Levels
+      // 1. Verify Stock
       for (const item of items) {
         const inventory = await tx.inventory.findUnique({
           where: {
             productId_locationId: { productId: item.productId, locationId },
           },
         });
-
-        if (!inventory || inventory.quantity < item.quantity) {
+        if (!inventory || inventory.quantity < item.quantity)
           throw new Error(`Insufficient stock for ${item.modelName}.`);
-        }
       }
 
-      // 2. Create Customer
-      const customer = await tx.customer.create({
-        data: {
-          type: customerInfo.b2b ? "SUB_DEALER" : "RETAIL",
-          name: customerInfo.name || "Walk-in Customer",
-          phone: customerInfo.phone || null,
-          address: customerInfo.address || null,
-          gstNumber: customerInfo.gstNumber || null,
-        },
-      });
+      // 2. Link or Create Customer
+      let dbCustomer;
+      if (customerInfo.id) {
+        dbCustomer = await tx.customer.update({
+          where: { id: customerInfo.id },
+          data: {
+            phone: customerInfo.phone || null,
+            address: customerInfo.address || null,
+            gstNumber: customerInfo.gstNumber || null,
+          },
+        });
+      } else {
+        dbCustomer = await tx.customer.create({
+          data: {
+            type: customerInfo.b2b ? "SUB_DEALER" : "RETAIL",
+            name: customerInfo.name || "Walk-in Customer",
+            phone: customerInfo.phone || null,
+            address: customerInfo.address || null,
+            gstNumber: customerInfo.gstNumber || null,
+          },
+        });
+      }
 
-      // 3. Generate Invoice Number
-     const shortTime = Date.now().toString().slice(-4);
-     const randomTag = Math.floor(Math.random() * 90) + 10;
-     const invoiceNumber = `INV-${shortTime}-${randomTag}`;
+      // 3. Generate Clean Invoice Number
+      const invoiceNumber = `INV-${Date.now().toString().slice(-4)}-${Math.floor(Math.random() * 90) + 10}`;
 
-      // 4. Handle "Udhaar" Partial Payments
+      // 4. SMART PAYMENT LOGIC (Handles Splits!)
       const isCredit = customerInfo.paymentMode === "Credit";
-      // If Udhaar, use the partial payment amount. Otherwise, they paid the full Grand Total.
-      const actualAmountPaid = isCredit
-        ? Number(customerInfo.initialPayment) || 0
-        : totals.grandTotal;
-      const modeEnum = customerInfo.paymentMode.toUpperCase();
+      const isMultiple = customerInfo.paymentMode === "Multiple";
+      let actualAmountPaid = totals.grandTotal;
 
-      // 5. Create the Invoice
+      if (isCredit) {
+        actualAmountPaid = Number(customerInfo.initialPayment) || 0;
+      } else if (isMultiple) {
+        const splits = customerInfo.splitPayments;
+        actualAmountPaid =
+          (Number(splits.cash) || 0) +
+          (Number(splits.upi) || 0) +
+          (Number(splits.card) || 0);
+      }
+
+      const modeEnum = isMultiple
+        ? "MULTIPLE"
+        : customerInfo.paymentMode.toUpperCase();
+
+      // 5. Create Invoice
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber,
@@ -61,25 +77,71 @@ export async function POST(req) {
           totalGst: totals.totalGst,
           grandTotal: totals.grandTotal,
           paymentMode: modeEnum,
-          amountPaid: actualAmountPaid, // FIXED: Changed from upfrontPayment to amountPaid
+          amountPaid: actualAmountPaid,
           status: "COMPLETED",
-          customerId: customer.id,
-          locationId: locationId,
-          userId: userId,
+          customerId: dbCustomer.id,
+          locationId,
+          userId,
           items: {
             create: items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice,
-              tyreCode: item.tyreCode || null, 
+              tyreCode: item.tyreCode || null,
             })),
           },
         },
         include: { location: true },
       });
 
-      // 6. Deduct from Inventory
+      // 6. Create Detailed Payment Logs for CA!
+      if (isMultiple) {
+        const splits = customerInfo.splitPayments;
+        if (Number(splits.cash) > 0)
+          await tx.paymentLog.create({
+            data: {
+              amount: Number(splits.cash),
+              paymentMode: "CASH",
+              customerId: dbCustomer.id,
+              userId,
+              remarks: `Split Payment for ${invoiceNumber}`,
+            },
+          });
+        if (Number(splits.upi) > 0)
+          await tx.paymentLog.create({
+            data: {
+              amount: Number(splits.upi),
+              paymentMode: "UPI",
+              customerId: dbCustomer.id,
+              userId,
+              remarks: `Split Payment for ${invoiceNumber}`,
+            },
+          });
+        if (Number(splits.card) > 0)
+          await tx.paymentLog.create({
+            data: {
+              amount: Number(splits.card),
+              paymentMode: "CARD",
+              customerId: dbCustomer.id,
+              userId,
+              remarks: `Split Payment for ${invoiceNumber}`,
+            },
+          });
+      } else if (actualAmountPaid > 0) {
+        // Standard single payment log
+        await tx.paymentLog.create({
+          data: {
+            amount: actualAmountPaid,
+            paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
+            customerId: dbCustomer.id,
+            userId,
+            remarks: `Payment for ${invoiceNumber}`,
+          },
+        });
+      }
+
+      // 7. Deduct Inventory
       for (const item of items) {
         await tx.inventory.update({
           where: {
@@ -93,12 +155,18 @@ export async function POST(req) {
     });
 
     // --- ASYNCHRONOUS EMAIL NOTIFICATION ---
+    const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://unnati-traders.vercel.app"}/billing/receipt/${result.id}`;
+
     const mailOptions = {
       from: `"Unnati Traders ERP" <${process.env.EMAIL_USER}>`,
-      to: ["binaybhadoria@gmail.com", "neeluchouhan222@gmail.com", "rishabhsikarwar200@gmail.com"],
+      to: [
+        "binaybhadoria@gmail.com",
+        "neeluchouhan222@gmail.com",
+        "rishabhsikarwar200@gmail.com",
+      ],
       subject: `New Sale Alert: ${result.invoiceNumber} (₹${result.grandTotal.toLocaleString()})`,
       html: `
-        <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-w: 600px; border: 1px solid #ddd; border-radius: 10px;">
+        <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 600px; border: 1px solid #ddd; border-radius: 10px;">
           <h2 style="color: #522874;">New Invoice Generated</h2>
           <p><strong>Shop Location:</strong> ${result.location?.name || "Unknown Shop"}</p>
           <p><strong>Invoice Number:</strong> ${result.invoiceNumber}</p>
@@ -106,7 +174,15 @@ export async function POST(req) {
           <p><strong>Customer Phone:</strong> ${customerInfo.phone || "N/A"}</p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
           <h3 style="color: #10B981;">Grand Total: ₹${result.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
-          <p style="font-size: 12px; color: #888;">Log into the ERP dashboard to view full invoice details.</p>
+          <div style="margin-top: 20px; text-align: center;">
+            <a
+              href="${receiptUrl}"
+              style="display: inline-block; background-color: #522874; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;"
+            >
+              🧾 View Full Receipt
+            </a>
+          </div>
+          <p style="font-size: 11px; color: #aaa; margin-top: 16px; text-align: center;">This link is accessible without login and can be shared with the customer.</p>
         </div>
       `,
     };

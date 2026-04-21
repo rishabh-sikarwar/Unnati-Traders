@@ -157,3 +157,28 @@
   display: none;
 }
 
+/* ===== PRINT: Fix blank 2nd page caused by min-h-screen on main ===== */
+@media print {
+  header,
+  nav,
+  footer,
+  #action-bar,
+  [data-hot-toast] {
+    display: none !important;
+  }
+
+  main {
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}

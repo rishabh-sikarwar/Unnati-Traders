@@ -11,6 +11,7 @@ import {
   ScrollText,
   Undo2,
   Loader2,
+  MapPin,
 } from "lucide-react";
 
 export default function ShopkeeperDashboard({ user }) {

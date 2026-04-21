@@ -12,6 +12,7 @@ import {
   Receipt,
   Tag,
   Building2,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
@@ -37,7 +38,12 @@ export default function BillingForm({
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  const [initialPayment, setInitialPayment] = useState("");
+  const [initialPayment, setInitialPayment] = useState(""); // Used for simple CREDIT
+  const [splitPayments, setSplitPayments] = useState({
+    cash: "",
+    upi: "",
+    card: "",
+  }); // Used for MULTIPLE
   const [cart, setCart] = useState([]);
   const [discount, setDiscount] = useState("");
   const [discountType, setDiscountType] = useState("₹");
@@ -45,6 +51,8 @@ export default function BillingForm({
   const [cgstType, setCgstType] = useState("%");
   const [sgst, setSgst] = useState("");
   const [sgstType, setSgstType] = useState("%");
+  const [igst, setIgst] = useState("");
+  const [igstType, setIgstType] = useState("%");
 
   const searchableInventory = useMemo(() => {
     return inventory.map((inv) => ({
@@ -61,10 +69,16 @@ export default function BillingForm({
   );
 
   const filteredB2BCustomers = useMemo(() => {
-    if (!customer.name) return b2bCustomers;
-    return b2bCustomers.filter((c) =>
-      c.name.toLowerCase().includes(customer.name.toLowerCase()),
-    );
+    let list = b2bCustomers;
+    if (customer.name) {
+      list = b2bCustomers.filter((c) =>
+        c.name.toLowerCase().includes(customer.name.toLowerCase()),
+      );
+    }
+    // Remove duplicate names
+    const uniqueMap = new Map();
+    list.forEach((c) => uniqueMap.set(c.name.toLowerCase().trim(), c));
+    return Array.from(uniqueMap.values());
   }, [customer.name, b2bCustomers]);
 
   const handleCustomerSelect = (selectedCustomer) => {
@@ -133,68 +147,89 @@ export default function BillingForm({
 
   const totals = useMemo(() => {
     let rawItemsTotal = 0;
-    cart.forEach((item) => {
-      const qty = Number(item.quantity) || 0;
-      const price = Number(item.unitPrice) || 0;
-      rawItemsTotal += qty * price;
-    });
+    cart.forEach(
+      (item) =>
+        (rawItemsTotal +=
+          (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)),
+    );
 
     const dVal = Number(discount) || 0;
     const discountAmount =
       discountType === "%" ? rawItemsTotal * (dVal / 100) : dVal;
     const grandTotal = Math.max(0, rawItemsTotal - discountAmount);
 
-    let taxableValue = grandTotal;
     const cVal = Number(cgst) || 0;
     const sVal = Number(sgst) || 0;
-
+    const iVal = Number(igst) || 0;
     let totalPct = 0;
     let totalFlat = 0;
+
     if (cgstType === "%") totalPct += cVal;
     else totalFlat += cVal;
     if (sgstType === "%") totalPct += sVal;
     else totalFlat += sVal;
+    if (igstType === "%") totalPct += iVal;
+    else totalFlat += iVal;
 
-    taxableValue = Math.max(0, (grandTotal - totalFlat) / (1 + totalPct / 100));
+    const taxableValue = Math.max(
+      0,
+      (grandTotal - totalFlat) / (1 + totalPct / 100),
+    );
 
     return {
       rawItemsTotal,
       discountAmount,
       subtotal: taxableValue,
+      grandTotal,
       totalGst:
         (cgstType === "%" ? taxableValue * (cVal / 100) : cVal) +
-        (sgstType === "%" ? taxableValue * (sVal / 100) : sVal),
-      grandTotal,
-      cgstAmount: cgstType === "%" ? taxableValue * (cVal / 100) : cVal,
-      sgstAmount: sgstType === "%" ? taxableValue * (sVal / 100) : sVal,
+        (sgstType === "%" ? taxableValue * (sVal / 100) : sVal) +
+        (igstType === "%" ? taxableValue * (iVal / 100) : iVal),
     };
-  }, [cart, discount, discountType, cgst, cgstType, sgst, sgstType]);
+  }, [
+    cart,
+    discount,
+    discountType,
+    cgst,
+    cgstType,
+    sgst,
+    sgstType,
+    igst,
+    igstType,
+  ]);
+
+  // CALCULATE SPLIT AMOUNTS
+  const totalSplitPaid =
+    Number(splitPayments.cash) +
+    Number(splitPayments.upi) +
+    Number(splitPayments.card);
+  const remainingSplitDue = Math.max(0, totals.grandTotal - totalSplitPaid);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (cart.length === 0) return toast.error("Cart is empty!");
+
     if (
       customer.paymentMode === "Credit" &&
       Number(initialPayment) > totals.grandTotal
-    ) {
-      return toast.error(
-        "Initial payment cannot be greater than the Grand Total!",
-      );
-    }
+    )
+      return toast.error("Initial payment cannot be greater than Total!");
+    if (
+      customer.paymentMode === "Multiple" &&
+      totalSplitPaid > totals.grandTotal
+    )
+      return toast.error("Split payments exceed the Grand Total!");
 
     try {
       const formattedItems = cart.map((item, index) => {
         if (!item.inventoryId)
           throw new Error(`Please select a tyre for item #${index + 1}`);
         const invRecord = inventory.find((i) => i.id === item.inventoryId);
-        if (!invRecord) throw new Error("Invalid tyre selected");
-
         const qty = Number(item.quantity);
         if (qty > invRecord.quantity)
           throw new Error(
             `Only ${invRecord.quantity} left for ${invRecord.product.modelName}`,
           );
-
         return {
           productId: invRecord.productId,
           modelName: invRecord.product.modelName,
@@ -212,7 +247,7 @@ export default function BillingForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerInfo: { ...customer, initialPayment: initialPayment },
+          customerInfo: { ...customer, initialPayment, splitPayments },
           items: formattedItems,
           locationId,
           userId,
@@ -622,6 +657,36 @@ export default function BillingForm({
               </div>
             </div>
 
+            <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10 mt-4">
+              <span className="text-white/90">IGST</span>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-black/20 rounded overflow-hidden border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIgstType("₹")}
+                    className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${igstType === "₹" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
+                  >
+                    ₹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIgstType("%")}
+                    className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${igstType === "%" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
+                  >
+                    %
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={igst}
+                  onChange={(e) => setIgst(e.target.value)}
+                  className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
             <div className="text-center mt-2">
               <span className="text-[10px] text-white/50 uppercase tracking-widest font-bold">
                 Tax is calculated inclusively
@@ -629,7 +694,7 @@ export default function BillingForm({
             </div>
           </div>
 
-          <div className="border-t border-white/20 pt-5 mb-6">
+          <div className="border-t border-white/20 pt-5 mb-6 mt-6">
             <div className="flex justify-between items-end">
               <span className="text-lg font-bold text-white">Grand Total</span>
               <span className="text-3xl md:text-4xl font-black text-green-400 drop-shadow-md">
@@ -647,10 +712,9 @@ export default function BillingForm({
             </label>
             <select
               value={customer.paymentMode}
-              onChange={(e) => {
-                setCustomer({ ...customer, paymentMode: e.target.value });
-                setInitialPayment("");
-              }}
+              onChange={(e) =>
+                setCustomer({ ...customer, paymentMode: e.target.value })
+              }
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none cursor-pointer focus:border-purple-300 transition-all"
             >
               <option className="text-black font-medium" value="Cash">
@@ -663,10 +727,14 @@ export default function BillingForm({
                 Credit/Debit Card 💳
               </option>
               <option className="text-black font-bold" value="Credit">
-                Udhaar 🏦
+                Udhaar (Single Payment) 🏦
+              </option>
+              <option className="text-black font-bold" value="Multiple">
+                Split Payment (Multiple) 🔀
               </option>
             </select>
 
+            {/* UI FOR SIMPLE UDHAAR */}
             {customer.paymentMode === "Credit" && (
               <div className="mt-4 animate-in fade-in zoom-in duration-300 bg-black/20 p-4 rounded-xl border border-orange-500/30">
                 <label className="block text-xs font-bold text-orange-300 uppercase mb-2">
@@ -693,12 +761,87 @@ export default function BillingForm({
                 </div>
               </div>
             )}
+
+            {/* UI FOR SPLIT PAYMENTS */}
+            {customer.paymentMode === "Multiple" && (
+              <div className="mt-4 animate-in fade-in zoom-in duration-300 bg-black/20 p-4 rounded-xl border border-blue-500/30 space-y-3">
+                <div className="flex justify-between items-center text-xs font-bold text-blue-300 uppercase mb-1">
+                  <span>Split the Bill</span>
+                  <SplitSquareHorizontal className="w-4 h-4" />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="w-16 text-sm font-bold text-white/80">
+                    Cash
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={splitPayments.cash}
+                    onChange={(e) =>
+                      setSplitPayments({
+                        ...splitPayments,
+                        cash: e.target.value,
+                      })
+                    }
+                    className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none focus:border-blue-400"
+                    placeholder="₹0"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="w-16 text-sm font-bold text-white/80">
+                    UPI
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={splitPayments.upi}
+                    onChange={(e) =>
+                      setSplitPayments({
+                        ...splitPayments,
+                        upi: e.target.value,
+                      })
+                    }
+                    className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none focus:border-blue-400"
+                    placeholder="₹0"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="w-16 text-sm font-bold text-white/80">
+                    Card
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={splitPayments.card}
+                    onChange={(e) =>
+                      setSplitPayments({
+                        ...splitPayments,
+                        card: e.target.value,
+                      })
+                    }
+                    className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white font-bold outline-none focus:border-blue-400"
+                    placeholder="₹0"
+                  />
+                </div>
+
+                <div className="flex justify-between mt-4 pt-3 border-t border-blue-500/30 text-sm font-medium">
+                  <span className="text-white/70">Goes to Udhaar:</span>
+                  <span className="text-blue-400 font-bold">
+                    ₹
+                    {remainingSplitDue.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             type="submit"
             disabled={loading || cart.length === 0}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.5)]"
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
           >
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
             {loading ? "Generating Bill..." : "GENERATE BILL"}

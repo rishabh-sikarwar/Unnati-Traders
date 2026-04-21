@@ -241,6 +241,7 @@ enum PaymentMode {
   UPI
   CARD
   CREDIT
+  MULTIPLE
   RETURN_CREDIT
 }
 
