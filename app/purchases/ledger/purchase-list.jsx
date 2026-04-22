@@ -43,6 +43,10 @@ export default function PurchaseList({ purchases, locations = [] }) {
         if (p.locationId !== shopFilter) return false;
       }
 
+      // Filter out empty/void purchases (0 tyres)
+      const totalTyres = p.items.reduce((sum, item) => sum + item.quantity, 0);
+      if (totalTyres === 0) return false;
+
       return true;
     });
   }, [purchases, searchQuery, dateFilter, shopFilter]);

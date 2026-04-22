@@ -45,6 +45,7 @@ model Product {
 
   category TyreCategory @default(GENERAL)
   tubeType String       @default("T/L")
+  hsnCode  String?      @default("4011")
 
   description String?
   basePrice   Float

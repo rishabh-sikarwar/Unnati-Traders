@@ -24,6 +24,9 @@ export default async function PurchaseLedgerPage() {
 
   // Fetch all purchases with their related items, locations, and the user who logged them
   const purchases = await prisma.purchase.findMany({
+    where: {
+      items: { some: {} },
+    },
     include: {
       location: true,
       user: true,

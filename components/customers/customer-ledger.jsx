@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -12,12 +12,19 @@ import {
   ArchiveX,
   AlertCircle,
   FileText,
+  Filter,
+  Wallet
 } from "lucide-react";
+import { subDays, isAfter } from "date-fns";
 
-export default function CustomerLedger({ customers, userId }) {
+export default function CustomerLedger({ customers, locations = [], userId }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDuesOnly, setFilterDuesOnly] = useState(false);
+
+  // --- NEW FILTERS ---
+  const [dateFilter, setDateFilter] = useState("ALL");
+  const [shopFilter, setShopFilter] = useState("ALL");
 
   // --- MODAL STATES ---
   const [paymentModal, setPaymentModal] = useState({
@@ -37,14 +44,73 @@ export default function CustomerLedger({ customers, userId }) {
   });
   const [isArchiving, setIsArchiving] = useState(false);
 
-  // --- FILTER LOGIC ---
-  const filteredCustomers = customers.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.phone && c.phone.includes(searchQuery));
-    const matchesDues = filterDuesOnly ? c.outstandingDues > 0 : true;
-    return matchesSearch && matchesDues;
-  });
+  // --- DYNAMIC FILTER & MATH LOGIC ---
+  const { filteredCustomers, globalOutstanding } = useMemo(() => {
+    const now = new Date();
+    let globalOut = 0;
+
+    let processed = customers.map((c) => {
+      let validInvoices = c.invoices || [];
+      let validPayments = c.payments || [];
+
+      // Filter Invoices & Payments by Date (if not ALL)
+      if (dateFilter !== "ALL") {
+        const cutoff = subDays(now, parseInt(dateFilter));
+        validInvoices = validInvoices.filter((inv) =>
+          isAfter(new Date(inv.createdAt), cutoff)
+        );
+        validPayments = validPayments.filter((pay) =>
+          isAfter(new Date(pay.createdAt), cutoff)
+        );
+      }
+
+      // Filter strictly INVOICES by Shop (if not ALL)
+      if (shopFilter !== "ALL") {
+        validInvoices = validInvoices.filter(
+          (inv) => inv.locationId === shopFilter
+        );
+      }
+
+      // Calculate the metrics for this customer BASED ON FILTERS ONLY
+      const totalBilled = validInvoices.reduce(
+        (sum, inv) => sum + inv.grandTotal,
+        0
+      );
+      const totalPaidAtBilling = validInvoices.reduce(
+        (sum, inv) => sum + inv.amountPaid,
+        0
+      );
+      const totalPaidLater = validPayments.reduce(
+        (sum, pay) => sum + pay.amount,
+        0
+      );
+
+      const totalPaid = totalPaidAtBilling + totalPaidLater;
+      const outstandingDues = totalBilled - totalPaid;
+
+      if (outstandingDues > 0) {
+        globalOut += outstandingDues;
+      }
+
+      return {
+        ...c,
+        totalBilled,
+        totalPaid,
+        outstandingDues,
+      };
+    });
+
+    // NOW apply local UI filters (Search bar & Show Dues Only)
+    processed = processed.filter((c) => {
+      const matchesSearch =
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.phone && c.phone.includes(searchQuery));
+      const matchesDues = filterDuesOnly ? c.outstandingDues > 0 : true;
+      return matchesSearch && matchesDues;
+    });
+
+    return { filteredCustomers: processed, globalOutstanding: globalOut };
+  }, [customers, searchQuery, filterDuesOnly, dateFilter, shopFilter]);
 
   // --- HANDLE PAYMENT ---
   const handlePayment = async (e) => {
@@ -94,7 +160,8 @@ export default function CustomerLedger({ customers, userId }) {
       const res = await fetch("/api/customers/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId: archiveModal.customerId }),
+        // Use the `ids` array from our merged object
+        body: JSON.stringify({ customerIds: archiveModal.customer.ids }),
       });
 
       if (!res.ok) throw new Error("Failed to archive");
@@ -113,24 +180,72 @@ export default function CustomerLedger({ customers, userId }) {
 
   return (
     <div className="space-y-6">
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      {/* GLOBAL DUES BANNER (Moved from Page to Client to be dynamic) */}
+      <div className="flex justify-end hidden md:flex mb-2">
+        <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+          <div className="p-2 bg-red-100 rounded-lg">
+            <Wallet className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
+              Filtered Market Dues
+            </span>
+            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
+              ₹{globalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* SECURE TOOLBAR */}
+      <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by Name or Phone..."
+            placeholder="Search by Customer Name or Phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
           />
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 text-gray-400 font-bold text-xs uppercase tracking-widest pl-2">
+            <Filter className="w-4 h-4" /> Filters:
+          </div>
+
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+          >
+            <option value="ALL">All Time</option>
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+          </select>
+
+          {locations && locations.length > 0 && (
+            <select
+              value={shopFilter}
+              onChange={(e) => setShopFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
+            >
+              <option value="ALL">All Shops</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={() => setFilterDuesOnly(!filterDuesOnly)}
-            className={`px-4 py-2 rounded-lg font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200 shadow-inner" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
           >
-            {filterDuesOnly ? "Showing Dues Only" : "Filter: Has Dues"}
+            {filterDuesOnly ? "Dues Only: ON" : "Dues Only: OFF"}
           </button>
         </div>
       </div>
@@ -229,9 +344,9 @@ export default function CustomerLedger({ customers, userId }) {
                 {/* DYNAMIC ACTIONS */}
                 <td className="block md:table-cell md:p-4 border-t md:border-none pt-4 md:pt-0">
                   <div className="flex flex-col sm:flex-row md:justify-end gap-2">
-                    {/* NEW: View Detailed Ledger Button */}
+                    {/* NEW: View Detailed Ledger Button (Filtered encoded name) */}
                     <button
-                      onClick={() => router.push(`/customers/${c.id}`)}
+                      onClick={() => router.push(`/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&days=${dateFilter}`)}
                       className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
                     >
                       <FileText className="w-4 h-4" /> Statement
@@ -252,7 +367,7 @@ export default function CustomerLedger({ customers, userId }) {
                         onClick={() =>
                           setArchiveModal({
                             isOpen: true,
-                            customerId: c.id,
+                            customer: c,
                             customerName: c.name,
                           })
                         }

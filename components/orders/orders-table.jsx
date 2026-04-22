@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, Printer, FileText, Loader2, Filter } from "lucide-react";
+import toast from "react-hot-toast";
+import { Search, Printer, FileText, Loader2, Filter, Trash2, AlertTriangle } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 
 export default function OrdersTable({
@@ -10,8 +12,13 @@ export default function OrdersTable({
   userRole,
   locations = [],
 }) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingOrderId, setLoadingOrderId] = useState(null);
+  
+  // Canceling states
+  const [cancelModal, setCancelModal] = useState({ isOpen: false, invoiceId: null, invoiceNumber: "" });
+  const [isCanceling, setIsCanceling] = useState(false);
 
   // New Filter States
   const [dateFilter, setDateFilter] = useState("ALL"); // ALL, 7, 30, 90
@@ -60,8 +67,70 @@ export default function OrdersTable({
     userRole,
   ]);
 
+  async function executeCancel() {
+    setIsCanceling(true);
+    const loadingToast = toast.loading("Canceling Invoice & Restoring Stock...");
+
+    try {
+      const res = await fetch(`/api/billing/${cancelModal.invoiceId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel");
+
+      toast.success("Invoice Cancelled Successfully", { id: loadingToast });
+      setCancelModal({ isOpen: false, invoiceId: null, invoiceNumber: "" });
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message, { id: loadingToast });
+    } finally {
+      setIsCanceling(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* CANCEL MODAL */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 sm:p-8">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mb-5 mx-auto">
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-gray-900 mb-2">
+              Cancel Invoice?
+            </h3>
+            <p className="text-center text-gray-500 text-sm mb-8 leading-relaxed">
+              Are you sure you want to permanently cancel invoice{" "}
+              <span className="font-bold text-gray-900">
+                "{cancelModal.invoiceNumber}"
+              </span>
+              ? All stock entries and connected payment logs will be restored immediately.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancelModal({ isOpen: false, invoiceId: null, invoiceNumber: "" })}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={executeCancel}
+                disabled={isCanceling}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 flex justify-center items-center gap-2 disabled:opacity-50"
+              >
+                {isCanceling ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Confirm Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TOOLBAR: SEARCH & FILTERS */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4">
         {/* Search */}
@@ -259,20 +328,31 @@ export default function OrdersTable({
 
                   {/* ACTIONS */}
                   <td className="block md:table-cell md:p-4 md:text-right border-t md:border-none pt-4 md:pt-0">
-                    <Link
-                      href={`/billing/receipt/${order.id}`}
-                      onClick={() => setLoadingOrderId(order.id)}
-                      className="flex items-center justify-center md:justify-end gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-3 py-2.5 md:py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 w-full md:w-auto"
-                    >
-                      {loadingOrderId === order.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Printer className="w-4 h-4" />
+                    <div className="flex items-center justify-end gap-2">
+                      {userRole === "ADMIN" && (
+                        <button
+                          onClick={() => setCancelModal({ isOpen: true, invoiceId: order.id, invoiceNumber: order.invoiceNumber })}
+                          className="flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 p-2 md:py-2 md:px-3 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 border border-red-100 shrink-0"
+                          title="Cancel Invoice"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       )}
-                      {loadingOrderId === order.id
-                        ? "Loading..."
-                        : "View Receipt"}
-                    </Link>
+                      <Link
+                        href={`/billing/receipt/${order.id}`}
+                        onClick={() => setLoadingOrderId(order.id)}
+                        className="flex-1 md:flex-none flex items-center justify-center md:justify-end gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-3 py-2.5 md:py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95"
+                      >
+                        {loadingOrderId === order.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Printer className="w-4 h-4" />
+                        )}
+                        {loadingOrderId === order.id
+                          ? "Loading..."
+                          : "View Receipt"}
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))

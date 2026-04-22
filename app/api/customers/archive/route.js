@@ -3,18 +3,18 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { customerId } = await req.json();
+    const { customerIds } = await req.json();
 
-    if (!customerId) {
+    if (!customerIds || !Array.isArray(customerIds)) {
       return NextResponse.json(
-        { error: "Customer ID is required" },
+        { error: "Customer IDs are required" },
         { status: 400 },
       );
     }
 
     // Soft delete: We just hide them, we NEVER actually delete them!
-    await prisma.customer.update({
-      where: { id: customerId },
+    await prisma.customer.updateMany({
+      where: { id: { in: customerIds } },
       data: { isArchived: true },
     });
 

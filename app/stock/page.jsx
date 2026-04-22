@@ -32,6 +32,7 @@ export default function StockPage() {
   const [newSize, setNewSize] = useState("");
   const [newCategory, setNewCategory] = useState("TWO_WHEELER");
   const [newPrice, setNewPrice] = useState("");
+  const [newHsn, setNewHsn] = useState("4011");
   const [addingTyre, setAddingTyre] = useState(false);
 
   // --- MODALS ---
@@ -103,6 +104,7 @@ export default function StockPage() {
           size: newSize,
           category: newCategory,
           basePrice: newPrice,
+          hsnCode: newHsn,
         }),
       });
       const data = await res.json();
@@ -113,6 +115,7 @@ export default function StockPage() {
       setNewSize("");
       setNewCategory("TWO_WHEELER");
       setNewPrice("");
+      setNewHsn("4011");
       loadCatalogue();
       
       // Bust Next.js client-side router cache so the Purchases page immediately shows the new tyre
@@ -150,6 +153,7 @@ export default function StockPage() {
           size: editModal.product.size,
           basePrice: editModal.product.basePrice,
           category: editModal.product.category,
+          hsnCode: editModal.product.hsnCode,
         }),
       });
 
@@ -269,6 +273,21 @@ export default function StockPage() {
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                    HSN Code
+                  </label>
+                  <input
+                    value={editModal.product.hsnCode || ""}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        product: { ...editModal.product, hsnCode: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-mono text-sm"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                     Category
                   </label>
                   <select
@@ -300,6 +319,7 @@ export default function StockPage() {
                   <input
                     required
                     type="number"
+                    min="1"
                     value={editModal.product.basePrice}
                     onChange={(e) =>
                       setEditModal({
@@ -471,10 +491,22 @@ export default function StockPage() {
               <input
                 required
                 type="number"
+                min="1"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
                 placeholder="3200"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                HSN Code
+              </label>
+              <input
+                value={newHsn}
+                onChange={(e) => setNewHsn(e.target.value)}
+                placeholder="4011"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-mono"
               />
             </div>
             <button

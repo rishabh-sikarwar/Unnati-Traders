@@ -13,6 +13,7 @@ export async function POST(req) {
         size: body.size,
         basePrice: parseFloat(body.basePrice),
         category: body.category, // Added category support
+        hsnCode: body.hsnCode,
       },
     });
 

@@ -52,7 +52,10 @@ export async function GET(req) {
 
     const purchases = await prisma.purchase.aggregate({
       _sum: { totalAmount: true },
-      where: baseWhere,
+      where: {
+        ...baseWhere,
+        items: { some: {} },
+      },
     });
 
     const orders = await prisma.invoice.count({
@@ -100,7 +103,11 @@ export async function GET(req) {
     });
 
     const recentPurchases = await prisma.purchase.findMany({
-      where: { createdAt: { gte: sixMonthsAgo }, ...locationFilter },
+      where: { 
+        createdAt: { gte: sixMonthsAgo }, 
+        ...locationFilter,
+        items: { some: {} },
+      },
       select: { totalAmount: true, createdAt: true },
     });
     recentPurchases.forEach((pur) => {

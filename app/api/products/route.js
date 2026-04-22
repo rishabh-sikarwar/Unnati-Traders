@@ -32,6 +32,7 @@ export async function POST(req) {
         basePrice: parseFloat(body.basePrice),
         brand: "Apollo",
         gstRate: 28,
+        hsnCode: body.hsnCode || "4011",
       },
     });
 

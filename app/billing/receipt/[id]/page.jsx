@@ -274,6 +274,9 @@ export default async function ReceiptPage({ params }) {
                           )}
                         </div>
                         <div className="text-[10px] text-gray-500 font-mono mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="font-bold text-gray-700 bg-gray-100 px-1 rounded">
+                            HSN: {item.product?.hsnCode || "4011"}
+                          </span>
                           <span>SKU: {item.product?.sku || "N/A"}</span>
                           {item.tyreCode && (
                             <span className="font-bold text-gray-800 bg-gray-100 px-1 rounded">

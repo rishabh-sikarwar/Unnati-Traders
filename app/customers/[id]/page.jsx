@@ -7,14 +7,22 @@ import StatementPrintButton from "./statement-print-button"; // <-- Import the n
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomerStatementPage({ params }) {
+export default async function CustomerStatementPage({ params, searchParams }) {
   const { id } = await params;
+  const queries = await searchParams; // Await in Next.js 15
+  
+  const daysFilter = queries?.days || "ALL";
+  const shopFilter = queries?.shopId || "ALL";
+
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
-  // 1. Fetch the Customer and ALL their history
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+  // We are treating the `params.id` URL slug as the Name string since we pass the Name instead of ID now.
+  const decodedName = decodeURIComponent(id).toLowerCase().trim();
+
+  // 1. Fetch all customers and manually filter by name to handle duplicates safely
+  const allCustomers = await prisma.customer.findMany({
+    where: { isArchived: false },
     include: {
       invoices: { orderBy: { createdAt: "asc" } },
       payments: { orderBy: { createdAt: "asc" } },
@@ -22,13 +30,50 @@ export default async function CustomerStatementPage({ params }) {
     },
   });
 
-  if (!customer) redirect("/customers");
+  const matchingCustomers = allCustomers.filter(
+    (c) => c.name.toLowerCase().trim() === decodedName
+  );
+
+  if (matchingCustomers.length === 0) redirect("/customers");
+
+  // Merge Data
+  let allInvoices = [];
+  let allPayments = [];
+  let allReturns = [];
+
+  // Use the best available profile info from the latest duplicate
+  let bestProfile = matchingCustomers[matchingCustomers.length - 1];
+
+  for (const c of matchingCustomers) {
+    allInvoices.push(...c.invoices);
+    allPayments.push(...c.payments);
+    if (c.returns) allReturns.push(...c.returns);
+    
+    if (c.phone && !bestProfile.phone) bestProfile.phone = c.phone;
+    if (c.gstNumber && !bestProfile.gstNumber) bestProfile.gstNumber = c.gstNumber;
+    if (c.address && !bestProfile.address) bestProfile.address = c.address;
+  }
+
+  // Handle URL Filters
+  if (daysFilter !== "ALL") {
+    const cutoffText = parseInt(daysFilter);
+    const cutoffDate = new Date(Date.now() - cutoffText * 24 * 60 * 60 * 1000);
+    
+    allInvoices = allInvoices.filter(i => new Date(i.createdAt) >= cutoffDate);
+    allPayments = allPayments.filter(p => new Date(p.createdAt) >= cutoffDate);
+    allReturns = allReturns.filter(r => new Date(r.createdAt) >= cutoffDate);
+  }
+
+  if (shopFilter !== "ALL") {
+    // Only Sales (Invoices) and Returns are bound to Locations. Payments are global.
+    allInvoices = allInvoices.filter(i => i.locationId === shopFilter);
+  }
 
   // 2. The Ledger Engine: Combine everything into one chronological timeline
   let transactions = [];
 
   // A. Add all Invoices (Debits) and their Upfront Payments (Credits)
-  customer.invoices.forEach((inv) => {
+  allInvoices.forEach((inv) => {
     // The Bill (Debit)
     transactions.push({
       id: `inv-${inv.id}`,
@@ -43,7 +88,7 @@ export default async function CustomerStatementPage({ params }) {
     if (inv.amountPaid > 0) {
       transactions.push({
         id: `pay-upfront-${inv.id}`,
-        date: new Date(inv.createdAt.getTime() + 1000), // Add 1 second so it appears right after the bill
+        date: new Date(new Date(inv.createdAt).getTime() + 1000), // Add 1 second so it appears right after the bill
         type: "PAYMENT",
         description: `Initial Payment (${inv.paymentMode})`,
         debit: 0,
@@ -53,7 +98,7 @@ export default async function CustomerStatementPage({ params }) {
   });
 
   // B. Add all subsequent partial payments (Credits)
-  customer.payments.forEach((pay) => {
+  allPayments.forEach((pay) => {
     transactions.push({
       id: `pay-${pay.id}`,
       date: pay.createdAt,
@@ -65,8 +110,8 @@ export default async function CustomerStatementPage({ params }) {
   });
 
   // C. Add Returns/Credit Notes (Credits)
-  if (customer.returns) {
-    customer.returns.forEach((ret) => {
+  if (allReturns.length > 0) {
+    allReturns.forEach((ret) => {
       transactions.push({
         id: `ret-${ret.id}`,
         date: ret.createdAt,
@@ -79,7 +124,7 @@ export default async function CustomerStatementPage({ params }) {
   }
 
   // 3. Sort Everything by Date (Oldest to Newest)
-  transactions.sort((a, b) => a.date - b.date);
+  transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
   // 4. Calculate the Running Balance (Like a Bank Passbook)
   let currentBalance = 0;
@@ -119,17 +164,17 @@ export default async function CustomerStatementPage({ params }) {
             <div>
               <h1 className="text-3xl font-black mb-1 flex items-center gap-3">
                 <User className="text-purple-400 print:hidden" />{" "}
-                {customer.name}
+                {bestProfile.name}
               </h1>
               <p className="text-purple-200 print:text-gray-600 font-medium">
-                {customer.phone || "No Phone Number"}
+                {bestProfile.phone || "No Phone Number"}
               </p>
               <p className="text-purple-200/60 print:text-gray-500 text-sm mt-1">
-                {customer.address || "No Address Provided"}
+                {bestProfile.address || "No Address Provided"}
               </p>
-              {customer.gstNumber && (
+              {bestProfile.gstNumber && (
                 <p className="text-purple-200/80 print:text-gray-800 text-sm font-bold mt-2 tracking-widest uppercase">
-                  GSTIN: {customer.gstNumber}
+                  GSTIN: {bestProfile.gstNumber}
                 </p>
               )}
             </div>

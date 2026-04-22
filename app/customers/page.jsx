@@ -16,58 +16,57 @@ export default async function CustomersPage() {
 
   if (!dbUser) redirect("/");
 
+  const locations = await prisma.location.findMany({
+    select: { id: true, name: true },
+  });
+
   // Fetch all customers, their invoices, and their payment logs
   const customers = await prisma.customer.findMany({
-    where: {
-      isArchived: false,
-    },
+    where: { isArchived: false },
     include: {
       invoices: {
-        select: { grandTotal: true, amountPaid: true },
+        select: { id: true, grandTotal: true, amountPaid: true, createdAt: true, locationId: true, invoiceNumber: true, paymentMode: true },
       },
       payments: {
-        select: { amount: true },
+        select: { id: true, amount: true, createdAt: true, paymentMode: true, remarks: true },
       },
     },
     orderBy: { name: "asc" },
   });
 
-  // Calculate financials for each customer
-  const ledgerData = customers.map((customer) => {
-    // 1. Total amount ever billed to them
-    const totalBilled = customer.invoices.reduce(
-      (sum, inv) => sum + inv.grandTotal,
-      0,
-    );
+  // Group duplicate customer rows by normalized textual name
+  const groupedData = {};
+  for (const c of customers) {
+    const key = c.name.toLowerCase().trim();
+    if (!groupedData[key]) {
+      groupedData[key] = {
+        name: c.name,
+        type: c.type,
+        phone: c.phone,
+        gstNumber: c.gstNumber,
+        address: c.address,
+        isArchived: c.isArchived,
+        ids: [c.id],
+        invoices: [],
+        payments: [],
+        // Fallback default ID for settlements component
+        id: c.id, 
+      };
+    } else {
+      groupedData[key].ids.push(c.id);
+      // Fill missing info if subsequent duplicate has it
+      if (!groupedData[key].phone && c.phone) groupedData[key].phone = c.phone;
+      if (!groupedData[key].gstNumber && c.gstNumber) groupedData[key].gstNumber = c.gstNumber;
+      if (!groupedData[key].address && c.address) groupedData[key].address = c.address;
+    }
+    groupedData[key].invoices.push(...c.invoices);
+    groupedData[key].payments.push(...c.payments);
+  }
 
-    // 2. Total amount they paid AT THE TIME of billing
-    const totalPaidAtBilling = customer.invoices.reduce(
-      (sum, inv) => sum + inv.amountPaid,
-      0,
-    );
+  const mergedCustomers = Object.values(groupedData);
 
-    // 3. Total amount they paid LATER (via Payment Logs)
-    const totalPaidLater = customer.payments.reduce(
-      (sum, pay) => sum + pay.amount,
-      0,
-    );
-
-    const totalPaid = totalPaidAtBilling + totalPaidLater;
-    const outstandingDues = totalBilled - totalPaid;
-
-    return {
-      ...customer,
-      totalBilled,
-      totalPaid,
-      outstandingDues,
-    };
-  });
-
-  // Calculate Global Metrics
-  const globalOutstanding = ledgerData.reduce(
-    (sum, c) => sum + c.outstandingDues,
-    0,
-  );
+  // We no longer calculate static global metrics here since it needs to be dynamic on the client side based on filters.
+  // The client side Client Component <CustomerLedger> will handle global metrics.
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
@@ -82,27 +81,10 @@ export default async function CustomersPage() {
               Manage B2B dealers, track credit, and settle outstanding dues.
             </p>
           </div>
-
-          <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <Wallet className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-red-500 uppercase tracking-wide">
-                Total Market Dues
-              </span>
-              <p className="text-2xl font-black text-red-600 leading-none">
-                ₹
-                {globalOutstanding.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Client Component for filtering and accepting payments */}
-        <CustomerLedger customers={ledgerData} userId={dbUser.id} />
+        <CustomerLedger customers={mergedCustomers} locations={locations} userId={dbUser.id} />
       </div>
     </div>
   );

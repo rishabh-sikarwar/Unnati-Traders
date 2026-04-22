@@ -367,9 +367,13 @@ export default function BillingForm({
               </label>
               <input
                 type="tel"
+                maxLength="10"
                 value={customer.phone}
                 onChange={(e) =>
-                  setCustomer({ ...customer, phone: e.target.value })
+                  setCustomer({
+                    ...customer,
+                    phone: e.target.value.replace(/\D/g, ""),
+                  })
                 }
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
                 placeholder="9876543210"
