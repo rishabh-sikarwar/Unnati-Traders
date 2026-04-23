@@ -76,16 +76,10 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
         (sum, inv) => sum + inv.grandTotal,
         0
       );
-      const totalPaidAtBilling = validInvoices.reduce(
-        (sum, inv) => sum + inv.amountPaid,
-        0
-      );
-      const totalPaidLater = validPayments.reduce(
-        (sum, pay) => sum + pay.amount,
-        0
-      );
-
-      const totalPaid = totalPaidAtBilling + totalPaidLater;
+      const totalPaid = validPayments.reduce(
+  (sum, pay) => sum + pay.amount,
+  0
+);
       const outstandingDues = totalBilled - totalPaid;
 
       if (outstandingDues > 0) {

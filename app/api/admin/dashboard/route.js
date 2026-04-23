@@ -24,7 +24,9 @@ export async function GET(req) {
 
     let locationId;
 
-    if (urlLocationId) {
+    if (user?.role !== "ADMIN") {
+      locationId = user?.locationId;
+    } else if (urlLocationId) {
       locationId = urlLocationId;
     } else if (user?.locationId) {
       locationId = user.locationId;

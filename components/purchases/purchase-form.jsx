@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { Plus, Trash2, Loader2, PackageOpen, Truck, Save } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
-export default function PurchaseForm({ products, locations, userId }) {
+export default function PurchaseForm({ products, locations, userId, userRole, userLocationId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +18,7 @@ export default function PurchaseForm({ products, locations, userId }) {
 
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [supplierName, setSupplierName] = useState("Apollo Tyres");
-  const [locationId, setLocationId] = useState("");
+  const [locationId, setLocationId] = useState(userRole === "SHOPKEEPER" ? userLocationId : "");
 
   useEffect(() => {
     setInvoiceNumber(`INV-IN-${Date.now().toString().slice(-6)}`);
@@ -149,7 +149,12 @@ export default function PurchaseForm({ products, locations, userId }) {
                 required
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                disabled={userRole === "SHOPKEEPER"}
+                className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${
+                  userRole === "SHOPKEEPER"
+                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                    : "focus:ring-2 focus:ring-[#522874] bg-white"
+                }`}
               >
                 <option value="">-- Select Shop/Warehouse --</option>
                 {locations.map((l) => (

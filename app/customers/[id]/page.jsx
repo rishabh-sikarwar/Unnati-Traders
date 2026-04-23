@@ -84,17 +84,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       credit: 0,
     });
 
-    // The Upfront Payment made on that bill (Credit)
-    if (inv.amountPaid > 0) {
-      transactions.push({
-        id: `pay-upfront-${inv.id}`,
-        date: new Date(new Date(inv.createdAt).getTime() + 1000), // Add 1 second so it appears right after the bill
-        type: "PAYMENT",
-        description: `Initial Payment (${inv.paymentMode})`,
-        debit: 0,
-        credit: inv.amountPaid,
-      });
-    }
+
   });
 
   // B. Add all subsequent partial payments (Credits)

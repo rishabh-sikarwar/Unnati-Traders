@@ -23,6 +23,7 @@ export default async function DashboardPage() {
   // 2. Fetch the true role from your Supabase database
   const dbUser = await prisma.user.findUnique({
     where: { id: clerkUser.id },
+    include: { location: true } // <--- FIX 1: MUST INCLUDE LOCATION DATA
   });
 
   // Failsafe: If they bypassed the sync API somehow, force them through it
@@ -36,20 +37,22 @@ export default async function DashboardPage() {
   let DashboardView;
   switch (role) {
     case "ADMIN":
-      DashboardView = <AdminDashboard />;
+      // Pass the user here if your AdminDashboard needs it!
+      DashboardView = <AdminDashboard user={dbUser} />; 
       break;
     case "SHOPKEEPER":
-      DashboardView = <ShopkeeperDashboard />;
+      // <--- FIX 2: PASS THE USER OBJECT HERE!
+      DashboardView = <ShopkeeperDashboard user={dbUser} />; 
       break;
     case "DEALER":
-      DashboardView = <DealerDashboard />;
+      DashboardView = <DealerDashboard user={dbUser} />;
       break;
     case "VISITOR":
     default:
-      DashboardView = <VisitorDashboard />;
+      DashboardView = <VisitorDashboard user={dbUser} />;
   }
 
-  // 4. Render the page (Toasts logic + the actual Dashboard)
+  // 4. Render the page
   return (
     <>
       <DashboardToasts />

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
@@ -9,8 +10,14 @@ const transporter = nodemailer.createTransport({
 
 export async function POST(req) {
   try {
-    const { customerInfo, items, locationId, userId, totals } =
+    let { customerInfo, items, locationId, userId, totals } =
       await req.json();
+
+    const clerkUser = await currentUser();
+    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
+    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (dbUser.role === "SHOPKEEPER") locationId = dbUser.locationId;
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Verify Stock
@@ -105,6 +112,7 @@ export async function POST(req) {
               paymentMode: "CASH",
               customerId: dbCustomer.id,
               userId,
+              invoiceId: invoice.id,
               remarks: `Split Payment for ${invoiceNumber}`,
             },
           });
@@ -115,6 +123,7 @@ export async function POST(req) {
               paymentMode: "UPI",
               customerId: dbCustomer.id,
               userId,
+              invoiceId: invoice.id,
               remarks: `Split Payment for ${invoiceNumber}`,
             },
           });
@@ -125,6 +134,7 @@ export async function POST(req) {
               paymentMode: "CARD",
               customerId: dbCustomer.id,
               userId,
+              invoiceId: invoice.id,
               remarks: `Split Payment for ${invoiceNumber}`,
             },
           });
@@ -136,23 +146,33 @@ export async function POST(req) {
             paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
             customerId: dbCustomer.id,
             userId,
+            invoiceId: invoice.id,
             remarks: `Payment for ${invoiceNumber}`,
           },
         });
       }
 
       // 7. Deduct Inventory
-      for (const item of items) {
-        await tx.inventory.update({
-          where: {
-            productId_locationId: { productId: item.productId, locationId },
-          },
-          data: { quantity: { decrement: item.quantity } },
-        });
-      }
+      await Promise.all(
+        items.map((item) =>
+          tx.inventory.update({
+            where: {
+              productId_locationId: {
+                productId: item.productId,
+                locationId,
+              },
+            },
+            data: {
+              quantity: { decrement: item.quantity },
+            },
+          }),
+        ),
+      );
 
       return invoice;
-    });
+    } , {
+      timeout: 15000,
+    } );
 
     // --- ASYNCHRONOUS EMAIL NOTIFICATION ---
     const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://unnati-traders.vercel.app"}/billing/receipt/${result.id}`;

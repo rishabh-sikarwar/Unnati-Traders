@@ -17,6 +17,7 @@ export async function GET() {
       select: {
         role: true,
         fullName: true,
+        locationId: true,
       }, // We only select what we need to keep the API fast
     });
 

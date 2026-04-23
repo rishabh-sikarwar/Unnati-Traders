@@ -3,11 +3,19 @@
 import { useState, useMemo } from "react";
 import { Search, Filter, PackageX } from "lucide-react";
 
-export default function InventoryTable({ products, locations }) {
+export default function InventoryTable({
+  products,
+  locations,
+  userRole,
+  userLocationId,
+}) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("ALL");
 
-  // Flatten the nested inventory data into a clean, filterable list
+  // FIX: If Admin, default to ALL. If Shopkeeper, force default to their shop ID.
+  const [selectedLocation, setSelectedLocation] = useState(
+    userRole === "ADMIN" ? "ALL" : userLocationId || "ALL",
+  );
+
   const flatInventory = useMemo(() => {
     let rows = [];
     products.forEach((p) => {
@@ -30,7 +38,6 @@ export default function InventoryTable({ products, locations }) {
     return rows;
   }, [products, locations]);
 
-  // Apply Search & Filters
   const filteredData = flatInventory.filter((row) => {
     const matchesSearch =
       row.modelName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -45,7 +52,6 @@ export default function InventoryTable({ products, locations }) {
 
   return (
     <div className="space-y-6">
-      {/* TOOLBAR */}
       <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -62,9 +68,16 @@ export default function InventoryTable({ products, locations }) {
           <select
             value={selectedLocation}
             onChange={(e) => setSelectedLocation(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white cursor-pointer font-medium text-gray-700"
+            disabled={userRole !== "ADMIN"} // FIX: Lock dropdown for Shopkeepers
+            className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none font-medium text-gray-700 ${
+              userRole === "ADMIN"
+                ? "bg-white cursor-pointer focus:ring-2 focus:ring-[#522874]"
+                : "bg-gray-100 cursor-not-allowed opacity-80"
+            }`}
           >
-            <option value="ALL">All Shops & Warehouses</option>
+            {userRole === "ADMIN" && (
+              <option value="ALL">All Shops & Warehouses</option>
+            )}
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -93,7 +106,6 @@ export default function InventoryTable({ products, locations }) {
               </th>
             </tr>
           </thead>
-
           <tbody className="block md:table-row-group">
             {filteredData.length === 0 ? (
               <tr className="block md:table-row">
@@ -124,7 +136,6 @@ export default function InventoryTable({ products, locations }) {
                       </code>
                     </div>
                   </td>
-
                   <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
                     <div className="flex justify-between md:block items-center">
                       <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
@@ -135,7 +146,6 @@ export default function InventoryTable({ products, locations }) {
                       </span>
                     </div>
                   </td>
-
                   <td className="block md:table-cell md:p-4 md:text-right mb-3 md:mb-0">
                     <div className="flex justify-between md:justify-end items-center">
                       <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
@@ -146,20 +156,13 @@ export default function InventoryTable({ products, locations }) {
                       </span>
                     </div>
                   </td>
-
                   <td className="block md:table-cell md:p-4 md:text-center border-t md:border-none pt-3 md:pt-0">
                     <div className="flex justify-between md:justify-center items-center">
                       <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
                         Status:
                       </span>
                       <span
-                        className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${
-                          row.quantity === 0
-                            ? "bg-red-100 text-red-700"
-                            : row.quantity <= row.lowStockThreshold
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-green-100 text-green-700"
-                        }`}
+                        className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${row.quantity === 0 ? "bg-red-100 text-red-700" : row.quantity <= row.lowStockThreshold ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}
                       >
                         {row.quantity === 0
                           ? "Out of Stock"

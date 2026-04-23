@@ -2,10 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { Package, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import InventoryTable from "@/components/inventory/InventoryTable";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
+  const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
+  // Fetch user role and location
+  const dbUser = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+  });
+
+  if (!dbUser) redirect("/");
+
   const products = await prisma.product.findMany({
     include: { inventories: true },
     orderBy: { modelName: "asc" },
@@ -25,7 +37,9 @@ export default async function InventoryPage() {
               Inventory Hub
             </h1>
             <p className="text-gray-500 mt-1">
-              Live physical stock levels across all locations.
+              {dbUser.role === "ADMIN"
+                ? "Live physical stock levels across all locations."
+                : "Live physical stock levels for your shop."}
             </p>
           </div>
 
@@ -39,7 +53,13 @@ export default async function InventoryPage() {
           </div>
         </div>
 
-        <InventoryTable products={products} locations={locations} />
+        {/* Pass the User Role and Location ID to the Table */}
+        <InventoryTable
+          products={products}
+          locations={locations}
+          userRole={dbUser.role}
+          userLocationId={dbUser.locationId}
+        />
       </div>
     </div>
   );

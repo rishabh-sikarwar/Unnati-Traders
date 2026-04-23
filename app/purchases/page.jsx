@@ -46,6 +46,8 @@ export default async function PurchasesPage() {
           products={products}
           locations={locations}
           userId={dbUser.id}
+          userRole={dbUser.role}
+          userLocationId={dbUser.locationId}
         />
       </div>
     </div>

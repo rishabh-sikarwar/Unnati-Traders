@@ -1,9 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST(req) {
   try {
-    const { customerId, productId, locationId, quantity, refundAmount, condition, reason, userId } = await req.json();
+    let { customerId, productId, locationId, quantity, refundAmount, condition, reason, userId } = await req.json();
+
+    const clerkUser = await currentUser();
+    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
+    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (dbUser.role === "SHOPKEEPER") locationId = dbUser.locationId;
+
 
     if (!customerId || !productId || !locationId || quantity <= 0) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });

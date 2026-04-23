@@ -22,6 +22,7 @@ export default function StockPage() {
   const router = useRouter();
   const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // --- FILTERS & SEARCH ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,7 +60,19 @@ export default function StockPage() {
   }
 
   useEffect(() => {
-    loadCatalogue();
+    async function init() {
+      try {
+        const userRes = await fetch("/api/user/me");
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setCurrentUser(userData);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user", err);
+      }
+      loadCatalogue();
+    }
+    init();
   }, []);
 
   // --- DERIVE CATEGORIES & FILTER DATA ---
@@ -418,7 +431,9 @@ export default function StockPage() {
               Catalogue
             </h1>
             <p className="text-gray-500 mt-1">
-              Manage global Apollo products and pricing.
+              {currentUser?.role === "ADMIN" 
+                ? "Manage global Apollo products and pricing." 
+                : "View catalogue and stock for your shop."}
             </p>
           </div>
           <Link
@@ -567,7 +582,7 @@ export default function StockPage() {
                   Base Price
                 </th>
                 <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
-                  Global Stock
+                  {currentUser?.role === "ADMIN" ? "Global Stock" : "Shop Stock"}
                 </th>
                 <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
@@ -589,11 +604,15 @@ export default function StockPage() {
               )}
 
               {filteredCatalogue.map((product) => {
-                const totalStock =
-                  product.inventories?.reduce(
-                    (acc, inv) => acc + inv.quantity,
-                    0,
-                  ) || 0;
+                const totalStock = product.inventories?.reduce((acc, inv) => {
+                  if (
+                    currentUser?.role === "SHOPKEEPER" &&
+                    inv.locationId !== currentUser?.locationId
+                  ) {
+                    return acc;
+                  }
+                  return acc + inv.quantity;
+                }, 0) || 0;
 
                 return (
                   <tr
@@ -643,7 +662,7 @@ export default function StockPage() {
                     <td className="block md:table-cell md:p-4 md:text-center mb-4 md:mb-0">
                       <div className="flex justify-between md:justify-center items-center">
                         <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
-                          Total Stock:
+                          {currentUser?.role === "ADMIN" ? "Global Stock:" : "Shop Stock:"}
                         </span>
                         <span
                           className={`inline-block px-3 py-1 rounded-md font-black text-sm ${totalStock <= product.lowStock ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}

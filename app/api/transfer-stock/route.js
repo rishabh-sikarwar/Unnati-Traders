@@ -1,9 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST(req) {
   try {
-    const { productId, fromLocation, toLocation, quantity } = await req.json();
+    let { productId, fromLocation, toLocation, quantity } = await req.json();
+
+    const clerkUser = await currentUser();
+    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
+    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (dbUser.role === "SHOPKEEPER" && fromLocation !== dbUser.locationId) {
+      return NextResponse.json({ error: "You can only transfer stock from your own shop." }, { status: 403 });
+    }
+
 
     if (!productId || !fromLocation || !toLocation || !quantity) {
       return NextResponse.json(

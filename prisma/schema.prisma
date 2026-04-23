@@ -110,6 +110,7 @@ model Invoice {
   user   User?   @relation(fields: [userId], references: [id])
 
   items InvoiceItem[]
+  payments PaymentLog[]
 }
 
 model InvoiceItem {
@@ -135,6 +136,8 @@ model PaymentLog {
   customerId  String
   customer    Customer    @relation(fields: [customerId], references: [id])
   userId      String?
+  invoiceId   String?
+  invoice     Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model Purchase {

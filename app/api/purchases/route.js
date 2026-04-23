@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { maxTime } from "date-fns/constants";
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const {
+    let {
       invoiceNumber,
       supplierName,
       locationId,
@@ -13,6 +14,12 @@ export async function POST(req) {
       totalAmount,
       userId,
     } = body;
+
+    const clerkUser = await currentUser();
+    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
+    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (dbUser.role === "SHOPKEEPER") locationId = dbUser.locationId;
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create the Purchase Record
