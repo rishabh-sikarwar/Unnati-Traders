@@ -3,10 +3,11 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import CustomerLedger from "@/components/customers/customer-ledger";
 import { UsersRound, Wallet } from "lucide-react";
+import { subDays, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({ searchParams }) {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
@@ -18,55 +19,101 @@ export default async function CustomersPage() {
 
   const locations = await prisma.location.findMany({
     select: { id: true, name: true },
+    orderBy: { name: "asc" }
   });
 
-  // Fetch all customers, their invoices, and their payment logs
+  // --- 1. READ URL PARAMETERS ---
+  const queries = await searchParams;
+  const searchQuery = (queries?.search || "").toLowerCase();
+  const shopFilter = queries?.shopId || "ALL";
+  const dateFilter = queries?.days || "ALL";
+  const duesOnly = queries?.duesOnly === "true";
+
+  // Calculate Cutoff Date
+  let cutoffDate = null;
+  if (dateFilter !== "ALL") {
+    cutoffDate = startOfDay(subDays(new Date(), parseInt(dateFilter)));
+  }
+
+  // --- 2. FETCH MINIMAL DATA FROM DB ---
+  // We ONLY fetch the fields needed for math to keep the query lightning fast
   const customers = await prisma.customer.findMany({
     where: { isArchived: false },
     include: {
       invoices: {
-        select: { id: true, grandTotal: true, amountPaid: true, createdAt: true, locationId: true, invoiceNumber: true, paymentMode: true },
+        select: { grandTotal: true, createdAt: true, locationId: true },
       },
       payments: {
-        select: { id: true, amount: true, createdAt: true, paymentMode: true, remarks: true },
+        select: { amount: true, createdAt: true },
       },
     },
     orderBy: { name: "asc" },
   });
 
-  // Group duplicate customer rows by normalized textual name
+  // --- 3. SERVER-SIDE MATH & DEDUPLICATION ---
   const groupedData = {};
+  let globalOutstanding = 0;
+
   for (const c of customers) {
     const key = c.name.toLowerCase().trim();
     if (!groupedData[key]) {
       groupedData[key] = {
-        name: c.name,
-        type: c.type,
-        phone: c.phone,
-        gstNumber: c.gstNumber,
-        address: c.address,
-        isArchived: c.isArchived,
-        ids: [c.id],
-        invoices: [],
-        payments: [],
-        // Fallback default ID for settlements component
-        id: c.id, 
+        name: c.name, type: c.type, phone: c.phone, gstNumber: c.gstNumber, address: c.address, ids: [c.id], id: c.id,
+        globalBilled: 0, globalPaid: 0, displayBilled: 0, displayPaid: 0, interactedWithShop: false
       };
     } else {
       groupedData[key].ids.push(c.id);
-      // Fill missing info if subsequent duplicate has it
       if (!groupedData[key].phone && c.phone) groupedData[key].phone = c.phone;
-      if (!groupedData[key].gstNumber && c.gstNumber) groupedData[key].gstNumber = c.gstNumber;
-      if (!groupedData[key].address && c.address) groupedData[key].address = c.address;
     }
-    groupedData[key].invoices.push(...c.invoices);
-    groupedData[key].payments.push(...c.payments);
+
+    const group = groupedData[key];
+
+    // Process Invoices
+    for (const inv of c.invoices) {
+      group.globalBilled += inv.grandTotal;
+      if (shopFilter === "ALL" || inv.locationId === shopFilter) {
+        group.interactedWithShop = true;
+      }
+      if (!cutoffDate || new Date(inv.createdAt) >= cutoffDate) {
+        group.displayBilled += inv.grandTotal;
+      }
+    }
+
+    // Process Payments
+    for (const pay of c.payments) {
+      group.globalPaid += pay.amount;
+      if (!cutoffDate || new Date(pay.createdAt) >= cutoffDate) {
+        group.displayPaid += pay.amount;
+      }
+    }
   }
 
-  const mergedCustomers = Object.values(groupedData);
+  // --- 4. FILTER AND FORMAT FOR CLIENT ---
+  let processedCustomers = [];
 
-  // We no longer calculate static global metrics here since it needs to be dynamic on the client side based on filters.
-  // The client side Client Component <CustomerLedger> will handle global metrics.
+  for (const group of Object.values(groupedData)) {
+    const outstandingDues = group.globalBilled - group.globalPaid;
+    group.outstandingDues = outstandingDues;
+
+    // Apply Filters
+    if (searchQuery && !group.name.toLowerCase().includes(searchQuery) && !(group.phone && group.phone.includes(searchQuery))) continue;
+    if (duesOnly && outstandingDues <= 0) continue;
+    if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
+    
+    // If a date filter is applied, only show customers who had activity OR owe money
+    const hasActivity = dateFilter === "ALL" || group.displayBilled > 0 || group.displayPaid > 0 || outstandingDues > 0;
+    if (!hasActivity) continue;
+
+    processedCustomers.push(group);
+    
+    if (outstandingDues > 0) {
+      globalOutstanding += outstandingDues;
+    }
+  }
+
+  // SAFEGUARD: Only send the top 200 results to the browser to prevent lag. 
+  // The user can use the search bar to find anyone not in the top 200.
+  const finalCustomers = processedCustomers.slice(0, 200);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
@@ -83,8 +130,14 @@ export default async function CustomersPage() {
           </div>
         </div>
 
-        {/* Client Component for filtering and accepting payments */}
-        <CustomerLedger customers={mergedCustomers} locations={locations} userId={dbUser.id} />
+        {/* Pass the LIGHTWEIGHT calculated data to the interactive client form */}
+        <CustomerLedger 
+          customers={finalCustomers} 
+          globalOutstanding={globalOutstanding}
+          locations={locations} 
+          userId={dbUser.id} 
+          currentFilters={{ searchQuery, shopFilter, dateFilter, duesOnly }}
+        />
       </div>
     </div>
   );

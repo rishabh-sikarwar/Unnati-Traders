@@ -1,119 +1,45 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import {
-  Search,
-  Loader2,
-  IndianRupee,
-  HandCoins,
-  X,
-  ArchiveX,
-  AlertCircle,
-  FileText,
-  Filter,
-  Wallet
-} from "lucide-react";
-import { subDays, isAfter } from "date-fns";
+import { Search, Loader2, IndianRupee, HandCoins, X, ArchiveX, FileText, Filter, Wallet } from "lucide-react";
+import { useDebounce } from "use-debounce";
 
-export default function CustomerLedger({ customers, locations = [], userId }) {
+export default function CustomerLedger({ customers, globalOutstanding, locations = [], userId, currentFilters }) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterDuesOnly, setFilterDuesOnly] = useState(false);
+  
+  // URL Filter States
+  const [searchQuery, setSearchQuery] = useState(currentFilters.searchQuery);
+  const [dateFilter, setDateFilter] = useState(currentFilters.dateFilter);
+  const [shopFilter, setShopFilter] = useState(currentFilters.shopFilter);
+  const [filterDuesOnly, setFilterDuesOnly] = useState(currentFilters.duesOnly);
 
-  // --- NEW FILTERS ---
-  const [dateFilter, setDateFilter] = useState("ALL");
-  const [shopFilter, setShopFilter] = useState("ALL");
-
-  // --- MODAL STATES ---
-  const [paymentModal, setPaymentModal] = useState({
-    isOpen: false,
-    customer: null,
-  });
+  // Modal States
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, customer: null });
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState("CASH");
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // NEW: Archive Modal State
-  const [archiveModal, setArchiveModal] = useState({
-    isOpen: false,
-    customerId: null,
-    customerName: "",
-  });
+  const [archiveModal, setArchiveModal] = useState({ isOpen: false, customerId: null, customerName: "" });
   const [isArchiving, setIsArchiving] = useState(false);
 
-  // --- DYNAMIC FILTER & MATH LOGIC ---
-  const { filteredCustomers, globalOutstanding } = useMemo(() => {
-    const now = new Date();
-    let globalOut = 0;
+  // --- TRIGGER SERVER RE-FETCH ---
+  const applyFilters = (search, date, shop, dues) => {
+    const url = `/customers?search=${search}&days=${date}&shopId=${shop}&duesOnly=${dues}`;
+    router.push(url);
+  };
 
-    let processed = customers.map((c) => {
-      let validInvoices = c.invoices || [];
-      let validPayments = c.payments || [];
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') applyFilters(searchQuery, dateFilter, shopFilter, filterDuesOnly);
+  };
 
-      // Filter Invoices & Payments by Date (if not ALL)
-      if (dateFilter !== "ALL") {
-        const cutoff = subDays(now, parseInt(dateFilter));
-        validInvoices = validInvoices.filter((inv) =>
-          isAfter(new Date(inv.createdAt), cutoff)
-        );
-        validPayments = validPayments.filter((pay) =>
-          isAfter(new Date(pay.createdAt), cutoff)
-        );
-      }
-
-      // Filter strictly INVOICES by Shop (if not ALL)
-      if (shopFilter !== "ALL") {
-        validInvoices = validInvoices.filter(
-          (inv) => inv.locationId === shopFilter
-        );
-      }
-
-      // Calculate the metrics for this customer BASED ON FILTERS ONLY
-      const totalBilled = validInvoices.reduce(
-        (sum, inv) => sum + inv.grandTotal,
-        0
-      );
-      const totalPaid = validPayments.reduce(
-  (sum, pay) => sum + pay.amount,
-  0
-);
-      const outstandingDues = totalBilled - totalPaid;
-
-      if (outstandingDues > 0) {
-        globalOut += outstandingDues;
-      }
-
-      return {
-        ...c,
-        totalBilled,
-        totalPaid,
-        outstandingDues,
-      };
-    });
-
-    // NOW apply local UI filters (Search bar & Show Dues Only)
-    processed = processed.filter((c) => {
-      const matchesSearch =
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.phone && c.phone.includes(searchQuery));
-      const matchesDues = filterDuesOnly ? c.outstandingDues > 0 : true;
-      return matchesSearch && matchesDues;
-    });
-
-    return { filteredCustomers: processed, globalOutstanding: globalOut };
-  }, [customers, searchQuery, filterDuesOnly, dateFilter, shopFilter]);
-
-  // --- HANDLE PAYMENT ---
+  // --- API CALLS ---
   const handlePayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0)
-      return toast.error("Enter a valid amount");
-    if (Number(payAmount) > paymentModal.customer.outstandingDues) {
-      return toast.error("Amount exceeds outstanding dues!");
-    }
+    if (!payAmount || Number(payAmount) <= 0) return toast.error("Enter a valid amount");
+    if (Number(payAmount) > paymentModal.customer.outstandingDues) return toast.error("Amount exceeds outstanding dues!");
 
     setIsSubmitting(true);
     const loadingToast = toast.loading("Processing payment...");
@@ -135,9 +61,8 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
 
       toast.success("Payment recorded successfully!", { id: loadingToast });
       setPaymentModal({ isOpen: false, customer: null });
-      setPayAmount("");
-      setRemarks("");
-      router.refresh();
+      setPayAmount(""); setRemarks("");
+      router.refresh(); // Automatically fetches the fresh data from the server
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
     } finally {
@@ -145,7 +70,6 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
     }
   };
 
-  // --- EXECUTE ARCHIVE ---
   const executeArchive = async () => {
     setIsArchiving(true);
     const toastId = toast.loading("Archiving account...");
@@ -154,15 +78,12 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
       const res = await fetch("/api/customers/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Use the `ids` array from our merged object
         body: JSON.stringify({ customerIds: archiveModal.customer.ids }),
       });
 
       if (!res.ok) throw new Error("Failed to archive");
 
-      toast.success(`${archiveModal.customerName} archived successfully.`, {
-        id: toastId,
-      });
+      toast.success(`${archiveModal.customerName} archived successfully.`, { id: toastId });
       setArchiveModal({ isOpen: false, customerId: null, customerName: "" });
       router.refresh();
     } catch (error) {
@@ -174,44 +95,45 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
 
   return (
     <div className="space-y-6">
-      {/* GLOBAL DUES BANNER (Moved from Page to Client to be dynamic) */}
+      
+      {/* GLOBAL DUES BANNER */}
       <div className="flex justify-end hidden md:flex mb-2">
         <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
-          <div className="p-2 bg-red-100 rounded-lg">
-            <Wallet className="w-5 h-5 text-red-600" />
-          </div>
+          <div className="p-2 bg-red-100 rounded-lg"><Wallet className="w-5 h-5 text-red-600" /></div>
           <div>
-            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
-              Filtered Market Dues
-            </span>
-            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
-              ₹{globalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </p>
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Filtered Market Dues</span>
+            <p className="text-xl font-black text-red-600 leading-none mt-0.5">₹{globalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
       </div>
 
-      {/* SECURE TOOLBAR */}
+      {/* SERVER-SIDE SECURE TOOLBAR */}
       <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        
+        {/* Search Bar - Press Enter to Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by Customer Name or Phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
+          <input 
+            type="text" 
+            placeholder="Search Name or Phone (Press Enter)..." 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            onKeyDown={handleSearchKeyPress}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700" 
           />
         </div>
         
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 text-gray-400 font-bold text-xs uppercase tracking-widest pl-2">
+          <div className="hidden sm:flex items-center gap-1.5 text-[#522874] font-bold text-xs uppercase tracking-widest pl-2">
             <Filter className="w-4 h-4" /> Filters:
           </div>
 
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+          <select 
+            value={dateFilter} 
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              applyFilters(searchQuery, e.target.value, shopFilter, filterDuesOnly);
+            }} 
             className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
           >
             <option value="ALL">All Time</option>
@@ -221,22 +143,25 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
           </select>
 
           {locations && locations.length > 0 && (
-            <select
-              value={shopFilter}
-              onChange={(e) => setShopFilter(e.target.value)}
+            <select 
+              value={shopFilter} 
+              onChange={(e) => {
+                setShopFilter(e.target.value);
+                applyFilters(searchQuery, dateFilter, e.target.value, filterDuesOnly);
+              }} 
               className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
             >
               <option value="ALL">All Shops</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
+              {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
             </select>
           )}
 
-          <button
-            onClick={() => setFilterDuesOnly(!filterDuesOnly)}
+          <button 
+            onClick={() => {
+              const newDuesState = !filterDuesOnly;
+              setFilterDuesOnly(newDuesState);
+              applyFilters(searchQuery, dateFilter, shopFilter, newDuesState);
+            }} 
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200 shadow-inner" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
           >
             {filterDuesOnly ? "Dues Only: ON" : "Dues Only: OFF"}
@@ -244,131 +169,70 @@ export default function CustomerLedger({ customers, locations = [], userId }) {
         </div>
       </div>
 
-      {/* DATA TABLE / CARDS */}
+      {/* DATA TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Customer Info
-              </th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
-                Total Billed
-              </th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
-                Total Paid
-              </th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
-                Outstanding Dues
-              </th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
-                Action
-              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer Info</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Activity (Billed)</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Activity (Paid)</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Global Dues</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
             </tr>
           </thead>
           <tbody className="block md:table-row-group">
-            {filteredCustomers.length === 0 && (
+            {customers.length === 0 && (
               <tr className="block md:table-row">
-                <td
-                  colSpan="5"
-                  className="block md:table-cell p-8 text-center text-gray-500 border-b"
-                >
-                  No active customers found.
-                </td>
+                <td colSpan="5" className="block md:table-cell p-8 text-center text-gray-500 border-b">No matching customers found. Press enter to search.</td>
               </tr>
             )}
 
-            {filteredCustomers.map((c) => (
-              <tr
-                key={c.id}
-                className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
-              >
-                {/* Info */}
+            {customers.map((c) => (
+              <tr key={c.id} className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0">
                 <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
-                  <div className="font-bold text-gray-900 text-lg md:text-base">
-                    {c.name}
-                  </div>
+                  <div className="font-bold text-gray-900 text-lg md:text-base">{c.name}</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {c.phone || "No Phone"} •{" "}
-                    <span className="uppercase text-[#522874] font-semibold">
-                      {c.type.replace("_", " ")}
-                    </span>
+                    {c.phone || "No Phone"} • <span className="uppercase text-[#522874] font-semibold">{c.type.replace("_", " ")}</span>
                   </div>
                 </td>
 
-                {/* Total Billed */}
                 <td className="block md:table-cell md:p-4 md:text-right mb-2 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center">
-                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
-                      Total Billed:
-                    </span>
-                    <span className="font-bold text-gray-700">
-                      ₹{c.totalBilled.toLocaleString()}
-                    </span>
+                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">Activity Billed:</span>
+                    <span className="font-bold text-gray-700">₹{c.displayBilled.toLocaleString()}</span>
                   </div>
                 </td>
 
-                {/* Total Paid */}
                 <td className="block md:table-cell md:p-4 md:text-right mb-2 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center">
-                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
-                      Total Paid:
-                    </span>
-                    <span className="font-bold text-green-600">
-                      ₹{c.totalPaid.toLocaleString()}
-                    </span>
+                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">Activity Paid:</span>
+                    <span className="font-bold text-green-600">₹{c.displayPaid.toLocaleString()}</span>
                   </div>
                 </td>
 
-                {/* Outstanding Dues */}
                 <td className="block md:table-cell md:p-4 md:text-right mb-4 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center bg-red-50/50 p-2 md:p-0 rounded-lg">
-                    <span className="md:hidden text-xs font-bold text-red-400 uppercase">
-                      Outstanding Dues:
-                    </span>
-                    <span
-                      className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}
-                    >
+                    <span className="md:hidden text-xs font-bold text-red-400 uppercase">Global Dues:</span>
+                    <span className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}>
                       ₹{c.outstandingDues.toLocaleString()}
                     </span>
                   </div>
                 </td>
 
-                {/* DYNAMIC ACTIONS */}
-                {/* DYNAMIC ACTIONS */}
                 <td className="block md:table-cell md:p-4 border-t md:border-none pt-4 md:pt-0">
                   <div className="flex flex-col sm:flex-row md:justify-end gap-2">
-                    {/* NEW: View Detailed Ledger Button (Filtered encoded name) */}
-                    <button
-                      onClick={() => router.push(`/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&days=${dateFilter}`)}
-                      className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                    >
+                    <button onClick={() => router.push(`/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&days=${dateFilter}`)} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
                       <FileText className="w-4 h-4" /> Statement
                     </button>
 
                     {c.outstandingDues > 0 ? (
-                      <button
-                        onClick={() => {
-                          setPayAmount(c.outstandingDues);
-                          setPaymentModal({ isOpen: true, customer: c });
-                        }}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                      >
+                      <button onClick={() => { setPayAmount(c.outstandingDues); setPaymentModal({ isOpen: true, customer: c }); }} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
                         <HandCoins className="w-4 h-4" /> Settle
                       </button>
                     ) : (
-                      <button
-                        onClick={() =>
-                          setArchiveModal({
-                            isOpen: true,
-                            customer: c,
-                            customerName: c.name,
-                          })
-                        }
-                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                      >
-                        <ArchiveX className="w-4 h-4" />
-                        Archive
+                      <button onClick={() => setArchiveModal({ isOpen: true, customer: c, customerName: c.name })} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
+                        <ArchiveX className="w-4 h-4" /> Archive
                       </button>
                     )}
                   </div>
