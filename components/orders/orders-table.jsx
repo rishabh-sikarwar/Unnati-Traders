@@ -4,25 +4,51 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Search, Printer, FileText, Loader2, Filter, Trash2, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import {
+  Search,
+  Printer,
+  FileText,
+  Loader2,
+  Filter,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import { format, subDays, isAfter } from "date-fns";
 
-export default function OrdersTable({ initialOrders, userRole, locations = [], currentFilters }) {
+export default function OrdersTable({
+  initialOrders,
+  userRole,
+  locations = [],
+  currentFilters,
+}) {
   const router = useRouter();
-  
-  // Local Search state (still useful for instantly finding an invoice within the returned batch)
+
+  // Local Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingOrderId, setLoadingOrderId] = useState(null);
-  
-  const [cancelModal, setCancelModal] = useState({ isOpen: false, invoiceId: null, invoiceNumber: "" });
+
+  // Canceling states
+  const [cancelModal, setCancelModal] = useState({
+    isOpen: false,
+    invoiceId: null,
+    invoiceNumber: "",
+  });
   const [isCanceling, setIsCanceling] = useState(false);
 
   // Maintain filter state from URL props
-  const [dateFilter, setDateFilter] = useState(currentFilters.dateFilter);
-  const [shopFilter, setShopFilter] = useState(currentFilters.shopFilter);
-  const [typeFilter, setTypeFilter] = useState(currentFilters.typeFilter);
-  const [customStart, setCustomStart] = useState(currentFilters.customStart || "");
-  const [customEnd, setCustomEnd] = useState(currentFilters.customEnd || "");
+  const [dateFilter, setDateFilter] = useState(
+    currentFilters?.dateFilter || "today",
+  );
+  const [shopFilter, setShopFilter] = useState(
+    currentFilters?.shopFilter || "ALL",
+  );
+  const [typeFilter, setTypeFilter] = useState(
+    currentFilters?.typeFilter || "ALL",
+  );
+  const [customStart, setCustomStart] = useState(
+    currentFilters?.customStart || "",
+  );
+  const [customEnd, setCustomEnd] = useState(currentFilters?.customEnd || "");
 
   // Update URL to trigger Server fetch
   const applyFilters = (newDate, newShop, newType, newStart, newEnd) => {
@@ -48,11 +74,17 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
 
   async function executeCancel() {
     setIsCanceling(true);
-    const loadingToast = toast.loading("Canceling Invoice...");
+    const loadingToast = toast.loading(
+      "Canceling Invoice & Restoring Stock...",
+    );
+
     try {
-      const res = await fetch(`/api/billing/${cancelModal.invoiceId}`, { method: "DELETE" });
+      const res = await fetch(`/api/billing/${cancelModal.invoiceId}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to cancel");
+
       toast.success("Invoice Cancelled Successfully", { id: loadingToast });
       setCancelModal({ isOpen: false, invoiceId: null, invoiceNumber: "" });
       router.refresh();
@@ -73,11 +105,56 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
 
   return (
     <div className="space-y-6">
-      {/* ... (Keep Cancel Modal HTML unchanged) ... */}
+      {/* --- THE RESTORED CANCEL MODAL --- */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 sm:p-8">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mb-5 mx-auto">
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-gray-900 mb-2">
+              Cancel Invoice?
+            </h3>
+            <p className="text-center text-gray-500 text-sm mb-8 leading-relaxed">
+              Are you sure you want to permanently cancel invoice{" "}
+              <span className="font-bold text-gray-900">
+                "{cancelModal.invoiceNumber}"
+              </span>
+              ? All stock entries and connected payment logs will be restored
+              immediately.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() =>
+                  setCancelModal({
+                    isOpen: false,
+                    invoiceId: null,
+                    invoiceNumber: "",
+                  })
+                }
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={executeCancel}
+                disabled={isCanceling}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 flex justify-center items-center gap-2 disabled:opacity-50"
+              >
+                {isCanceling ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Confirm Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TOOLBAR: SEARCH & FILTERS */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 items-start xl:items-center">
-        
         {/* Local Text Search */}
         <div className="relative flex-1 w-full">
           <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -100,7 +177,13 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
             value={dateFilter}
             onChange={(e) => {
               setDateFilter(e.target.value);
-              applyFilters(e.target.value, shopFilter, typeFilter, customStart, customEnd);
+              applyFilters(
+                e.target.value,
+                shopFilter,
+                typeFilter,
+                customStart,
+                customEnd,
+              );
             }}
             className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
           >
@@ -114,24 +197,38 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
 
           {dateFilter === "custom" && (
             <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-200">
-              <input 
-                type="date" 
-                value={customStart} 
+              <input
+                type="date"
+                value={customStart}
                 onChange={(e) => {
                   setCustomStart(e.target.value);
-                  if (customEnd) applyFilters("custom", shopFilter, typeFilter, e.target.value, customEnd);
+                  if (customEnd)
+                    applyFilters(
+                      "custom",
+                      shopFilter,
+                      typeFilter,
+                      e.target.value,
+                      customEnd,
+                    );
                 }}
-                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none" 
+                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none"
               />
               <span className="text-gray-400">to</span>
-              <input 
-                type="date" 
-                value={customEnd} 
+              <input
+                type="date"
+                value={customEnd}
                 onChange={(e) => {
                   setCustomEnd(e.target.value);
-                  if (customStart) applyFilters("custom", shopFilter, typeFilter, customStart, e.target.value);
+                  if (customStart)
+                    applyFilters(
+                      "custom",
+                      shopFilter,
+                      typeFilter,
+                      customStart,
+                      e.target.value,
+                    );
                 }}
-                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none" 
+                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none"
               />
             </div>
           )}
@@ -140,7 +237,13 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
             value={typeFilter}
             onChange={(e) => {
               setTypeFilter(e.target.value);
-              applyFilters(dateFilter, shopFilter, e.target.value, customStart, customEnd);
+              applyFilters(
+                dateFilter,
+                shopFilter,
+                e.target.value,
+                customStart,
+                customEnd,
+              );
             }}
             className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
           >
@@ -154,13 +257,21 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
               value={shopFilter}
               onChange={(e) => {
                 setShopFilter(e.target.value);
-                applyFilters(dateFilter, e.target.value, typeFilter, customStart, customEnd);
+                applyFilters(
+                  dateFilter,
+                  e.target.value,
+                  typeFilter,
+                  customStart,
+                  customEnd,
+                );
               }}
               className="flex-1 sm:flex-none px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
             >
               <option value="ALL">All Shops</option>
               {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
               ))}
             </select>
           )}
@@ -169,12 +280,19 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
 
       {/* METRICS BANNER */}
       <div className="flex justify-between items-center bg-purple-50 p-4 rounded-xl border border-purple-100">
-        <span className="text-sm font-bold text-[#522874] uppercase tracking-widest">Selected Timeline Stats</span>
+        <span className="text-sm font-bold text-[#522874] uppercase tracking-widest">
+          Selected Timeline Stats
+        </span>
         <div className="text-right">
-           <span className="text-xs text-gray-500 font-bold uppercase mr-3">Invoices: {filteredOrders.length}</span>
-           <span className="text-xl font-black text-[#522874]">
-             ₹{filteredOrders.reduce((sum, order) => sum + order.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-           </span>
+          <span className="text-xs text-gray-500 font-bold uppercase mr-3">
+            Invoices: {filteredOrders.length}
+          </span>
+          <span className="text-xl font-black text-[#522874]">
+            ₹
+            {filteredOrders
+              .reduce((sum, order) => sum + order.grandTotal, 0)
+              .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </span>
         </div>
       </div>
 
@@ -183,24 +301,45 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
         <table className="w-full text-left border-collapse">
           <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date & Time</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Invoice Details</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-              {userRole === "ADMIN" && <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Shop</th>}
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Grand Total</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Date & Time
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Invoice Details
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Customer
+              </th>
+              {userRole === "ADMIN" && (
+                <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Shop
+                </th>
+              )}
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Grand Total
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Actions
+              </th>
             </tr>
           </thead>
 
           <tbody className="block md:table-row-group">
             {filteredOrders.length === 0 ? (
               <tr className="block md:table-row">
-                <td colSpan={userRole === "ADMIN" ? 6 : 5} className="block md:table-cell p-16 text-center text-gray-500">
+                <td
+                  colSpan={userRole === "ADMIN" ? 6 : 5}
+                  className="block md:table-cell p-16 text-center text-gray-500"
+                >
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <FileText className="w-8 h-8 text-gray-400" />
                   </div>
-                  <p className="font-black text-gray-900 text-xl">{getEmptyMessage()}</p>
-                  <p className="text-sm mt-1 text-gray-500">Try adjusting your date range or shop filter.</p>
+                  <p className="font-black text-gray-900 text-xl">
+                    {getEmptyMessage()}
+                  </p>
+                  <p className="text-sm mt-1 text-gray-500">
+                    Try adjusting your date range or shop filter.
+                  </p>
                 </td>
               </tr>
             ) : (
@@ -300,7 +439,13 @@ export default function OrdersTable({ initialOrders, userRole, locations = [], c
                     <div className="flex items-center justify-end gap-2">
                       {userRole === "ADMIN" && (
                         <button
-                          onClick={() => setCancelModal({ isOpen: true, invoiceId: order.id, invoiceNumber: order.invoiceNumber })}
+                          onClick={() =>
+                            setCancelModal({
+                              isOpen: true,
+                              invoiceId: order.id,
+                              invoiceNumber: order.invoiceNumber,
+                            })
+                          }
                           className="flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 p-2 md:py-2 md:px-3 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 border border-red-100 shrink-0"
                           title="Cancel Invoice"
                         >

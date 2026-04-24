@@ -2,8 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import CustomerLedger from "@/components/customers/customer-ledger";
-import { UsersRound, Wallet } from "lucide-react";
-import { subDays, startOfDay } from "date-fns";
+import { UsersRound } from "lucide-react";
+import {
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  subDays,
+  subMonths,
+} from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -19,33 +26,52 @@ export default async function CustomersPage({ searchParams }) {
 
   const locations = await prisma.location.findMany({
     select: { id: true, name: true },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
   });
 
   // --- 1. READ URL PARAMETERS ---
   const queries = await searchParams;
   const searchQuery = (queries?.search || "").toLowerCase();
   const shopFilter = queries?.shopId || "ALL";
-  const dateFilter = queries?.days || "ALL";
   const duesOnly = queries?.duesOnly === "true";
 
-  // Calculate Cutoff Date
-  let cutoffDate = null;
-  if (dateFilter !== "ALL") {
-    cutoffDate = startOfDay(subDays(new Date(), parseInt(dateFilter)));
+  // NEW DATE FILTERS
+  const dateFilter = queries?.date || "all";
+  const customStart = queries?.start;
+  const customEnd = queries?.end;
+
+  // Calculate Cutoff Dates based on selection
+  let cutoffStart = null;
+  let cutoffEnd = null;
+  const now = new Date();
+
+  if (dateFilter === "today") {
+    cutoffStart = startOfDay(now);
+    cutoffEnd = endOfDay(now);
+  } else if (dateFilter === "yesterday") {
+    const yesterday = subDays(now, 1);
+    cutoffStart = startOfDay(yesterday);
+    cutoffEnd = endOfDay(yesterday);
+  } else if (dateFilter === "this_month") {
+    cutoffStart = startOfMonth(now);
+    cutoffEnd = endOfDay(now);
+  } else if (dateFilter === "last_month") {
+    const lastMonth = subMonths(now, 1);
+    cutoffStart = startOfMonth(lastMonth);
+    cutoffEnd = endOfMonth(lastMonth);
+  } else if (dateFilter === "custom" && customStart && customEnd) {
+    cutoffStart = startOfDay(new Date(customStart));
+    cutoffEnd = endOfDay(new Date(customEnd));
   }
 
   // --- 2. FETCH MINIMAL DATA FROM DB ---
-  // We ONLY fetch the fields needed for math to keep the query lightning fast
   const customers = await prisma.customer.findMany({
     where: { isArchived: false },
     include: {
       invoices: {
         select: { grandTotal: true, createdAt: true, locationId: true },
       },
-      payments: {
-        select: { amount: true, createdAt: true },
-      },
+      payments: { select: { amount: true, createdAt: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -58,8 +84,18 @@ export default async function CustomersPage({ searchParams }) {
     const key = c.name.toLowerCase().trim();
     if (!groupedData[key]) {
       groupedData[key] = {
-        name: c.name, type: c.type, phone: c.phone, gstNumber: c.gstNumber, address: c.address, ids: [c.id], id: c.id,
-        globalBilled: 0, globalPaid: 0, displayBilled: 0, displayPaid: 0, interactedWithShop: false
+        name: c.name,
+        type: c.type,
+        phone: c.phone,
+        gstNumber: c.gstNumber,
+        address: c.address,
+        ids: [c.id],
+        id: c.id,
+        globalBilled: 0,
+        globalPaid: 0,
+        displayBilled: 0,
+        displayPaid: 0,
+        interactedWithShop: false,
       };
     } else {
       groupedData[key].ids.push(c.id);
@@ -74,7 +110,12 @@ export default async function CustomersPage({ searchParams }) {
       if (shopFilter === "ALL" || inv.locationId === shopFilter) {
         group.interactedWithShop = true;
       }
-      if (!cutoffDate || new Date(inv.createdAt) >= cutoffDate) {
+
+      const invDate = new Date(inv.createdAt);
+      if (
+        (!cutoffStart || invDate >= cutoffStart) &&
+        (!cutoffEnd || invDate <= cutoffEnd)
+      ) {
         group.displayBilled += inv.grandTotal;
       }
     }
@@ -82,7 +123,12 @@ export default async function CustomersPage({ searchParams }) {
     // Process Payments
     for (const pay of c.payments) {
       group.globalPaid += pay.amount;
-      if (!cutoffDate || new Date(pay.createdAt) >= cutoffDate) {
+
+      const payDate = new Date(pay.createdAt);
+      if (
+        (!cutoffStart || payDate >= cutoffStart) &&
+        (!cutoffEnd || payDate <= cutoffEnd)
+      ) {
         group.displayPaid += pay.amount;
       }
     }
@@ -96,23 +142,30 @@ export default async function CustomersPage({ searchParams }) {
     group.outstandingDues = outstandingDues;
 
     // Apply Filters
-    if (searchQuery && !group.name.toLowerCase().includes(searchQuery) && !(group.phone && group.phone.includes(searchQuery))) continue;
+    if (
+      searchQuery &&
+      !group.name.toLowerCase().includes(searchQuery) &&
+      !(group.phone && group.phone.includes(searchQuery))
+    )
+      continue;
     if (duesOnly && outstandingDues <= 0) continue;
     if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
-    
+
     // If a date filter is applied, only show customers who had activity OR owe money
-    const hasActivity = dateFilter === "ALL" || group.displayBilled > 0 || group.displayPaid > 0 || outstandingDues > 0;
+    const hasActivity =
+      dateFilter === "all" ||
+      group.displayBilled > 0 ||
+      group.displayPaid > 0 ||
+      outstandingDues > 0;
     if (!hasActivity) continue;
 
     processedCustomers.push(group);
-    
+
     if (outstandingDues > 0) {
       globalOutstanding += outstandingDues;
     }
   }
 
-  // SAFEGUARD: Only send the top 200 results to the browser to prevent lag. 
-  // The user can use the search bar to find anyone not in the top 200.
   const finalCustomers = processedCustomers.slice(0, 200);
 
   return (
@@ -125,18 +178,24 @@ export default async function CustomersPage({ searchParams }) {
               Customer Ledger (Khata)
             </h1>
             <p className="text-gray-500 mt-1 font-medium">
-              Manage B2B dealers, track credit, and settle outstanding dues.
+              Manage B2B dealers, track credit, and view daily activity.
             </p>
           </div>
         </div>
 
-        {/* Pass the LIGHTWEIGHT calculated data to the interactive client form */}
-        <CustomerLedger 
-          customers={finalCustomers} 
+        <CustomerLedger
+          customers={finalCustomers}
           globalOutstanding={globalOutstanding}
-          locations={locations} 
-          userId={dbUser.id} 
-          currentFilters={{ searchQuery, shopFilter, dateFilter, duesOnly }}
+          locations={locations}
+          userId={dbUser.id}
+          currentFilters={{
+            searchQuery,
+            shopFilter,
+            dateFilter,
+            customStart,
+            customEnd,
+            duesOnly,
+          }}
         />
       </div>
     </div>

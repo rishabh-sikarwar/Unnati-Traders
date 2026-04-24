@@ -3,43 +3,92 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Search, Loader2, IndianRupee, HandCoins, X, ArchiveX, FileText, Filter, Wallet } from "lucide-react";
-import { useDebounce } from "use-debounce";
+import {
+  Search,
+  Loader2,
+  IndianRupee,
+  HandCoins,
+  X,
+  ArchiveX,
+  FileText,
+  Filter,
+  Wallet,
+} from "lucide-react";
 
-export default function CustomerLedger({ customers, globalOutstanding, locations = [], userId, currentFilters }) {
+export default function CustomerLedger({
+  customers,
+  globalOutstanding,
+  locations = [],
+  userId,
+  currentFilters,
+}) {
   const router = useRouter();
-  
+
   // URL Filter States
-  const [searchQuery, setSearchQuery] = useState(currentFilters.searchQuery);
-  const [dateFilter, setDateFilter] = useState(currentFilters.dateFilter);
-  const [shopFilter, setShopFilter] = useState(currentFilters.shopFilter);
-  const [filterDuesOnly, setFilterDuesOnly] = useState(currentFilters.duesOnly);
+  const [searchQuery, setSearchQuery] = useState(
+    currentFilters.searchQuery || "",
+  );
+  const [dateFilter, setDateFilter] = useState(
+    currentFilters.dateFilter || "all",
+  );
+  const [shopFilter, setShopFilter] = useState(
+    currentFilters.shopFilter || "ALL",
+  );
+  const [filterDuesOnly, setFilterDuesOnly] = useState(
+    currentFilters.duesOnly || false,
+  );
+
+  // Custom Date States
+  const [customStart, setCustomStart] = useState(
+    currentFilters.customStart || "",
+  );
+  const [customEnd, setCustomEnd] = useState(currentFilters.customEnd || "");
 
   // Modal States
-  const [paymentModal, setPaymentModal] = useState({ isOpen: false, customer: null });
+  const [paymentModal, setPaymentModal] = useState({
+    isOpen: false,
+    customer: null,
+  });
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState("CASH");
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [archiveModal, setArchiveModal] = useState({ isOpen: false, customerId: null, customerName: "" });
+  const [archiveModal, setArchiveModal] = useState({
+    isOpen: false,
+    customerId: null,
+    customerName: "",
+  });
   const [isArchiving, setIsArchiving] = useState(false);
 
   // --- TRIGGER SERVER RE-FETCH ---
-  const applyFilters = (search, date, shop, dues) => {
-    const url = `/customers?search=${search}&days=${date}&shopId=${shop}&duesOnly=${dues}`;
+  const applyFilters = (search, date, shop, dues, start, end) => {
+    let url = `/customers?search=${search}&date=${date}&shopId=${shop}&duesOnly=${dues}`;
+    if (date === "custom" && start && end) {
+      url += `&start=${start}&end=${end}`;
+    }
     router.push(url);
   };
 
   const handleSearchKeyPress = (e) => {
-    if (e.key === 'Enter') applyFilters(searchQuery, dateFilter, shopFilter, filterDuesOnly);
+    if (e.key === "Enter")
+      applyFilters(
+        searchQuery,
+        dateFilter,
+        shopFilter,
+        filterDuesOnly,
+        customStart,
+        customEnd,
+      );
   };
 
   // --- API CALLS ---
   const handlePayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0) return toast.error("Enter a valid amount");
-    if (Number(payAmount) > paymentModal.customer.outstandingDues) return toast.error("Amount exceeds outstanding dues!");
+    if (!payAmount || Number(payAmount) <= 0)
+      return toast.error("Enter a valid amount");
+    if (Number(payAmount) > paymentModal.customer.outstandingDues)
+      return toast.error("Amount exceeds outstanding dues!");
 
     setIsSubmitting(true);
     const loadingToast = toast.loading("Processing payment...");
@@ -61,8 +110,9 @@ export default function CustomerLedger({ customers, globalOutstanding, locations
 
       toast.success("Payment recorded successfully!", { id: loadingToast });
       setPaymentModal({ isOpen: false, customer: null });
-      setPayAmount(""); setRemarks("");
-      router.refresh(); // Automatically fetches the fresh data from the server
+      setPayAmount("");
+      setRemarks("");
+      router.refresh();
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
     } finally {
@@ -83,7 +133,9 @@ export default function CustomerLedger({ customers, globalOutstanding, locations
 
       if (!res.ok) throw new Error("Failed to archive");
 
-      toast.success(`${archiveModal.customerName} archived successfully.`, { id: toastId });
+      toast.success(`${archiveModal.customerName} archived successfully.`, {
+        id: toastId,
+      });
       setArchiveModal({ isOpen: false, customerId: null, customerName: "" });
       router.refresh();
     } catch (error) {
@@ -95,73 +147,149 @@ export default function CustomerLedger({ customers, globalOutstanding, locations
 
   return (
     <div className="space-y-6">
-      
       {/* GLOBAL DUES BANNER */}
       <div className="flex justify-end hidden md:flex mb-2">
         <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
-          <div className="p-2 bg-red-100 rounded-lg"><Wallet className="w-5 h-5 text-red-600" /></div>
+          <div className="p-2 bg-red-100 rounded-lg">
+            <Wallet className="w-5 h-5 text-red-600" />
+          </div>
           <div>
-            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Filtered Market Dues</span>
-            <p className="text-xl font-black text-red-600 leading-none mt-0.5">₹{globalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
+              Filtered Market Dues
+            </span>
+            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
+              ₹
+              {globalOutstanding.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+              })}
+            </p>
           </div>
         </div>
       </div>
 
       {/* SERVER-SIDE SECURE TOOLBAR */}
-      <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        
+      <div className="flex flex-col xl:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200 items-start xl:items-center">
         {/* Search Bar - Press Enter to Search */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search Name or Phone (Press Enter)..." 
-            value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Search Name or Phone (Press Enter)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyPress}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700" 
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
           />
         </div>
-        
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           <div className="hidden sm:flex items-center gap-1.5 text-[#522874] font-bold text-xs uppercase tracking-widest pl-2">
             <Filter className="w-4 h-4" /> Filters:
           </div>
 
-          <select 
-            value={dateFilter} 
+          {/* ADVANCED DATE FILTER */}
+          <select
+            value={dateFilter}
             onChange={(e) => {
               setDateFilter(e.target.value);
-              applyFilters(searchQuery, e.target.value, shopFilter, filterDuesOnly);
-            }} 
+              applyFilters(
+                searchQuery,
+                e.target.value,
+                shopFilter,
+                filterDuesOnly,
+                customStart,
+                customEnd,
+              );
+            }}
             className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
           >
-            <option value="ALL">All Time</option>
-            <option value="7">Last 7 Days</option>
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 3 Months</option>
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_month">This Month</option>
+            <option value="last_month">Last Month</option>
+            <option value="custom">Custom Range...</option>
           </select>
 
+          {/* CUSTOM DATE PICKERS */}
+          {dateFilter === "custom" && (
+            <div className="flex items-center gap-2 animate-in fade-in zoom-in duration-200">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => {
+                  setCustomStart(e.target.value);
+                  if (customEnd)
+                    applyFilters(
+                      searchQuery,
+                      "custom",
+                      shopFilter,
+                      filterDuesOnly,
+                      e.target.value,
+                      customEnd,
+                    );
+                }}
+                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none"
+              />
+              <span className="text-gray-400">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value);
+                  if (customStart)
+                    applyFilters(
+                      searchQuery,
+                      "custom",
+                      shopFilter,
+                      filterDuesOnly,
+                      customStart,
+                      e.target.value,
+                    );
+                }}
+                className="px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium outline-none"
+              />
+            </div>
+          )}
+
           {locations && locations.length > 0 && (
-            <select 
-              value={shopFilter} 
+            <select
+              value={shopFilter}
               onChange={(e) => {
                 setShopFilter(e.target.value);
-                applyFilters(searchQuery, dateFilter, e.target.value, filterDuesOnly);
-              }} 
+                applyFilters(
+                  searchQuery,
+                  dateFilter,
+                  e.target.value,
+                  filterDuesOnly,
+                  customStart,
+                  customEnd,
+                );
+              }}
               className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
             >
               <option value="ALL">All Shops</option>
-              {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
             </select>
           )}
 
-          <button 
+          <button
             onClick={() => {
               const newDuesState = !filterDuesOnly;
               setFilterDuesOnly(newDuesState);
-              applyFilters(searchQuery, dateFilter, shopFilter, newDuesState);
-            }} 
+              applyFilters(
+                searchQuery,
+                dateFilter,
+                shopFilter,
+                newDuesState,
+                customStart,
+                customEnd,
+              );
+            }}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200 shadow-inner" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
           >
             {filterDuesOnly ? "Dues Only: ON" : "Dues Only: OFF"}
@@ -174,47 +302,82 @@ export default function CustomerLedger({ customers, globalOutstanding, locations
         <table className="w-full text-left border-collapse">
           <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer Info</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Activity (Billed)</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Activity (Paid)</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Global Dues</th>
-              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Customer Info
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Activity (Billed)
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Activity (Paid)
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Global Dues
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                Action
+              </th>
             </tr>
           </thead>
           <tbody className="block md:table-row-group">
             {customers.length === 0 && (
               <tr className="block md:table-row">
-                <td colSpan="5" className="block md:table-cell p-8 text-center text-gray-500 border-b">No matching customers found. Press enter to search.</td>
+                <td
+                  colSpan="5"
+                  className="block md:table-cell p-8 text-center text-gray-500 border-b"
+                >
+                  No matching customers found.
+                </td>
               </tr>
             )}
 
             {customers.map((c) => (
-              <tr key={c.id} className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0">
+              <tr
+                key={c.id}
+                className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
+              >
                 <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
-                  <div className="font-bold text-gray-900 text-lg md:text-base">{c.name}</div>
+                  <div className="font-bold text-gray-900 text-lg md:text-base">
+                    {c.name}
+                  </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {c.phone || "No Phone"} • <span className="uppercase text-[#522874] font-semibold">{c.type.replace("_", " ")}</span>
+                    {c.phone || "No Phone"} •{" "}
+                    <span className="uppercase text-[#522874] font-semibold">
+                      {c.type.replace("_", " ")}
+                    </span>
                   </div>
                 </td>
 
                 <td className="block md:table-cell md:p-4 md:text-right mb-2 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center">
-                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">Activity Billed:</span>
-                    <span className="font-bold text-gray-700">₹{c.displayBilled.toLocaleString()}</span>
+                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
+                      Activity Billed:
+                    </span>
+                    <span className="font-bold text-gray-700">
+                      ₹{c.displayBilled.toLocaleString()}
+                    </span>
                   </div>
                 </td>
 
                 <td className="block md:table-cell md:p-4 md:text-right mb-2 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center">
-                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">Activity Paid:</span>
-                    <span className="font-bold text-green-600">₹{c.displayPaid.toLocaleString()}</span>
+                    <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
+                      Activity Paid:
+                    </span>
+                    <span className="font-bold text-green-600">
+                      ₹{c.displayPaid.toLocaleString()}
+                    </span>
                   </div>
                 </td>
 
                 <td className="block md:table-cell md:p-4 md:text-right mb-4 md:mb-0">
                   <div className="flex justify-between md:justify-end items-center bg-red-50/50 p-2 md:p-0 rounded-lg">
-                    <span className="md:hidden text-xs font-bold text-red-400 uppercase">Global Dues:</span>
-                    <span className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}>
+                    <span className="md:hidden text-xs font-bold text-red-400 uppercase">
+                      Global Dues:
+                    </span>
+                    <span
+                      className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}
+                    >
                       ₹{c.outstandingDues.toLocaleString()}
                     </span>
                   </div>
@@ -222,16 +385,38 @@ export default function CustomerLedger({ customers, globalOutstanding, locations
 
                 <td className="block md:table-cell md:p-4 border-t md:border-none pt-4 md:pt-0">
                   <div className="flex flex-col sm:flex-row md:justify-end gap-2">
-                    <button onClick={() => router.push(`/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&days=${dateFilter}`)} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
+                    <button
+                      onClick={() =>
+                        router.push(
+                          `/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&date=${dateFilter}`,
+                        )
+                      }
+                      className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                    >
                       <FileText className="w-4 h-4" /> Statement
                     </button>
 
                     {c.outstandingDues > 0 ? (
-                      <button onClick={() => { setPayAmount(c.outstandingDues); setPaymentModal({ isOpen: true, customer: c }); }} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
+                      <button
+                        onClick={() => {
+                          setPayAmount(c.outstandingDues);
+                          setPaymentModal({ isOpen: true, customer: c });
+                        }}
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                      >
                         <HandCoins className="w-4 h-4" /> Settle
                       </button>
                     ) : (
-                      <button onClick={() => setArchiveModal({ isOpen: true, customer: c, customerName: c.name })} className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer">
+                      <button
+                        onClick={() =>
+                          setArchiveModal({
+                            isOpen: true,
+                            customer: c,
+                            customerName: c.name,
+                          })
+                        }
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                      >
                         <ArchiveX className="w-4 h-4" /> Archive
                       </button>
                     )}
