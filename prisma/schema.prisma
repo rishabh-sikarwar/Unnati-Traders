@@ -147,6 +147,7 @@ model Purchase {
   totalAmount   Float
   status        PurchaseStatus @default(COMPLETED)
   createdAt     DateTime       @default(now())
+  purchaseDate  DateTime       @default(now())
 
   locationId String
   location   Location @relation(fields: [locationId], references: [id])

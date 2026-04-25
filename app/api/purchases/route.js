@@ -10,6 +10,7 @@ export async function POST(req) {
       invoiceNumber,
       supplierName,
       locationId,
+      purchaseDate,
       items,
       totalAmount,
       userId,
@@ -30,6 +31,7 @@ export async function POST(req) {
           totalAmount,
           locationId,
           userId,
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
           items: {
             create: items.map((item) => ({
               productId: item.productId,

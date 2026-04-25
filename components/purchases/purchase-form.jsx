@@ -3,12 +3,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Loader2, PackageOpen, Truck, Save } from "lucide-react";
+import { CalendarDays, Plus, Trash2, Loader2, PackageOpen, Truck, Save } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
 export default function PurchaseForm({ products, locations, userId, userRole, userLocationId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const getTodayValue = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   useEffect(() => {
     const handleFocus = () => router.refresh();
@@ -17,12 +24,9 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
   }, [router]);
 
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(getTodayValue());
   const [supplierName, setSupplierName] = useState("Apollo Tyres");
   const [locationId, setLocationId] = useState(userRole === "SHOPKEEPER" ? userLocationId : "");
-
-  useEffect(() => {
-    setInvoiceNumber(`INV-IN-${Date.now().toString().slice(-6)}`);
-  }, []);
 
   const [cart, setCart] = useState([]);
 
@@ -81,6 +85,10 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
       return toast.error("Please fill required fields and add items.");
     }
 
+    if (!purchaseDate) {
+      return toast.error("Please select the purchase date.");
+    }
+
     const formattedItems = cart.map((item, index) => {
       if (!item.productId)
         throw new Error(`Please select a tyre for item #${index + 1}`);
@@ -103,6 +111,7 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
           invoiceNumber,
           supplierName,
           locationId,
+            purchaseDate,
           userId,
           items: formattedItems,
           totalAmount: grandTotal,
@@ -138,8 +147,24 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
                 required
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="Enter Apollo invoice number"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-bold text-[#522874]"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Purchase Date
+              </label>
+              <div className="relative">
+                <CalendarDays className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  required
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
