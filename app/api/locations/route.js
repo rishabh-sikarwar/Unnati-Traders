@@ -84,3 +84,35 @@ export async function DELETE(req) {
     );
   }
 }
+
+export async function PUT(req) {
+  try {
+    const body = await req.json();
+    const { id, name, address } = body;
+
+    if (!id || !name) {
+      return NextResponse.json(
+        { error: "Shop ID and Name are required" },
+        { status: 400 },
+      );
+    }
+
+    const updatedLocation = await prisma.location.update({
+      where: { id },
+      data: {
+        name,
+        address,
+        // Note: We intentionally do not update the 'type' (Warehouse vs Retail)
+        // to prevent breaking existing business logic rules associated with that shop type.
+      },
+    });
+
+    return NextResponse.json({ success: true, location: updatedLocation });
+  } catch (error) {
+    console.error("Update location error:", error);
+    return NextResponse.json(
+      { error: "Failed to update location details" },
+      { status: 500 },
+    );
+  }
+}

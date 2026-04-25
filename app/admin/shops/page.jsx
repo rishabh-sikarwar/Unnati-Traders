@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import AddShopForm from "@/components/admin/add-shop-form";
 import { currentUser } from "@clerk/nextjs/server";
-import { Prisma } from "@prisma/client";
-import { redirect } from "next/dist/server/api-utils";
-import DeleteShopButton from "@/components/admin/delete-shop-button";
+import { redirect } from "next/navigation"; // FIXED INCORRECT IMPORT
+import ShopsTable from "@/components/admin/shops-table"; // IMPORT THE NEW TABLE
 
 export const dynamic = "force-dynamic";
 
 export default async function ShopsPage() {
   const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
   const dbUser = await prisma.user.findUnique({
     where: { id: clerkUser.id },
   });
@@ -24,35 +25,17 @@ export default async function ShopsPage() {
   return (
     <div className="p-8 pt-20 md:pt-36 lg:pt-24 bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold">Manage Shops</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Manage Locations</h1>
+          <p className="text-gray-500 mt-1">
+            Add new shops, warehouses, or update their addresses.
+          </p>
+        </div>
 
         <AddShopForm />
 
-        <div className="bg-white rounded-lg shadow">
-          <table className="w-full">
-            <thead className="border-b">
-              <tr>
-                <th className="p-4 text-left">Name</th>
-                <th className="p-4 text-left">Type</th>
-                <th className="p-4 text-left">Address</th>
-                <th className="p-4 text-left">Delete</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {shops.map((shop) => (
-                <tr key={shop.id} className="border-b">
-                  <td className="p-4">{shop.name}</td>
-                  <td className="p-4">{shop.type}</td>
-                  <td className="p-4">{shop.address}</td>
-                  <td className="p-4">
-                    <DeleteShopButton id={shop.id} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Use the new interactive table component! */}
+        <ShopsTable shops={shops} />
       </div>
     </div>
   );
