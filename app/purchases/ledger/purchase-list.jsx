@@ -144,7 +144,9 @@ export default function PurchaseList({ purchases, locations = [] }) {
                         <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
                           <CalendarDays className="w-3 h-3" />
                           {format(
-                            new Date(purchase.purchaseDate || purchase.createdAt),
+                            new Date(
+                              purchase.purchaseDate || purchase.createdAt,
+                            ),
                             "dd MMM yyyy, hh:mm a",
                           )}
                         </div>
@@ -212,7 +214,8 @@ export default function PurchaseList({ purchases, locations = [] }) {
                   <span>
                     {format(
                       new Date(
-                        selectedPurchase.purchaseDate || selectedPurchase.createdAt,
+                        selectedPurchase.purchaseDate ||
+                          selectedPurchase.createdAt,
                       ),
                       "dd MMM yyyy, hh:mm a",
                     )}

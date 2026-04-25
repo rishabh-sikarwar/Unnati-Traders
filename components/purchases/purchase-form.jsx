@@ -3,10 +3,24 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { CalendarDays, Plus, Trash2, Loader2, PackageOpen, Truck, Save } from "lucide-react";
+import {
+  CalendarDays,
+  Plus,
+  Trash2,
+  Loader2,
+  PackageOpen,
+  Truck,
+  Save,
+} from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 
-export default function PurchaseForm({ products, locations, userId, userRole, userLocationId }) {
+export default function PurchaseForm({
+  products,
+  locations,
+  userId,
+  userRole,
+  userLocationId,
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const getTodayValue = () => {
@@ -26,7 +40,9 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(getTodayValue());
   const [supplierName, setSupplierName] = useState("Apollo Tyres");
-  const [locationId, setLocationId] = useState(userRole === "SHOPKEEPER" ? userLocationId : "");
+  const [locationId, setLocationId] = useState(
+    userRole === "SHOPKEEPER" ? userLocationId : "",
+  );
 
   const [cart, setCart] = useState([]);
 
@@ -111,7 +127,7 @@ export default function PurchaseForm({ products, locations, userId, userRole, us
           invoiceNumber,
           supplierName,
           locationId,
-            purchaseDate,
+          purchaseDate,
           userId,
           items: formattedItems,
           totalAmount: grandTotal,
