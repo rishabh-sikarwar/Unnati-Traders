@@ -99,6 +99,9 @@ model Invoice {
 
   paymentMode PaymentMode @default(CASH)
   amountPaid  Float       @default(0)
+  splitCash   Float       @default(0)
+  splitUpi    Float       @default(0)
+  splitCard   Float       @default(0)
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])

@@ -15,6 +15,12 @@ export default async function ReceiptPage({ params }) {
     include: {
       customer: true,
       location: true,
+      payments: {
+        select: {
+          amount: true,
+          paymentMode: true,
+        },
+      },
       items: {
         include: { product: true },
       },
@@ -26,7 +32,9 @@ export default async function ReceiptPage({ params }) {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
         <div className="bg-white rounded-2xl shadow-lg p-10 text-center max-w-md">
           <p className="text-5xl mb-4">🧾</p>
-          <h1 className="text-2xl font-black text-gray-800 mb-2">Invoice Not Found</h1>
+          <h1 className="text-2xl font-black text-gray-800 mb-2">
+            Invoice Not Found
+          </h1>
           <p className="text-gray-500 text-sm">
             This receipt link is invalid or the invoice has been removed.
           </p>
@@ -47,6 +55,31 @@ export default async function ReceiptPage({ params }) {
 
   const cgstSgstAmount = isIgst ? 0 : invoice.totalGst / 2;
   const igstAmount = isIgst ? invoice.totalGst : 0;
+
+  // Prefer invoice-level split amounts; fallback to payment logs for older records.
+  const paymentLogs = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const logCash = paymentLogs
+    .filter((p) => p.paymentMode === "CASH")
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const logUpi = paymentLogs
+    .filter((p) => p.paymentMode === "UPI")
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const logCard = paymentLogs
+    .filter((p) => p.paymentMode === "CARD")
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  const cashAmount =
+    (Number(invoice.splitCash) || 0) > 0
+      ? Number(invoice.splitCash) || 0
+      : logCash;
+  const upiAmount =
+    (Number(invoice.splitUpi) || 0) > 0
+      ? Number(invoice.splitUpi) || 0
+      : logUpi;
+  const cardAmount =
+    (Number(invoice.splitCard) || 0) > 0
+      ? Number(invoice.splitCard) || 0
+      : logCard;
 
   return (
     <>
@@ -92,8 +125,16 @@ export default async function ReceiptPage({ params }) {
       />
 
       {/* Main content wrapper */}
-      <div id="receipt-wrapper" className="bg-gray-200 min-h-screen flex flex-col items-center" style={{ paddingTop: "100px", paddingBottom: "40px", paddingLeft: "16px", paddingRight: "16px" }}>
-        
+      <div
+        id="receipt-wrapper"
+        className="bg-gray-200 min-h-screen flex flex-col items-center"
+        style={{
+          paddingTop: "100px",
+          paddingBottom: "40px",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+        }}
+      >
         {/* Action bar — normal document flow, centered above invoice */}
         <div
           id="action-bar"
@@ -142,6 +183,14 @@ export default async function ReceiptPage({ params }) {
                     {invoice.location.address}
                   </p>
                 )}
+                <p>
+                  <span className="font-bold text-gray-500 uppercase text-xs">
+                    GSTIN:
+                  </span>{" "}
+                  <span className="font-black tracking-wide text-gray-800">
+                    {"23ASOPC2921N2Z0"}
+                  </span>
+                </p>
                 <p className="text-xs font-bold text-purple-700 bg-purple-50 inline-block px-2 py-0.5 rounded border border-purple-100 mt-1">
                   AUTHORIZED APOLLO DISTRIBUTOR
                 </p>
@@ -216,7 +265,7 @@ export default async function ReceiptPage({ params }) {
                 <p className="text-xs font-bold text-[#522874] bg-white border border-purple-200 px-3 py-1 rounded-md uppercase shadow-sm">
                   PAYMENT:{" "}
                   {invoice.paymentMode === "MULTIPLE"
-                    ? "SPLIT (CASH/UPI/CARD)"
+                    ? "SPLIT"
                     : invoice.paymentMode}
                 </p>
               </div>
@@ -395,20 +444,49 @@ export default async function ReceiptPage({ params }) {
                 {/* Show Dues if applicable */}
                 {(invoice.paymentMode === "CREDIT" ||
                   invoice.paymentMode === "MULTIPLE") && (
-                  <div className="flex justify-between text-xs font-bold px-2 pt-1 text-gray-800">
-                    <span>
-                      Paid: ₹
-                      {invoice.amountPaid.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                    <span className="text-orange-600">
-                      Due: ₹
-                      {(invoice.grandTotal - invoice.amountPaid).toLocaleString(
-                        undefined,
-                        { minimumFractionDigits: 2 },
-                      )}
-                    </span>
+                  <div className="text-xs font-bold px-2 pt-2 text-gray-800 space-y-1.5">
+                    <div className="flex justify-between">
+                      <span>
+                        Paid: ₹
+                        {invoice.amountPaid.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span className="text-orange-600">
+                        Due: ₹
+                        {(
+                          invoice.grandTotal - invoice.amountPaid
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+
+                    {invoice.paymentMode === "MULTIPLE" && (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-semibold border border-gray-200 bg-gray-50 rounded p-2">
+                        <span>Cash Received:</span>
+                        <span className="text-right">
+                          ₹
+                          {cashAmount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                        <span>UPI Received:</span>
+                        <span className="text-right">
+                          ₹
+                          {upiAmount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                        <span>Card Received:</span>
+                        <span className="text-right">
+                          ₹
+                          {cardAmount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -446,7 +524,7 @@ export default async function ReceiptPage({ params }) {
             </div>
           </div>
         </div>
-    </div>
-  </>
+      </div>
+    </>
   );
 }

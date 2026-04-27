@@ -60,6 +60,7 @@ export default function BillingForm({
       modelName: inv.product.modelName,
       size: inv.product.size,
       sku: inv.product.sku,
+      hsnCode: inv.product.hsnCode || "",
     }));
   }, [inventory]);
 
@@ -466,6 +467,12 @@ export default function BillingForm({
                       selectedProductId={item.inventoryId}
                       onSelect={(val) => handleInventorySelect(item.rowId, val)} // FIX: Using handleInventorySelect to auto-fetch price
                     />
+                    <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                      <span className="shrink-0">HSN</span>
+                      <div className="flex-1 min-h-[24px] rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-800">
+                        {selectedInv?.product?.hsnCode || ""}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="w-full relative">

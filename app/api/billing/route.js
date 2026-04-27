@@ -10,169 +10,187 @@ const transporter = nodemailer.createTransport({
 
 export async function POST(req) {
   try {
-    let { customerInfo, items, locationId, userId, totals } =
-      await req.json();
+    let { customerInfo, items, locationId, userId, totals } = await req.json();
 
     const clerkUser = await currentUser();
-    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
-    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!clerkUser)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({
+      where: { id: clerkUser.id },
+    });
+    if (!dbUser)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (dbUser.role === "SHOPKEEPER") locationId = dbUser.locationId;
 
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Verify Stock
-      for (const item of items) {
-        const inventory = await tx.inventory.findUnique({
-          where: {
-            productId_locationId: { productId: item.productId, locationId },
-          },
-        });
-        if (!inventory || inventory.quantity < item.quantity)
-          throw new Error(`Insufficient stock for ${item.modelName}.`);
-      }
-
-      // 2. Link or Create Customer
-      let dbCustomer;
-      if (customerInfo.id) {
-        dbCustomer = await tx.customer.update({
-          where: { id: customerInfo.id },
-          data: {
-            phone: customerInfo.phone || null,
-            address: customerInfo.address || null,
-            gstNumber: customerInfo.gstNumber || null,
-          },
-        });
-      } else {
-        dbCustomer = await tx.customer.create({
-          data: {
-            type: customerInfo.b2b ? "SUB_DEALER" : "RETAIL",
-            name: customerInfo.name || "Walk-in Customer",
-            phone: customerInfo.phone || null,
-            address: customerInfo.address || null,
-            gstNumber: customerInfo.gstNumber || null,
-          },
-        });
-      }
-
-      // 3. Generate Clean Invoice Number
-      const invoiceNumber = `INV-${Date.now().toString().slice(-4)}-${Math.floor(Math.random() * 90) + 10}`;
-
-      // 4. SMART PAYMENT LOGIC (Handles Splits!)
-      const isCredit = customerInfo.paymentMode === "Credit";
-      const isMultiple = customerInfo.paymentMode === "Multiple";
-      let actualAmountPaid = totals.grandTotal;
-
-      if (isCredit) {
-        actualAmountPaid = Number(customerInfo.initialPayment) || 0;
-      } else if (isMultiple) {
-        const splits = customerInfo.splitPayments;
-        actualAmountPaid =
-          (Number(splits.cash) || 0) +
-          (Number(splits.upi) || 0) +
-          (Number(splits.card) || 0);
-      }
-
-      const modeEnum = isMultiple
-        ? "MULTIPLE"
-        : customerInfo.paymentMode.toUpperCase();
-
-      // 5. Create Invoice
-      const invoice = await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          subtotal: totals.subtotal,
-          totalGst: totals.totalGst,
-          grandTotal: totals.grandTotal,
-          paymentMode: modeEnum,
-          amountPaid: actualAmountPaid,
-          status: "COMPLETED",
-          customerId: dbCustomer.id,
-          locationId,
-          userId,
-          items: {
-            create: items.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.totalPrice,
-              tyreCode: item.tyreCode || null,
-            })),
-          },
-        },
-        include: { location: true },
-      });
-
-      // 6. Create Detailed Payment Logs for CA!
-      if (isMultiple) {
-        const splits = customerInfo.splitPayments;
-        if (Number(splits.cash) > 0)
-          await tx.paymentLog.create({
-            data: {
-              amount: Number(splits.cash),
-              paymentMode: "CASH",
-              customerId: dbCustomer.id,
-              userId,
-              invoiceId: invoice.id,
-              remarks: `Split Payment for ${invoiceNumber}`,
-            },
-          });
-        if (Number(splits.upi) > 0)
-          await tx.paymentLog.create({
-            data: {
-              amount: Number(splits.upi),
-              paymentMode: "UPI",
-              customerId: dbCustomer.id,
-              userId,
-              invoiceId: invoice.id,
-              remarks: `Split Payment for ${invoiceNumber}`,
-            },
-          });
-        if (Number(splits.card) > 0)
-          await tx.paymentLog.create({
-            data: {
-              amount: Number(splits.card),
-              paymentMode: "CARD",
-              customerId: dbCustomer.id,
-              userId,
-              invoiceId: invoice.id,
-              remarks: `Split Payment for ${invoiceNumber}`,
-            },
-          });
-      } else if (actualAmountPaid > 0) {
-        // Standard single payment log
-        await tx.paymentLog.create({
-          data: {
-            amount: actualAmountPaid,
-            paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
-            customerId: dbCustomer.id,
-            userId,
-            invoiceId: invoice.id,
-            remarks: `Payment for ${invoiceNumber}`,
-          },
-        });
-      }
-
-      // 7. Deduct Inventory
-      await Promise.all(
-        items.map((item) =>
-          tx.inventory.update({
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // 1. Verify Stock
+        for (const item of items) {
+          const inventory = await tx.inventory.findUnique({
             where: {
-              productId_locationId: {
-                productId: item.productId,
-                locationId,
-              },
+              productId_locationId: { productId: item.productId, locationId },
             },
-            data: {
-              quantity: { decrement: item.quantity },
-            },
-          }),
-        ),
-      );
+          });
+          if (!inventory || inventory.quantity < item.quantity)
+            throw new Error(`Insufficient stock for ${item.modelName}.`);
+        }
 
-      return invoice;
-    } , {
-      timeout: 15000,
-    } );
+        // 2. Link or Create Customer
+        let dbCustomer;
+        if (customerInfo.id) {
+          dbCustomer = await tx.customer.update({
+            where: { id: customerInfo.id },
+            data: {
+              phone: customerInfo.phone || null,
+              address: customerInfo.address || null,
+              gstNumber: customerInfo.gstNumber || null,
+            },
+          });
+        } else {
+          dbCustomer = await tx.customer.create({
+            data: {
+              type: customerInfo.b2b ? "SUB_DEALER" : "RETAIL",
+              name: customerInfo.name || "Walk-in Customer",
+              phone: customerInfo.phone || null,
+              address: customerInfo.address || null,
+              gstNumber: customerInfo.gstNumber || null,
+            },
+          });
+        }
+
+        // 3. Generate Clean Invoice Number
+        const invoiceNumber = `INV-${Date.now().toString().slice(-4)}-${Math.floor(Math.random() * 90) + 10}`;
+
+        // 4. SMART PAYMENT LOGIC (Handles Splits!)
+        const isCredit = customerInfo.paymentMode === "Credit";
+        const isMultiple = customerInfo.paymentMode === "Multiple";
+        let actualAmountPaid = totals.grandTotal;
+        let splitCash = 0;
+        let splitUpi = 0;
+        let splitCard = 0;
+
+        if (isCredit) {
+          actualAmountPaid = Number(customerInfo.initialPayment) || 0;
+          splitCash = actualAmountPaid;
+        } else if (isMultiple) {
+          const splits = customerInfo.splitPayments;
+          splitCash = Number(splits.cash) || 0;
+          splitUpi = Number(splits.upi) || 0;
+          splitCard = Number(splits.card) || 0;
+          actualAmountPaid = splitCash + splitUpi + splitCard;
+        } else {
+          const normalizedMode = customerInfo.paymentMode.toUpperCase();
+          if (normalizedMode === "CASH") splitCash = actualAmountPaid;
+          if (normalizedMode === "UPI") splitUpi = actualAmountPaid;
+          if (normalizedMode === "CARD") splitCard = actualAmountPaid;
+        }
+
+        const modeEnum = isMultiple
+          ? "MULTIPLE"
+          : customerInfo.paymentMode.toUpperCase();
+
+        // 5. Create Invoice
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            subtotal: totals.subtotal,
+            totalGst: totals.totalGst,
+            grandTotal: totals.grandTotal,
+            paymentMode: modeEnum,
+            amountPaid: actualAmountPaid,
+            splitCash,
+            splitUpi,
+            splitCard,
+            status: "COMPLETED",
+            customerId: dbCustomer.id,
+            locationId,
+            userId,
+            items: {
+              create: items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+                tyreCode: item.tyreCode || null,
+              })),
+            },
+          },
+          include: { location: true },
+        });
+
+        // 6. Create Detailed Payment Logs for CA!
+        if (isMultiple) {
+          const splits = customerInfo.splitPayments;
+          if (Number(splits.cash) > 0)
+            await tx.paymentLog.create({
+              data: {
+                amount: Number(splits.cash),
+                paymentMode: "CASH",
+                customerId: dbCustomer.id,
+                userId,
+                invoiceId: invoice.id,
+                remarks: `Split Payment for ${invoiceNumber}`,
+              },
+            });
+          if (Number(splits.upi) > 0)
+            await tx.paymentLog.create({
+              data: {
+                amount: Number(splits.upi),
+                paymentMode: "UPI",
+                customerId: dbCustomer.id,
+                userId,
+                invoiceId: invoice.id,
+                remarks: `Split Payment for ${invoiceNumber}`,
+              },
+            });
+          if (Number(splits.card) > 0)
+            await tx.paymentLog.create({
+              data: {
+                amount: Number(splits.card),
+                paymentMode: "CARD",
+                customerId: dbCustomer.id,
+                userId,
+                invoiceId: invoice.id,
+                remarks: `Split Payment for ${invoiceNumber}`,
+              },
+            });
+        } else if (actualAmountPaid > 0) {
+          // Standard single payment log
+          await tx.paymentLog.create({
+            data: {
+              amount: actualAmountPaid,
+              paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
+              customerId: dbCustomer.id,
+              userId,
+              invoiceId: invoice.id,
+              remarks: `Payment for ${invoiceNumber}`,
+            },
+          });
+        }
+
+        // 7. Deduct Inventory
+        await Promise.all(
+          items.map((item) =>
+            tx.inventory.update({
+              where: {
+                productId_locationId: {
+                  productId: item.productId,
+                  locationId,
+                },
+              },
+              data: {
+                quantity: { decrement: item.quantity },
+              },
+            }),
+          ),
+        );
+
+        return invoice;
+      },
+      {
+        timeout: 15000,
+      },
+    );
 
     // --- ASYNCHRONOUS EMAIL NOTIFICATION ---
     const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://unnati-traders.vercel.app"}/billing/receipt/${result.id}`;

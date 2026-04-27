@@ -420,7 +420,7 @@ export default function OrdersTable({
                   )}
 
                   {/* TOTAL */}
-                  <td className="block md:table-cell md:p-4 md:text-right mb-4 md:mb-0 bg-gray-50 md:bg-transparent rounded-lg p-3 md:p-0">
+                  <td className="block md:table-cell p-3 md:p-4 md:text-right mb-4 md:mb-0 bg-gray-50 md:bg-transparent rounded-lg md:rounded-none">
                     <div className="flex justify-between md:justify-end items-center">
                       <span className="md:hidden text-xs font-bold text-gray-500 uppercase">
                         Grand Total:
