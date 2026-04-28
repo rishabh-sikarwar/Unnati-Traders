@@ -93,6 +93,7 @@ export default async function CustomersPage({ searchParams }) {
         id: c.id,
         globalBilled: 0,
         globalPaid: 0,
+        openingBalance: 0,
         displayBilled: 0,
         displayPaid: 0,
         interactedWithShop: false,
@@ -103,6 +104,7 @@ export default async function CustomersPage({ searchParams }) {
     }
 
     const group = groupedData[key];
+    group.openingBalance += Number(c.openingBalance || 0);
 
     // Process Invoices
     for (const inv of c.invoices) {
@@ -138,7 +140,8 @@ export default async function CustomersPage({ searchParams }) {
   let processedCustomers = [];
 
   for (const group of Object.values(groupedData)) {
-    const outstandingDues = group.globalBilled - group.globalPaid;
+    const outstandingDues =
+      group.globalBilled + group.openingBalance - group.globalPaid;
     group.outstandingDues = outstandingDues;
 
     // Apply Filters

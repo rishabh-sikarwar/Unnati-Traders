@@ -80,6 +80,7 @@ model Customer {
   phone      String?
   gstNumber  String?
   address    String?
+  openingBalance Float     @default(0)
   isArchived Boolean      @default(false)
   createdAt  DateTime     @default(now())
 

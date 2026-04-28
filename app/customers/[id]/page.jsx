@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function CustomerStatementPage({ params, searchParams }) {
   const { id } = await params;
   const queries = await searchParams; // Await in Next.js 15
-  
+
   const daysFilter = queries?.days || "ALL";
   const shopFilter = queries?.shopId || "ALL";
 
@@ -31,7 +31,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   });
 
   const matchingCustomers = allCustomers.filter(
-    (c) => c.name.toLowerCase().trim() === decodedName
+    (c) => c.name.toLowerCase().trim() === decodedName,
   );
 
   if (matchingCustomers.length === 0) redirect("/customers");
@@ -40,6 +40,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   let allInvoices = [];
   let allPayments = [];
   let allReturns = [];
+  let openingBalance = 0;
 
   // Use the best available profile info from the latest duplicate
   let bestProfile = matchingCustomers[matchingCustomers.length - 1];
@@ -48,9 +49,11 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     allInvoices.push(...c.invoices);
     allPayments.push(...c.payments);
     if (c.returns) allReturns.push(...c.returns);
-    
+    openingBalance += Number(c.openingBalance || 0);
+
     if (c.phone && !bestProfile.phone) bestProfile.phone = c.phone;
-    if (c.gstNumber && !bestProfile.gstNumber) bestProfile.gstNumber = c.gstNumber;
+    if (c.gstNumber && !bestProfile.gstNumber)
+      bestProfile.gstNumber = c.gstNumber;
     if (c.address && !bestProfile.address) bestProfile.address = c.address;
   }
 
@@ -58,19 +61,39 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   if (daysFilter !== "ALL") {
     const cutoffText = parseInt(daysFilter);
     const cutoffDate = new Date(Date.now() - cutoffText * 24 * 60 * 60 * 1000);
-    
-    allInvoices = allInvoices.filter(i => new Date(i.createdAt) >= cutoffDate);
-    allPayments = allPayments.filter(p => new Date(p.createdAt) >= cutoffDate);
-    allReturns = allReturns.filter(r => new Date(r.createdAt) >= cutoffDate);
+
+    allInvoices = allInvoices.filter(
+      (i) => new Date(i.createdAt) >= cutoffDate,
+    );
+    allPayments = allPayments.filter(
+      (p) => new Date(p.createdAt) >= cutoffDate,
+    );
+    allReturns = allReturns.filter((r) => new Date(r.createdAt) >= cutoffDate);
   }
 
   if (shopFilter !== "ALL") {
     // Only Sales (Invoices) and Returns are bound to Locations. Payments are global.
-    allInvoices = allInvoices.filter(i => i.locationId === shopFilter);
+    allInvoices = allInvoices.filter((i) => i.locationId === shopFilter);
   }
 
   // 2. The Ledger Engine: Combine everything into one chronological timeline
   let transactions = [];
+
+  if (openingBalance > 0) {
+    const oldestCreatedAt = matchingCustomers.reduce((oldest, c) => {
+      if (!oldest) return c.createdAt;
+      return new Date(c.createdAt) < new Date(oldest) ? c.createdAt : oldest;
+    }, null);
+
+    transactions.push({
+      id: `opening-${bestProfile.id}`,
+      date: oldestCreatedAt || new Date(),
+      type: "OPENING",
+      description: "Opening Balance (Previous Due)",
+      debit: openingBalance,
+      credit: 0,
+    });
+  }
 
   // A. Add all Invoices (Debits) and their Upfront Payments (Credits)
   allInvoices.forEach((inv) => {
@@ -83,8 +106,6 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       debit: inv.grandTotal,
       credit: 0,
     });
-
-
   });
 
   // B. Add all subsequent partial payments (Credits)
@@ -266,7 +287,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                       </td>
                       <td className="py-4 px-6 text-sm">
                         <span
-                          className={`font-bold ${row.type === "BILL" ? "text-gray-900" : "text-green-700 print:text-gray-600"}`}
+                          className={`font-bold ${row.type === "BILL" || row.type === "OPENING" ? "text-gray-900" : "text-green-700 print:text-gray-600"}`}
                         >
                           {row.description}
                         </span>

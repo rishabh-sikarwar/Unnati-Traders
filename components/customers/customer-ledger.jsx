@@ -13,6 +13,7 @@ import {
   FileText,
   Filter,
   Wallet,
+  Landmark,
 } from "lucide-react";
 
 export default function CustomerLedger({
@@ -53,6 +54,13 @@ export default function CustomerLedger({
   const [payMode, setPayMode] = useState("CASH");
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [openingModal, setOpeningModal] = useState({
+    isOpen: false,
+    customer: null,
+  });
+  const [openingAmount, setOpeningAmount] = useState("");
+  const [isOpeningSubmitting, setIsOpeningSubmitting] = useState(false);
 
   const [archiveModal, setArchiveModal] = useState({
     isOpen: false,
@@ -145,10 +153,46 @@ export default function CustomerLedger({
     }
   };
 
+  const handleOpeningBalance = async (e) => {
+    e.preventDefault();
+
+    if (!openingModal.customer) return;
+    if (openingAmount === "") return toast.error("Enter previous due amount");
+    if (Number(openingAmount) < 0)
+      return toast.error("Previous due cannot be negative");
+
+    setIsOpeningSubmitting(true);
+    const loadingToast = toast.loading("Updating previous due...");
+
+    try {
+      const res = await fetch("/api/customers/opening-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerIds: openingModal.customer.ids,
+          amount: Number(openingAmount),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error || "Failed to update previous due");
+
+      toast.success("Previous due updated successfully", { id: loadingToast });
+      setOpeningModal({ isOpen: false, customer: null });
+      setOpeningAmount("");
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message, { id: loadingToast });
+    } finally {
+      setIsOpeningSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* GLOBAL DUES BANNER */}
-      <div className="flex justify-end hidden md:flex mb-2">
+      <div className="hidden md:flex justify-end mb-2">
         <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
           <div className="p-2 bg-red-100 rounded-lg">
             <Wallet className="w-5 h-5 text-red-600" />
@@ -346,6 +390,11 @@ export default function CustomerLedger({
                       {c.type.replace("_", " ")}
                     </span>
                   </div>
+                  {Number(c.openingBalance || 0) > 0 && (
+                    <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
+                      Previous Due: ₹{Number(c.openingBalance).toLocaleString()}
+                    </div>
+                  )}
                 </td>
 
                 <td className="block md:table-cell md:p-4 md:text-right mb-2 md:mb-0">
@@ -394,6 +443,16 @@ export default function CustomerLedger({
                       className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
                     >
                       <FileText className="w-4 h-4" /> Statement
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setOpeningAmount(String(Number(c.openingBalance || 0)));
+                        setOpeningModal({ isOpen: true, customer: c });
+                      }}
+                      className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                    >
+                      <Landmark className="w-4 h-4" /> Set Previous Due
                     </button>
 
                     {c.outstandingDues > 0 ? (
@@ -580,6 +639,80 @@ export default function CustomerLedger({
                   ) : (
                     "Save Payment"
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- PREVIOUS DUE MODAL --- */}
+      {openingModal.isOpen && openingModal.customer && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-amber-50">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-amber-700" /> Set Previous Due
+              </h3>
+              <button
+                onClick={() =>
+                  setOpeningModal({ isOpen: false, customer: null })
+                }
+                className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleOpeningBalance} className="p-6 space-y-5">
+              <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
+                <p className="text-sm font-bold text-amber-900">
+                  {openingModal.customer.name}
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Set carry-forward credit from old records before this app was
+                  started.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                  Previous Due Amount (₹)
+                </label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={openingAmount}
+                  onChange={(e) => setOpeningAmount(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-gray-800"
+                  placeholder="e.g. 25000"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpeningModal({ isOpen: false, customer: null })
+                  }
+                  disabled={isOpeningSubmitting}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isOpeningSubmitting}
+                  className="flex-1 px-4 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-colors flex justify-center items-center gap-2 shadow-md disabled:opacity-70"
+                >
+                  {isOpeningSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Landmark className="w-5 h-5" />
+                  )}
+                  Save Due
                 </button>
               </div>
             </form>
