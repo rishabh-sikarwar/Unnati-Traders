@@ -51,6 +51,7 @@ model Product {
   basePrice   Float
   gstRate     Int      @default(28)
   lowStock    Int      @default(5)
+  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   inventories   Inventory[]

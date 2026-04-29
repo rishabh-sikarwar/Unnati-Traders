@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
     // Fetch all unique products and include their inventory arrays to calculate total stock later
     const products = await prisma.product.findMany({
+      where: { isArchived: false },
       include: { inventories: true },
       orderBy: { createdAt: "desc" },
     });
@@ -33,6 +35,7 @@ export async function POST(req) {
         brand: "Apollo",
         gstRate: 28,
         hsnCode: body.hsnCode || "4011",
+        isArchived: false,
       },
     });
 
@@ -48,19 +51,59 @@ export async function POST(req) {
 
 export async function DELETE(req) {
   try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: clerkUser.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Only admins can remove tyres from the catalogue." },
+        { status: 403 },
+      );
+    }
+
     const body = await req.json();
 
-    // Prisma's 'onDelete: Cascade' in your schema will automatically
-    // wipe out any associated Inventory records when the Product is deleted.
-    await prisma.product.delete({
+    const product = await prisma.product.findUnique({
       where: { id: body.id },
+      include: { inventories: true, invoiceItems: true, purchaseItems: true },
+    });
+
+    if (!product) {
+      return NextResponse.json({ error: "Tyre not found" }, { status: 404 });
+    }
+
+    const activeStock = product.inventories.reduce(
+      (sum, inventory) => sum + (Number(inventory.quantity) || 0),
+      0,
+    );
+
+    if (activeStock > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "This tyre still has active stock. Reduce the stock to zero before removing it from the catalogue.",
+        },
+        { status: 400 },
+      );
+    }
+
+    await prisma.product.update({
+      where: { id: body.id },
+      data: { isArchived: true },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete product error:", error);
     return NextResponse.json(
-      { error: "Failed to delete product permanently." },
+      { error: "Failed to remove tyre from catalogue." },
       { status: 500 },
     );
   }

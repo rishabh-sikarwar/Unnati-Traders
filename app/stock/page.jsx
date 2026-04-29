@@ -51,9 +51,13 @@ export default function StockPage() {
     try {
       const res = await fetch("/api/products");
       const data = await res.json();
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error(data?.error || "Failed to load catalogue");
+      }
       setCatalogue(data);
     } catch (error) {
-      toast.error("Failed to load catalogue");
+      toast.error(error.message || "Failed to load catalogue");
+      setCatalogue([]);
     } finally {
       setLoading(false);
     }
@@ -95,6 +99,8 @@ export default function StockPage() {
     });
   }, [catalogue, searchQuery, selectedCategory]);
 
+  const canRemoveTyres = currentUser?.role === "ADMIN";
+
   // --- ADD NEW TYRE ---
   async function handleAddTyre(e) {
     e.preventDefault();
@@ -103,7 +109,7 @@ export default function StockPage() {
 
     setAddingTyre(true);
     const loadingToast = toast.loading("Adding new tyre...");
-    
+
     // Auto-generate SKU from Size + Model name (strip special chars, uppercase)
     const autoSku = `APL-${(newSize + newModel).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
@@ -130,7 +136,7 @@ export default function StockPage() {
       setNewPrice("");
       setNewHsn("4011");
       loadCatalogue();
-      
+
       // Bust Next.js client-side router cache so the Purchases page immediately shows the new tyre
       router.refresh();
     } catch (error) {
@@ -186,16 +192,17 @@ export default function StockPage() {
   // --- DELETE TYRE ---
   async function executeDelete() {
     setIsDeleting(true);
-    const loadingToast = toast.loading("Deleting product...");
+    const loadingToast = toast.loading("Removing tyre from catalogue...");
     try {
       const res = await fetch("/api/products", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: deleteModal.productId }),
       });
-      if (!res.ok) throw new Error("Failed to delete product");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove tyre");
 
-      toast.success("Product deleted", { id: loadingToast });
+      toast.success("Tyre removed from catalogue", { id: loadingToast });
       setDeleteModal({ isOpen: false, productId: null, modelName: "" });
       loadCatalogue();
     } catch (error) {
@@ -293,7 +300,10 @@ export default function StockPage() {
                     onChange={(e) =>
                       setEditModal({
                         ...editModal,
-                        product: { ...editModal.product, hsnCode: e.target.value },
+                        product: {
+                          ...editModal.product,
+                          hsnCode: e.target.value,
+                        },
                       })
                     }
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-mono text-sm"
@@ -382,14 +392,16 @@ export default function StockPage() {
               <AlertTriangle className="w-7 h-7 text-red-600" />
             </div>
             <h3 className="text-xl font-bold text-center text-gray-900 mb-2">
-              Delete Tyre Model?
+              Remove Tyre From Catalogue?
             </h3>
             <p className="text-center text-gray-500 text-sm mb-8 leading-relaxed">
-              Are you sure you want to permanently delete{" "}
+              This will only be allowed if the tyre has zero active stock. The
+              tyre will be removed from the catalogue, but all invoices and
+              sales history will remain intact. Continue with{" "}
               <span className="font-bold text-gray-900">
                 "{deleteModal.modelName}"
               </span>
-              ? All physical stock records will be wiped.
+              ?
             </p>
             <div className="flex gap-3">
               <button
@@ -431,8 +443,8 @@ export default function StockPage() {
               Catalogue
             </h1>
             <p className="text-gray-500 mt-1">
-              {currentUser?.role === "ADMIN" 
-                ? "Manage global Apollo products and pricing." 
+              {currentUser?.role === "ADMIN"
+                ? "Manage global Apollo products and pricing."
                 : "View catalogue and stock for your shop."}
             </p>
           </div>
@@ -582,7 +594,9 @@ export default function StockPage() {
                   Base Price
                 </th>
                 <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
-                  {currentUser?.role === "ADMIN" ? "Global Stock" : "Shop Stock"}
+                  {currentUser?.role === "ADMIN"
+                    ? "Global Stock"
+                    : "Shop Stock"}
                 </th>
                 <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
@@ -604,15 +618,16 @@ export default function StockPage() {
               )}
 
               {filteredCatalogue.map((product) => {
-                const totalStock = product.inventories?.reduce((acc, inv) => {
-                  if (
-                    currentUser?.role === "SHOPKEEPER" &&
-                    inv.locationId !== currentUser?.locationId
-                  ) {
-                    return acc;
-                  }
-                  return acc + inv.quantity;
-                }, 0) || 0;
+                const totalStock =
+                  product.inventories?.reduce((acc, inv) => {
+                    if (
+                      currentUser?.role === "SHOPKEEPER" &&
+                      inv.locationId !== currentUser?.locationId
+                    ) {
+                      return acc;
+                    }
+                    return acc + inv.quantity;
+                  }, 0) || 0;
 
                 return (
                   <tr
@@ -662,7 +677,9 @@ export default function StockPage() {
                     <td className="block md:table-cell md:p-4 md:text-center mb-4 md:mb-0">
                       <div className="flex justify-between md:justify-center items-center">
                         <span className="md:hidden text-xs font-bold text-gray-400 uppercase">
-                          {currentUser?.role === "ADMIN" ? "Global Stock:" : "Shop Stock:"}
+                          {currentUser?.role === "ADMIN"
+                            ? "Global Stock:"
+                            : "Shop Stock:"}
                         </span>
                         <span
                           className={`inline-block px-3 py-1 rounded-md font-black text-sm ${totalStock <= product.lowStock ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}
@@ -681,19 +698,21 @@ export default function StockPage() {
                         >
                           <Edit className="w-4 h-4 md:w-3.5 md:h-3.5" /> Edit
                         </button>
-                        <button
-                          onClick={() =>
-                            setDeleteModal({
-                              isOpen: true,
-                              productId: product.id,
-                              modelName: product.modelName,
-                            })
-                          }
-                          className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
-                          Delete
-                        </button>
+                        {canRemoveTyres && (
+                          <button
+                            onClick={() =>
+                              setDeleteModal({
+                                isOpen: true,
+                                productId: product.id,
+                                modelName: product.modelName,
+                              })
+                            }
+                            className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
+                            Remove
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
