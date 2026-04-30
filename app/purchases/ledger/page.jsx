@@ -55,7 +55,7 @@ export default async function PurchaseLedgerPage() {
           </p>
         </div>
 
-        <PurchaseList purchases={purchases} locations={locations} />
+        <PurchaseList purchases={purchases} locations={locations} userRole={dbUser.role}/>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   Wallet,
   Landmark,
 } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 
 export default function CustomerLedger({
   customers,
@@ -201,11 +202,8 @@ export default function CustomerLedger({
             <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
               Filtered Market Dues
             </span>
-            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
-              ₹
-              {globalOutstanding.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })}
+              <p className="text-xl font-black text-red-600 leading-none mt-0.5">
+              {`₹${formatNumber(globalOutstanding, 2)}`}
             </p>
           </div>
         </div>
@@ -391,8 +389,8 @@ export default function CustomerLedger({
                     </span>
                   </div>
                   {Number(c.openingBalance || 0) > 0 && (
-                    <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
-                      Previous Due: ₹{Number(c.openingBalance).toLocaleString()}
+                      <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
+                      Previous Due: {`₹${formatNumber(Number(c.openingBalance || 0), 2)}`}
                     </div>
                   )}
                 </td>
@@ -403,7 +401,7 @@ export default function CustomerLedger({
                       Activity Billed:
                     </span>
                     <span className="font-bold text-gray-700">
-                      ₹{c.displayBilled.toLocaleString()}
+                      {`₹${formatNumber(c.displayBilled, 2)}`}
                     </span>
                   </div>
                 </td>
@@ -414,7 +412,7 @@ export default function CustomerLedger({
                       Activity Paid:
                     </span>
                     <span className="font-bold text-green-600">
-                      ₹{c.displayPaid.toLocaleString()}
+                      {`₹${formatNumber(c.displayPaid, 2)}`}
                     </span>
                   </div>
                 </td>
@@ -424,10 +422,10 @@ export default function CustomerLedger({
                     <span className="md:hidden text-xs font-bold text-red-400 uppercase">
                       Global Dues:
                     </span>
-                    <span
+                      <span
                       className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}
                     >
-                      ₹{c.outstandingDues.toLocaleString()}
+                      {`₹${formatNumber(c.outstandingDues, 2)}`}
                     </span>
                   </div>
                 </td>
@@ -568,7 +566,7 @@ export default function CustomerLedger({
                     Total Due
                   </span>
                   <span className="font-black text-red-600 text-lg">
-                    ₹{paymentModal.customer.outstandingDues.toLocaleString()}
+                    {`₹${formatNumber(paymentModal.customer.outstandingDues, 2)}`}
                   </span>
                 </div>
               </div>

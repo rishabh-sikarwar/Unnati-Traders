@@ -17,6 +17,7 @@ import {
   X,
   Save,
 } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 
 export default function StockPage() {
   const router = useRouter();
@@ -668,7 +669,7 @@ export default function StockPage() {
                           Base Price:
                         </span>
                         <span className="font-bold text-gray-900">
-                          ₹{product.basePrice.toLocaleString()}
+                          {`₹${formatNumber(product.basePrice, 2)}`}
                         </span>
                       </div>
                     </td>

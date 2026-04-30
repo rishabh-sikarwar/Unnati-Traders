@@ -13,6 +13,7 @@ import {
   Save,
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
+import { formatNumber } from "@/lib/format";
 
 export default function PurchaseForm({
   products,
@@ -299,7 +300,7 @@ export default function PurchaseForm({
                       />
                     </div>
                     <div className="w-full sm:w-auto sm:flex-1 bg-white border border-gray-200 px-4 py-2.5 rounded-lg text-right font-black text-gray-800 h-[42px] flex items-center justify-end shadow-inner">
-                      ₹{lineTotal.toLocaleString()}
+                      {`₹${formatNumber(lineTotal, 2)}`}
                     </div>
                     <button
                       type="button"
@@ -328,10 +329,7 @@ export default function PurchaseForm({
                 Total Purchase Value
               </span>
               <span className="text-3xl md:text-4xl font-black text-white drop-shadow-md">
-                ₹
-                {grandTotal.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(grandTotal, 2)}`}
               </span>
             </div>
           </div>

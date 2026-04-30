@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { formatNumber } from "@/lib/format";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   Search,
   CalendarDays,
@@ -11,10 +14,14 @@ import {
   X,
   Package,
   Filter,
+  Trash2,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 
-export default function PurchaseList({ purchases, locations = [] }) {
+export default function PurchaseList({ purchases, locations = [], userRole }) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState(null);
 
@@ -22,28 +29,31 @@ export default function PurchaseList({ purchases, locations = [] }) {
   const [dateFilter, setDateFilter] = useState("ALL");
   const [shopFilter, setShopFilter] = useState("ALL");
 
+  // Delete States
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    purchaseId: null,
+    invoiceNumber: "",
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const filteredPurchases = useMemo(() => {
     const now = new Date();
-
     return purchases.filter((p) => {
-      // Text Search
       const query = searchQuery.toLowerCase();
       const invMatch = p.invoiceNumber.toLowerCase().includes(query);
       const supMatch = p.supplierName.toLowerCase().includes(query);
       if (searchQuery && !invMatch && !supMatch) return false;
 
-      // Date Filter
       if (dateFilter !== "ALL") {
         const cutoffDate = subDays(now, parseInt(dateFilter));
         if (!isAfter(new Date(p.createdAt), cutoffDate)) return false;
       }
 
-      // Shop Filter
       if (shopFilter !== "ALL") {
         if (p.locationId !== shopFilter) return false;
       }
 
-      // Filter out empty/void purchases (0 tyres)
       const totalTyres = p.items.reduce((sum, item) => sum + item.quantity, 0);
       if (totalTyres === 0) return false;
 
@@ -51,9 +61,80 @@ export default function PurchaseList({ purchases, locations = [] }) {
     });
   }, [purchases, searchQuery, dateFilter, shopFilter]);
 
+  async function executeDelete() {
+    setIsDeleting(true);
+    const loadingToast = toast.loading(
+      "Deleting purchase and reversing stock...",
+    );
+
+    try {
+      const res = await fetch(`/api/purchases/${deleteModal.purchaseId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete");
+
+      toast.success("Purchase deleted successfully", { id: loadingToast });
+      setDeleteModal({ isOpen: false, purchaseId: null, invoiceNumber: "" });
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message, { id: loadingToast });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* TOOLBAR: SEARCH & FILTERS */}
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 sm:p-8">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mb-5 mx-auto">
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-gray-900 mb-2">
+              Delete Purchase?
+            </h3>
+            <p className="text-center text-gray-500 text-sm mb-8 leading-relaxed">
+              Are you sure you want to permanently delete purchase invoice{" "}
+              <span className="font-bold text-gray-900">
+                "{deleteModal.invoiceNumber}"
+              </span>
+              ? The stock added by this invoice will be subtracted from the
+              inventory immediately.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() =>
+                  setDeleteModal({
+                    isOpen: false,
+                    purchaseId: null,
+                    invoiceNumber: "",
+                  })
+                }
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 flex justify-center items-center gap-2 disabled:opacity-50 transition-colors"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOOLBAR */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -98,7 +179,7 @@ export default function PurchaseList({ purchases, locations = [] }) {
         </div>
       </div>
 
-      {/* The Ledger Table */}
+      {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
@@ -136,7 +217,6 @@ export default function PurchaseList({ purchases, locations = [] }) {
                       key={purchase.id}
                       className="border-b border-gray-100 hover:bg-purple-50/30 transition-colors"
                     >
-                      {/* Date & Invoice */}
                       <td className="py-4 px-6">
                         <div className="font-black text-gray-900">
                           {purchase.invoiceNumber}
@@ -152,7 +232,6 @@ export default function PurchaseList({ purchases, locations = [] }) {
                         </div>
                       </td>
 
-                      {/* Supplier & Location */}
                       <td className="py-4 px-6">
                         <div className="font-bold text-[#522874]">
                           {purchase.supplierName}
@@ -163,7 +242,6 @@ export default function PurchaseList({ purchases, locations = [] }) {
                         </div>
                       </td>
 
-                      {/* Item Count */}
                       <td className="py-4 px-6 text-center">
                         <div className="inline-flex items-center justify-center bg-gray-100 px-3 py-1 rounded-full text-xs font-bold text-gray-700">
                           <Package className="w-3 h-3 mr-1.5" /> {totalTyres}{" "}
@@ -171,23 +249,36 @@ export default function PurchaseList({ purchases, locations = [] }) {
                         </div>
                       </td>
 
-                      {/* Total Amount */}
                       <td className="py-4 px-6 text-right font-black text-green-600 text-lg">
-                        ₹
-                        {purchase.totalAmount.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`₹${formatNumber(purchase.totalAmount, 2)}`}
                       </td>
 
-                      {/* View Action */}
                       <td className="py-4 px-6 text-right">
-                        <button
-                          onClick={() => setSelectedPurchase(purchase)}
-                          className="inline-flex items-center justify-center gap-1.5 bg-white border border-gray-200 text-gray-700 hover:text-[#522874] hover:border-[#522874] hover:bg-purple-50 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
-                        >
-                          <FileText className="w-4 h-4" /> View{" "}
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {/* ONLY SHOW DELETE BUTTON TO ADMINS */}
+                          {userRole === "ADMIN" && (
+                            <button
+                              onClick={() =>
+                                setDeleteModal({
+                                  isOpen: true,
+                                  purchaseId: purchase.id,
+                                  invoiceNumber: purchase.invoiceNumber,
+                                })
+                              }
+                              className="inline-flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cursor-pointer border border-red-100"
+                              title="Delete Purchase"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedPurchase(purchase)}
+                            className="inline-flex items-center justify-center gap-1.5 bg-white border border-gray-200 text-gray-700 hover:text-[#522874] hover:border-[#522874] hover:bg-purple-50 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
+                          >
+                            <FileText className="w-4 h-4" /> View{" "}
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -198,7 +289,7 @@ export default function PurchaseList({ purchases, locations = [] }) {
         </div>
       </div>
 
-      {/* DETAILED VIEW MODAL REMAINS UNCHANGED */}
+      {/* ... (Keep your selectedPurchase detailed Modal code exactly the same below here) ... */}
       {selectedPurchase && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -291,16 +382,10 @@ export default function PurchaseList({ purchases, locations = [] }) {
                           {item.quantity}
                         </td>
                         <td className="py-4 px-4 text-right text-gray-600 font-medium">
-                          ₹
-                          {item.unitCost.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          {`₹${formatNumber(item.unitCost, 2)}`}
                         </td>
                         <td className="py-4 px-4 text-right font-black text-gray-900 text-lg">
-                          ₹
-                          {item.totalCost.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          {`₹${formatNumber(item.totalCost, 2)}`}
                         </td>
                       </tr>
                     ))}
@@ -315,10 +400,7 @@ export default function PurchaseList({ purchases, locations = [] }) {
                 Grand Total
               </span>
               <span className="text-3xl font-black text-green-600">
-                ₹
-                {selectedPurchase.totalAmount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(selectedPurchase.totalAmount, 2)}`}
               </span>
             </div>
           </div>

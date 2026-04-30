@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, User, Receipt, HandCoins, Calendar } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 import StatementPrintButton from "./statement-print-button"; // <-- Import the new button
 
 export const dynamic = "force-dynamic";
@@ -197,10 +198,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
               <p
                 className={`text-3xl font-black ${currentBalance > 0 ? "text-orange-400 print:text-gray-900" : "text-green-400 print:text-gray-900"}`}
               >
-                ₹
-                {currentBalance.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(currentBalance, 2)}`}
               </p>
             </div>
           </div>
@@ -216,10 +214,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                   Total Billed (Debits)
                 </p>
                 <p className="font-black text-gray-900">
-                  ₹
-                  {totalBilled.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {`₹${formatNumber(totalBilled, 2)}`}
                 </p>
               </div>
             </div>
@@ -232,10 +227,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                   Total Paid (Credits)
                 </p>
                 <p className="font-black text-gray-900">
-                  ₹
-                  {totalPaid.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {`₹${formatNumber(totalPaid, 2)}`}
                 </p>
               </div>
             </div>
@@ -294,19 +286,16 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-bold text-red-500 print:text-gray-900">
                         {row.debit > 0
-                          ? `₹${row.debit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                          ? `₹${formatNumber(row.debit, 2)}`
                           : "-"}
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-bold text-green-600 print:text-gray-900">
                         {row.credit > 0
-                          ? `₹${row.credit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                          ? `₹${formatNumber(row.credit, 2)}`
                           : "-"}
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-black text-[#522874] print:text-gray-900">
-                        ₹
-                        {row.balance.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`₹${formatNumber(row.balance, 2)}`}
                       </td>
                     </tr>
                   ))

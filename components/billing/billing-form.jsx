@@ -15,6 +15,7 @@ import {
   SplitSquareHorizontal,
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
+import { formatNumber } from "@/lib/format";
 
 export default function BillingForm({
   inventory,
@@ -530,10 +531,7 @@ export default function BillingForm({
                       />
                     </div>
                     <div className="w-full sm:w-auto sm:flex-1 bg-white border border-gray-200 px-4 py-2.5 rounded-lg text-right font-black text-gray-800 h-[42px] flex items-center justify-end shadow-inner">
-                      ₹
-                      {lineTotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
+                      {`₹${formatNumber(lineTotal, 2)}`}
                     </div>
                     <button
                       type="button"
@@ -560,12 +558,10 @@ export default function BillingForm({
           <div className="space-y-4 mb-6 text-sm font-medium">
             <div className="flex justify-between items-center">
               <span className="text-white/80">Items Total</span>
-              <span className="text-base font-bold">
-                ₹
-                {totals.rawItemsTotal.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
+                <span className="text-base font-bold">{`₹${formatNumber(
+                totals.rawItemsTotal,
+                2,
+              )}`}</span>
             </div>
 
             <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/10">
@@ -601,10 +597,7 @@ export default function BillingForm({
             <div className="flex justify-between items-center pt-2 border-t border-white/10">
               <span className="font-bold text-white/80">Taxable Value</span>
               <span className="font-bold text-base text-white/80">
-                ₹
-                {totals.subtotal.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(totals.subtotal, 2)}`}
               </span>
             </div>
 
@@ -709,10 +702,7 @@ export default function BillingForm({
             <div className="flex justify-between items-end">
               <span className="text-lg font-bold text-white">Grand Total</span>
               <span className="text-3xl md:text-4xl font-black text-green-400 drop-shadow-md">
-                ₹
-                {totals.grandTotal.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(totals.grandTotal, 2)}`}
               </span>
             </div>
           </div>
@@ -763,11 +753,13 @@ export default function BillingForm({
                 <div className="flex justify-between mt-2 text-sm font-medium">
                   <span className="text-white/70">Remaining Udhaar:</span>
                   <span className="text-orange-400 font-bold">
-                    ₹
-                    {Math.max(
-                      0,
-                      totals.grandTotal - (Number(initialPayment) || 0),
-                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {`₹${formatNumber(
+                      Math.max(
+                        0,
+                        totals.grandTotal - (Number(initialPayment) || 0),
+                      ),
+                      2,
+                    )}`}
                   </span>
                 </div>
               </div>
@@ -839,10 +831,7 @@ export default function BillingForm({
                 <div className="flex justify-between mt-4 pt-3 border-t border-blue-500/30 text-sm font-medium">
                   <span className="text-white/70">Goes to Udhaar:</span>
                   <span className="text-blue-400 font-bold">
-                    ₹
-                    {remainingSplitDue.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(remainingSplitDue, 2)}`}
                   </span>
                 </div>
               </div>

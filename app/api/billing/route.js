@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { formatNumber } from "@/lib/format";
 import { currentUser } from "@clerk/nextjs/server";
 import nodemailer from "nodemailer";
 
@@ -202,7 +203,7 @@ export async function POST(req) {
         "neeluchouhan222@gmail.com",
         "rishabhsikarwar200@gmail.com",
       ],
-      subject: `New Sale Alert: ${result.invoiceNumber} (₹${result.grandTotal.toLocaleString()})`,
+      subject: `New Sale Alert: ${result.invoiceNumber} (₹${formatNumber(result.grandTotal, 2)})`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 600px; border: 1px solid #ddd; border-radius: 10px;">
           <h2 style="color: #522874;">New Invoice Generated</h2>
@@ -211,7 +212,7 @@ export async function POST(req) {
           <p><strong>Customer Name:</strong> ${customerInfo.name || "Walk-in Customer"}</p>
           <p><strong>Customer Phone:</strong> ${customerInfo.phone || "N/A"}</p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-          <h3 style="color: #10B981;">Grand Total: ₹${result.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+          <h3 style="color: #10B981;">Grand Total: ₹${formatNumber(result.grandTotal, 2)}</h3>
           <div style="margin-top: 20px; text-align: center;">
             <a
               href="${receiptUrl}"

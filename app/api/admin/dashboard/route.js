@@ -72,11 +72,12 @@ export async function GET(req) {
 
     // --- 3. REVENUE VS PURCHASES (Bar Chart) ---
     // We keep the 6-month visual structure, but strictly filter the data by Location
+    const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
     const last6Months = Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       return {
-        month: d.toLocaleString("default", { month: "short" }),
+        month: monthFormatter.format(d),
         year: d.getFullYear(),
       };
     }).reverse();
@@ -98,9 +99,7 @@ export async function GET(req) {
       select: { grandTotal: true, createdAt: true },
     });
     recentInvoices.forEach((inv) => {
-      const month = new Date(inv.createdAt).toLocaleString("default", {
-        month: "short",
-      });
+      const month = monthFormatter.format(new Date(inv.createdAt));
       if (monthlyDataMap[month]) monthlyDataMap[month].sales += inv.grandTotal;
     });
 
@@ -113,9 +112,7 @@ export async function GET(req) {
       select: { totalAmount: true, createdAt: true },
     });
     recentPurchases.forEach((pur) => {
-      const month = new Date(pur.createdAt).toLocaleString("default", {
-        month: "short",
-      });
+      const month = monthFormatter.format(new Date(pur.createdAt));
       if (monthlyDataMap[month])
         monthlyDataMap[month].purchases += pur.totalAmount;
     });

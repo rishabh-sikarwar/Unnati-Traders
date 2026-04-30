@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 import PrintButton from "./print-button";
 
 export const dynamic = "force-dynamic";
@@ -338,16 +339,10 @@ export default async function ReceiptPage({ params }) {
                         {item.quantity}
                       </td>
                       <td className="py-2 px-2 text-right align-top text-gray-700">
-                        ₹
-                        {item.unitPrice.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`₹${formatNumber(item.unitPrice, 2)}`}
                       </td>
                       <td className="py-2 px-2 text-right align-top font-black">
-                        ₹
-                        {item.totalPrice.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`₹${formatNumber(item.totalPrice, 2)}`}
                       </td>
                     </tr>
                   ))}
@@ -366,41 +361,26 @@ export default async function ReceiptPage({ params }) {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-gray-600">
                   <span>Taxable Amount:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    ₹
-                    {invoice.subtotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(invoice.subtotal, 2)}`}
                   </span>
                   {/* Explicit CA-Level Breakdown */}
                   <span>CGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    ₹
-                    {cgstSgstAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(cgstSgstAmount, 2)}`}
                   </span>
                   <span>SGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    ₹
-                    {cgstSgstAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(cgstSgstAmount, 2)}`}
                   </span>
                   <span>IGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    ₹
-                    {igstAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(igstAmount, 2)}`}
                   </span>
                   <span className="pt-1 border-t border-gray-200">
                     Total Tax:
                   </span>
                   <span className="font-black text-gray-900 text-right pt-1 border-t border-gray-200">
-                    ₹
-                    {invoice.totalGst.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(invoice.totalGst, 2)}`}
                   </span>
                 </div>
               </div>
@@ -410,10 +390,7 @@ export default async function ReceiptPage({ params }) {
                 <div className="flex justify-between px-2">
                   <span className="text-gray-600 font-bold">Taxable Value</span>
                   <span className="font-black text-gray-800">
-                    ₹
-                    {invoice.subtotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(invoice.subtotal, 2)}`}
                   </span>
                 </div>
 
@@ -422,10 +399,7 @@ export default async function ReceiptPage({ params }) {
                     Total GST (Inclusive)
                   </span>
                   <span className="font-black text-gray-800">
-                    ₹
-                    {invoice.totalGst.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(invoice.totalGst, 2)}`}
                   </span>
                 </div>
 
@@ -434,10 +408,7 @@ export default async function ReceiptPage({ params }) {
                     Grand Total
                   </span>
                   <span className="font-black text-lg text-[#522874]">
-                    ₹
-                    {invoice.grandTotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
+                    {`₹${formatNumber(invoice.grandTotal, 2)}`}
                   </span>
                 </div>
 
@@ -447,18 +418,10 @@ export default async function ReceiptPage({ params }) {
                   <div className="text-xs font-bold px-2 pt-2 text-gray-800 space-y-1.5">
                     <div className="flex justify-between">
                       <span>
-                        Paid: ₹
-                        {invoice.amountPaid.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`Paid: ₹${formatNumber(invoice.amountPaid, 2)}`}
                       </span>
                       <span className="text-orange-600">
-                        Due: ₹
-                        {(
-                          invoice.grandTotal - invoice.amountPaid
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        {`Due: ₹${formatNumber(invoice.grandTotal - invoice.amountPaid, 2)}`}
                       </span>
                     </div>
 
@@ -466,24 +429,15 @@ export default async function ReceiptPage({ params }) {
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-semibold border border-gray-200 bg-gray-50 rounded p-2">
                         <span>Cash Received:</span>
                         <span className="text-right">
-                          ₹
-                          {cashAmount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          {`₹${formatNumber(cashAmount, 2)}`}
                         </span>
                         <span>UPI Received:</span>
                         <span className="text-right">
-                          ₹
-                          {upiAmount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          {`₹${formatNumber(upiAmount, 2)}`}
                         </span>
                         <span>Card Received:</span>
                         <span className="text-right">
-                          ₹
-                          {cardAmount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          {`₹${formatNumber(cardAmount, 2)}`}
                         </span>
                       </div>
                     )}

@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
+import { formatNumber } from "@/lib/format";
 
 export default function OrdersTable({
   initialOrders,
@@ -288,10 +289,7 @@ export default function OrdersTable({
             Invoices: {filteredOrders.length}
           </span>
           <span className="text-xl font-black text-[#522874]">
-            ₹
-            {filteredOrders
-              .reduce((sum, order) => sum + order.grandTotal, 0)
-              .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {`₹${formatNumber(filteredOrders.reduce((sum, order) => sum + order.grandTotal, 0), 2)}`}
           </span>
         </div>
       </div>
@@ -425,11 +423,8 @@ export default function OrdersTable({
                       <span className="md:hidden text-xs font-bold text-gray-500 uppercase">
                         Grand Total:
                       </span>
-                      <div className="text-lg md:text-xl font-black text-green-600">
-                        ₹
-                        {order.grandTotal.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                        <div className="text-lg md:text-xl font-black text-green-600">
+                        {`₹${formatNumber(order.grandTotal, 2)}`}
                       </div>
                     </div>
                   </td>

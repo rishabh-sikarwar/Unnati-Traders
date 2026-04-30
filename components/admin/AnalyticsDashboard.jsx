@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, DollarSign, ShoppingCart, Package, Filter, Loader2 } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 import toast from "react-hot-toast";
 
 const COLORS = ["#522874", "#10B981", "#F59E0B", "#3B82F6", "#EC4899", "#8B5CF6"];
-const currencyFormatter = (value) => `₹${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const currencyFormatter = (value) => `₹${formatNumber(value, 2)}`;
 
 // We now accept locations to populate the filter dropdown
 export default function AnalyticsDashboard({ initialData , locations = []}) {
@@ -82,8 +83,8 @@ export default function AnalyticsDashboard({ initialData , locations = []}) {
       {/* METRICS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: "Total Revenue", value: `₹${(summary.totalSales || 0).toLocaleString()}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-100" },
-          { label: "Total Purchases", value: `₹${(summary.totalPurchases || 0).toLocaleString()}`, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
+          { label: "Total Revenue", value: `₹${formatNumber(summary.totalSales || 0, 2)}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-100" },
+          { label: "Total Purchases", value: `₹${formatNumber(summary.totalPurchases || 0, 2)}`, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
           { label: "Total Orders", value: summary.totalOrders || 0, icon: ShoppingCart, color: "text-blue-600", bg: "bg-blue-100" },
           { label: "Total Stock", value: summary.totalStock || 0, icon: Package, color: "text-orange-600", bg: "bg-orange-100" },
         ].map((metric, idx) => (

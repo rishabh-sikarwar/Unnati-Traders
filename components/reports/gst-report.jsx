@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   TrendingUp,
 } from "lucide-react";
+import { formatNumber } from "@/lib/format";
 
 export default function GstReport() {
   const [loading, setLoading] = useState(false);
@@ -316,10 +317,7 @@ export default function GstReport() {
                 Taxable Value
               </p>
               <h3 className="text-2xl font-black text-gray-800">
-                ₹
-                {summary.totalTaxable.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.totalTaxable, 2)}`}
               </h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-orange-400">
@@ -327,11 +325,7 @@ export default function GstReport() {
                 Total Collected GST
               </p>
               <h3 className="text-2xl font-black text-gray-800">
-                ₹
-                {(summary.totalCgst + summary.totalSgst).toLocaleString(
-                  undefined,
-                  { minimumFractionDigits: 2 },
-                )}
+                {`₹${formatNumber(summary.totalCgst + summary.totalSgst, 2)}`}
               </h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-green-500">
@@ -339,10 +333,7 @@ export default function GstReport() {
                 Grand Total Revenue
               </p>
               <h3 className="text-2xl font-black text-gray-800">
-                ₹
-                {summary.grandTotal.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.grandTotal, 2)}`}
               </h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-rose-500">
@@ -350,10 +341,7 @@ export default function GstReport() {
                 Total Purchases
               </p>
               <h3 className="text-2xl font-black text-gray-800">
-                ₹
-                {summary.totalPurchaseValue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.totalPurchaseValue, 2)}`}
               </h3>
               <p className="text-xs text-gray-500 font-semibold mt-1">
                 {summary.totalPurchases} purchase entries
@@ -373,10 +361,7 @@ export default function GstReport() {
                 </p>
               </div>
               <span className="text-2xl font-black text-[#522874]">
-                ₹
-                {summary.b2bSales.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.b2bSales, 2)}`}
               </span>
             </div>
             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 flex items-center justify-between">
@@ -389,10 +374,7 @@ export default function GstReport() {
                 </p>
               </div>
               <span className="text-2xl font-black text-blue-700">
-                ₹
-                {summary.b2cSales.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.b2cSales, 2)}`}
               </span>
             </div>
             <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100 flex items-center justify-between">
@@ -405,10 +387,7 @@ export default function GstReport() {
                 </p>
               </div>
               <span className="text-2xl font-black text-emerald-700">
-                ₹
-                {summary.netRevenueAfterPurchase.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.netRevenueAfterPurchase, 2)}`}
               </span>
             </div>
           </div>
@@ -422,9 +401,7 @@ export default function GstReport() {
               </h3>
               <span className="text-sm font-bold text-gray-500">
                 Total: ₹
-                {summary.totalPurchaseValue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
+                {`₹${formatNumber(summary.totalPurchaseValue, 2)}`}
               </span>
             </div>
 
@@ -466,11 +443,7 @@ export default function GstReport() {
                           {purchase.supplierName || "Apollo Tyres"}
                         </td>
                         <td className="py-2 text-right font-black text-gray-900">
-                          ₹
-                          {Number(purchase.totalAmount || 0).toLocaleString(
-                            undefined,
-                            { minimumFractionDigits: 2 },
-                          )}
+                          {`₹${formatNumber(Number(purchase.totalAmount || 0), 2)}`}
                         </td>
                       </tr>
                     ))}
