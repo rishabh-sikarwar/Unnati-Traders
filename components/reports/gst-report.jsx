@@ -400,8 +400,7 @@ export default function GstReport() {
                 Statement ({summary.totalPurchases})
               </h3>
               <span className="text-sm font-bold text-gray-500">
-                Total: ₹
-                {`₹${formatNumber(summary.totalPurchaseValue, 2)}`}
+                Total: ₹{`₹${formatNumber(summary.totalPurchaseValue, 2)}`}
               </span>
             </div>
 

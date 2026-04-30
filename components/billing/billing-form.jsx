@@ -558,7 +558,7 @@ export default function BillingForm({
           <div className="space-y-4 mb-6 text-sm font-medium">
             <div className="flex justify-between items-center">
               <span className="text-white/80">Items Total</span>
-                <span className="text-base font-bold">{`₹${formatNumber(
+              <span className="text-base font-bold">{`₹${formatNumber(
                 totals.rawItemsTotal,
                 2,
               )}`}</span>

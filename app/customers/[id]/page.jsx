@@ -285,9 +285,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                         </span>
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-bold text-red-500 print:text-gray-900">
-                        {row.debit > 0
-                          ? `₹${formatNumber(row.debit, 2)}`
-                          : "-"}
+                        {row.debit > 0 ? `₹${formatNumber(row.debit, 2)}` : "-"}
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-bold text-green-600 print:text-gray-900">
                         {row.credit > 0

@@ -104,8 +104,8 @@ export async function GET(req) {
     });
 
     const recentPurchases = await prisma.purchase.findMany({
-      where: { 
-        createdAt: { gte: sixMonthsAgo }, 
+      where: {
+        createdAt: { gte: sixMonthsAgo },
         ...locationFilter,
         items: { some: {} },
       },

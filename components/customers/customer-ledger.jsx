@@ -202,7 +202,7 @@ export default function CustomerLedger({
             <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
               Filtered Market Dues
             </span>
-              <p className="text-xl font-black text-red-600 leading-none mt-0.5">
+            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
               {`₹${formatNumber(globalOutstanding, 2)}`}
             </p>
           </div>
@@ -389,8 +389,9 @@ export default function CustomerLedger({
                     </span>
                   </div>
                   {Number(c.openingBalance || 0) > 0 && (
-                      <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
-                      Previous Due: {`₹${formatNumber(Number(c.openingBalance || 0), 2)}`}
+                    <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
+                      Previous Due:{" "}
+                      {`₹${formatNumber(Number(c.openingBalance || 0), 2)}`}
                     </div>
                   )}
                 </td>
@@ -422,7 +423,7 @@ export default function CustomerLedger({
                     <span className="md:hidden text-xs font-bold text-red-400 uppercase">
                       Global Dues:
                     </span>
-                      <span
+                    <span
                       className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}
                     >
                       {`₹${formatNumber(c.outstandingDues, 2)}`}
