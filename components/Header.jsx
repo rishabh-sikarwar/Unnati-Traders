@@ -25,17 +25,15 @@ import {
   X,
   ChevronRight,
   LayoutGrid,
+  PackagePlus,
+  Home,
 } from "lucide-react";
 
 const Header = () => {
-  // 1. ADDED isLoaded from useUser to track Clerk's initial load
   const { user, isLoaded } = useUser();
   const pathname = usePathname();
   const [dbRole, setDbRole] = useState(null);
-
-  // 2. ADDED a loading state for our role fetching
   const [isRoleLoading, setIsRoleLoading] = useState(true);
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const drawerRef = useRef(null);
@@ -74,28 +72,24 @@ const Header = () => {
         if (res.ok) {
           const data = await res.json();
           setDbRole(data.role);
-          setIsRoleLoading(false); // Stop loading on success
+          setIsRoleLoading(false);
         } else if (res.status === 404 && retries > 0) {
           setTimeout(() => fetchUserRole(retries - 1), 1000);
         } else {
-          setIsRoleLoading(false); // Stop loading if failed after retries
+          setIsRoleLoading(false);
         }
       } catch (error) {
-        console.error("Failed to fetch user role from database", error);
         setIsRoleLoading(false);
       }
     };
 
-    // Only attempt to fetch if Clerk has finished loading
     if (isLoaded) {
-      if (user) {
-        fetchUserRole();
-      } else {
-        setIsRoleLoading(false); // Stop loading if no user is signed in
-      }
+      if (user) fetchUserRole();
+      else setIsRoleLoading(false);
     }
   }, [user, isLoaded]);
 
+  // Both Admin and Shopkeeper get the Staff Links
   const isInternalUser = dbRole === "ADMIN" || dbRole === "SHOPKEEPER";
 
   const publicLinks = [
@@ -105,7 +99,9 @@ const Header = () => {
     { name: "Support", icon: ContactRound, href: "/support" },
   ];
 
-  const adminLinks = [
+  // UPGRADED STAFF LINKS: All essential tools in one place
+  const staffLinks = [
+    { name: "Home", icon: Home, href: "/dashboard", color: "text-white" },
     {
       name: "Billing",
       icon: Receipt,
@@ -113,22 +109,28 @@ const Header = () => {
       color: "text-green-300",
     },
     {
+      name: "Inward",
+      icon: PackagePlus,
+      href: "/purchases",
+      color: "text-blue-300",
+    },
+    {
       name: "Khata",
       icon: UsersRound,
       href: "/customers",
-      color: "text-blue-300",
+      color: "text-indigo-300",
+    },
+    {
+      name: "Stock",
+      icon: PackageSearch,
+      href: "/inventory",
+      color: "text-orange-300",
     },
     {
       name: "Orders",
       icon: ScrollText,
       href: "/orders",
       color: "text-yellow-300",
-    },
-    {
-      name: "Stock",
-      icon: PackageSearch,
-      href: "/stock",
-      color: "text-purple-300",
     },
   ];
 
@@ -139,16 +141,14 @@ const Header = () => {
     <>
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "bg-[#3d1d56]/98 shadow-[0_4px_30px_rgba(0,0,0,0.35)]"
-            : "bg-[#522874]/95"
+          scrolled ? "bg-[#3d1d56]/98 shadow-lg" : "bg-[#522874]/95"
         } backdrop-blur-xl border-b border-white/10`}
       >
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16 md:h-[70px]">
             <Link
               href={isInternalUser && !isRoleLoading ? "/dashboard" : "/"}
-              className="shrink-0 transition-transform duration-300 hover:scale-105 active:scale-95"
+              className="shrink-0 transition-transform duration-300 hover:scale-105 active:scale-95 mr-4"
             >
               <Image
                 src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
@@ -173,22 +173,21 @@ const Header = () => {
                       : "text-white/85 hover:text-white hover:bg-white/15"
                   }`}
                 >
-                  <item.icon size={15} />
-                  {item.name}
+                  <item.icon size={15} /> {item.name}
                 </Link>
               ))}
             </nav>
 
             <div className="flex items-center gap-2 sm:gap-3">
               <SignedIn>
-                {/* 3. FIX: Only show Admin Nav if NOT loading */}
+                {/* UPGRADED TOP NAV FOR STAFF */}
                 {!isRoleLoading && isInternalUser && (
                   <nav className="hidden lg:flex items-center gap-0.5 bg-black/25 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-white/10 shadow-inner animate-in fade-in duration-300">
-                    {adminLinks.map((item) => (
+                    {staffLinks.map((item) => (
                       <Link
                         key={item.name}
                         href={item.href}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                        className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-lg text-xs xl:text-sm font-bold transition-all duration-200 ${
                           isActive(item.href)
                             ? "bg-white/20 text-white shadow-sm border border-white/15"
                             : "text-white/80 hover:text-white hover:bg-white/15"
@@ -204,14 +203,12 @@ const Header = () => {
                   </nav>
                 )}
 
-                {/* 4. FIX: Only show Cart if NOT loading */}
                 {!isRoleLoading && !isInternalUser && (
                   <Link
                     href="/cart"
-                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white/85 hover:text-white hover:bg-white/15 transition-all duration-200 animate-in fade-in duration-300"
+                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white/85 hover:text-white hover:bg-white/15 transition-all duration-200"
                   >
-                    <ShoppingCartIcon size={18} />
-                    <span>Cart</span>
+                    <ShoppingCartIcon size={18} /> <span>Cart</span>
                   </Link>
                 )}
 
@@ -228,7 +225,7 @@ const Header = () => {
                   forceRedirectUrl="/api/auth/sync"
                   signUpForceRedirectUrl="/api/auth/sync"
                 >
-                  <button className="hidden sm:flex items-center gap-2 bg-white text-[#522874] hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 cursor-pointer">
+                  <button className="hidden sm:flex items-center gap-2 bg-white text-[#522874] hover:bg-gray-50 font-bold px-4 py-2 rounded-lg text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300">
                     Sign In
                   </button>
                 </SignInButton>
@@ -236,7 +233,6 @@ const Header = () => {
 
               <button
                 onClick={() => setMobileOpen(true)}
-                aria-label="Open menu"
                 className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition-colors cursor-pointer"
               >
                 <MenuIcon size={22} />
@@ -245,14 +241,12 @@ const Header = () => {
           </div>
         </div>
 
+        {/* MOBILE STAFF BAR (Scrollable horizontally) */}
         <SignedIn>
           {!isRoleLoading && isInternalUser && (
             <div className="hidden md:flex lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="max-w-screen-xl mx-auto px-4 flex items-center gap-1 py-1.5 w-full overflow-x-auto scrollbar-none">
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mr-2 shrink-0 flex items-center gap-1">
-                  <LayoutGrid size={10} /> Nav
-                </span>
-                {adminLinks.map((item) => (
+              <div className="max-w-[1400px] mx-auto px-4 flex items-center gap-1 py-1.5 w-full overflow-x-auto scrollbar-none">
+                {staffLinks.map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
@@ -262,22 +256,7 @@ const Header = () => {
                         : "text-white/75 hover:text-white hover:bg-white/15"
                     }`}
                   >
-                    <item.icon size={13} className={item.color} />
-                    {item.name}
-                  </Link>
-                ))}
-                <div className="h-4 w-px bg-white/20 mx-2 shrink-0" />
-                {publicLinks.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                      isActive(item.href)
-                        ? "bg-white/20 text-white"
-                        : "text-white/55 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {item.name}
+                    <item.icon size={13} className={item.color} /> {item.name}
                   </Link>
                 ))}
               </div>
@@ -286,36 +265,27 @@ const Header = () => {
         </SignedIn>
       </header>
 
+      {/* MOBILE DRAWER */}
       <div
         onClick={() => setMobileOpen(false)}
-        className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
-          mobileOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-        aria-hidden="true"
+        className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
       />
 
       <div
         ref={drawerRef}
-        className={`fixed top-0 right-0 bottom-0 z-[70] w-[300px] sm:w-[320px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out lg:hidden ${
-          mobileOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 bottom-0 z-[70] w-[300px] sm:w-[320px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out lg:hidden ${mobileOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-5 py-4 bg-[#522874] shrink-0">
-          <div className="flex items-center gap-3">
-            <Image
-              src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
-              alt="Unnati Traders"
-              className="h-9 w-auto object-contain"
-              height={36}
-              width={120}
-            />
-          </div>
+          <Image
+            src="https://res.cloudinary.com/dejsybv2l/image/upload/v1747323822/image-removebg-preview_1_k2j2o5.png"
+            alt="Logo"
+            className="h-9 w-auto object-contain"
+            height={36}
+            width={120}
+          />
           <button
             onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-            className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/20 text-white transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-full hover:bg-white/20 text-white flex items-center justify-center"
           >
             <X size={20} />
           </button>
@@ -328,8 +298,8 @@ const Header = () => {
                 forceRedirectUrl="/api/auth/sync"
                 signUpForceRedirectUrl="/api/auth/sync"
               >
-                <button className="w-full flex items-center justify-center gap-2 bg-[#522874] text-white font-bold px-4 py-3 rounded-xl text-sm shadow-md hover:bg-[#3d1d56] transition-colors cursor-pointer">
-                  Sign In to Your Account
+                <button className="w-full bg-[#522874] text-white font-bold px-4 py-3 rounded-xl text-sm">
+                  Sign In
                 </button>
               </SignInButton>
             </div>
@@ -337,7 +307,7 @@ const Header = () => {
 
           <SignedIn>
             {!isRoleLoading && isInternalUser && (
-              <section className="mb-5 animate-in fade-in duration-300">
+              <section className="mb-5">
                 <div className="flex items-center gap-2 px-3 mb-2">
                   <LayoutGrid size={12} className="text-[#522874]" />
                   <span className="text-[10px] font-bold text-[#522874] uppercase tracking-widest">
@@ -345,16 +315,12 @@ const Header = () => {
                   </span>
                 </div>
                 <div className="bg-[#522874]/5 rounded-xl p-1.5 border border-[#522874]/10 space-y-0.5">
-                  {adminLinks.map((item) => (
+                  {staffLinks.map((item) => (
                     <Link
                       key={item.name}
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
-                      className={`flex items-center justify-between px-3 py-3 rounded-lg font-bold text-sm transition-all duration-200 group ${
-                        isActive(item.href)
-                          ? "bg-[#522874] text-white shadow-sm"
-                          : "text-gray-700 hover:bg-[#522874]/10 hover:text-[#522874]"
-                      }`}
+                      className={`flex items-center justify-between px-3 py-3 rounded-lg font-bold text-sm transition-all duration-200 group ${isActive(item.href) ? "bg-[#522874] text-white shadow-sm" : "text-gray-700 hover:bg-[#522874]/10 hover:text-[#522874]"}`}
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -373,7 +339,7 @@ const Header = () => {
                       </div>
                       <ChevronRight
                         size={14}
-                        className={`opacity-40 group-hover:opacity-80 transition-opacity ${isActive(item.href) ? "text-white" : ""}`}
+                        className={`opacity-40 ${isActive(item.href) ? "text-white" : ""}`}
                       />
                     </Link>
                   ))}
@@ -394,11 +360,7 @@ const Header = () => {
                   key={item.name}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between px-3 py-3 rounded-lg font-semibold text-sm transition-all duration-200 group ${
-                    isActive(item.href)
-                      ? "bg-purple-50 text-[#522874]"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                  className={`flex items-center justify-between px-3 py-3 rounded-lg font-semibold text-sm transition-all duration-200 ${isActive(item.href) ? "bg-purple-50 text-[#522874]" : "text-gray-600 hover:bg-gray-50"}`}
                 >
                   <div className="flex items-center gap-3">
                     <item.icon
@@ -406,49 +368,14 @@ const Header = () => {
                       className={
                         isActive(item.href) ? "text-[#522874]" : "text-gray-400"
                       }
-                    />
+                    />{" "}
                     {item.name}
                   </div>
-                  <ChevronRight
-                    size={14}
-                    className="opacity-30 group-hover:opacity-60 transition-opacity"
-                  />
+                  <ChevronRight size={14} className="opacity-30" />
                 </Link>
               ))}
             </div>
           </section>
-
-          <SignedIn>
-            {!isRoleLoading && !isInternalUser && (
-              <section className="mb-5 animate-in fade-in duration-300">
-                <div className="space-y-0.5">
-                  <Link
-                    href="/cart"
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center justify-between px-3 py-3 rounded-lg font-semibold text-sm transition-all duration-200 group ${
-                      isActive("/cart")
-                        ? "bg-purple-50 text-[#522874]"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <ShoppingCartIcon
-                        size={16}
-                        className={
-                          isActive("/cart") ? "text-[#522874]" : "text-gray-400"
-                        }
-                      />
-                      Cart
-                    </div>
-                    <ChevronRight
-                      size={14}
-                      className="opacity-30 group-hover:opacity-60 transition-opacity"
-                    />
-                  </Link>
-                </div>
-              </section>
-            )}
-          </SignedIn>
         </div>
 
         <SignedIn>
@@ -471,13 +398,6 @@ const Header = () => {
             </div>
           </div>
         </SignedIn>
-        <SignedOut>
-          <div className="shrink-0 border-t border-gray-100 px-5 py-3">
-            <p className="text-xs text-gray-400 text-center">
-              Unnati Traders · Apollo Distributor
-            </p>
-          </div>
-        </SignedOut>
       </div>
     </>
   );
