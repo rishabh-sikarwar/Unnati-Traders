@@ -20,7 +20,12 @@ import {
 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 
-export default function PurchaseList({ purchases, locations = [], userRole }) {
+export default function PurchaseList({
+  purchases,
+  locations = [],
+  userRole,
+  showShopFilter = true,
+}) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState(null);
@@ -162,7 +167,7 @@ export default function PurchaseList({ purchases, locations = [], userRole }) {
             <option value="90">Last 3 Months</option>
           </select>
 
-          {locations.length > 0 && (
+          {showShopFilter && locations.length > 0 && (
             <select
               value={shopFilter}
               onChange={(e) => setShopFilter(e.target.value)}

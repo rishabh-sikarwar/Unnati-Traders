@@ -14,19 +14,33 @@ export default async function PurchaseLedgerPage() {
     where: { id: clerkUser.id },
   });
 
-  const locations = await prisma.location.findMany({
-    orderBy: { name: "asc" },
-  })
-
   if (!dbUser || (dbUser.role !== "ADMIN" && dbUser.role !== "SHOPKEEPER")) {
     redirect("/dashboard");
   }
 
+  if (dbUser.role === "SHOPKEEPER" && !dbUser.locationId) {
+    redirect("/dashboard");
+  }
+
+  const showShopFilter = dbUser.role === "ADMIN";
+
+  const locations = showShopFilter
+    ? await prisma.location.findMany({
+        orderBy: { name: "asc" },
+      })
+    : [];
+
   // Fetch all purchases with their related items, locations, and the user who logged them
   const purchases = await prisma.purchase.findMany({
-    where: {
-      items: { some: {} },
-    },
+    where:
+      dbUser.role === "SHOPKEEPER"
+        ? {
+            items: { some: {} },
+            locationId: dbUser.locationId,
+          }
+        : {
+            items: { some: {} },
+          },
     include: {
       location: true,
       user: true,
@@ -50,12 +64,17 @@ export default async function PurchaseLedgerPage() {
             Inward Purchase Ledger
           </h1>
           <p className="text-gray-500 mt-2 font-medium">
-            View all stock inward records, supplier invoices, and detailed tyre
-            counts.
+            View inward stock records, supplier invoices, and detailed tyre
+            counts for the selected shop.
           </p>
         </div>
 
-        <PurchaseList purchases={purchases} locations={locations} userRole={dbUser.role}/>
+        <PurchaseList
+          purchases={purchases}
+          locations={locations}
+          userRole={dbUser.role}
+          showShopFilter={showShopFilter}
+        />
       </div>
     </div>
   );

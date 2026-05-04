@@ -4,17 +4,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  ShoppingCart,
-  Package,
-  PackagePlus,
   Undo2,
   Loader2,
   MapPin,
-  ScrollText,
   User,
   Clock,
-  UsersRound,
   ArrowRight,
+  FileText,
 } from "lucide-react";
 
 export default function ShopkeeperDashboard({ user }) {
@@ -31,53 +27,23 @@ export default function ShopkeeperDashboard({ user }) {
     day: "numeric",
   });
 
-  // The 6 Pillars of the Shopkeeper's Daily Workflow
+  // The shopkeeper's non-navbar workflow shortcuts
   const quickLinks = [
     {
-      title: "New Sale Bill",
-      subtitle: "Generate outgoing retail & B2B invoices",
-      icon: ShoppingCart,
-      href: "/billing",
-      color: "text-green-600",
-      bg: "bg-green-50",
-      border: "hover:border-green-400",
-      shadow: "hover:shadow-[0_8px_30px_rgba(34,197,94,0.15)]",
+      title: "Purchase Bills",
+      subtitle: "View inward bills for your own shop only",
+      icon: FileText,
+      href: "/purchases/ledger",
+      color: "text-cyan-600",
+      bg: "bg-cyan-50",
+      border: "hover:border-cyan-400",
+      shadow: "hover:shadow-[0_8px_30px_rgba(34,211,238,0.15)]",
     },
     {
-      title: "Receive Stock",
-      subtitle: "Inward new purchases & supplier bills",
-      icon: PackagePlus,
-      href: "/purchases",
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-      border: "hover:border-blue-400",
-      shadow: "hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)]",
-    },
-    {
-      title: "Customer Khata",
-      subtitle: "Manage ledgers & settle pending dues",
-      icon: UsersRound,
-      href: "/customers",
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-      border: "hover:border-indigo-400",
-      shadow: "hover:shadow-[0_8px_30px_rgba(99,102,241,0.15)]",
-    },
-    {
-      title: "Inventory Hub",
-      subtitle: "Check live physical stock & locations",
-      icon: Package,
-      href: "/inventory",
-      color: "text-orange-600",
-      bg: "bg-orange-50",
-      border: "hover:border-orange-400",
-      shadow: "hover:shadow-[0_8px_30px_rgba(249,115,22,0.15)]",
-    },
-    {
-      title: "Sales Register",
-      subtitle: "View, reprint, or cancel past invoices",
-      icon: ScrollText,
-      href: "/orders",
+      title: "Tyres Inventory",
+      subtitle: "Check stock and add new tyres to your shop",
+      icon: MapPin,
+      href: "/stock",
       color: "text-yellow-600",
       bg: "bg-yellow-50",
       border: "hover:border-yellow-400",
@@ -130,7 +96,7 @@ export default function ShopkeeperDashboard({ user }) {
         </div>
 
         {/* --- 6-GRID COMMAND CENTER --- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3ror gap-5 md:gap-6">
           {quickLinks.map((link, idx) => (
             <Link
               key={idx}
