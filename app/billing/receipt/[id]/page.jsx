@@ -166,7 +166,7 @@ export default async function ReceiptPage({ params }) {
             <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
               <div className="space-y-1 text-sm">
                 <h1 className="text-3xl font-black text-[#522874] tracking-tighter leading-none mb-2">
-                  UNNATI TRADERS
+                  UNNATI  TRADERS
                 </h1>
                 <p>
                   <span className="font-bold text-gray-500 uppercase text-xs">
@@ -184,6 +184,14 @@ export default async function ReceiptPage({ params }) {
                     {invoice.location.address}
                   </p>
                 )}
+                <p>
+                  <span className="font-bold text-gray-500 uppercase text-xs">
+                    Phone:
+                  </span>{" "}
+                  <span className="font-black tracking-wide text-gray-700">
+                    {"+91 8770552396 , +91 9827620625"}
+                  </span>
+                </p>
                 <p>
                   <span className="font-bold text-gray-500 uppercase text-xs">
                     GSTIN:

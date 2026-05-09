@@ -123,7 +123,7 @@ export default function GstReport() {
     return periodMeta?.label || "Selected Range";
   }, [period, selectedMonth, selectedYear, customStart, customEnd, periodMeta]);
 
-  // Handle Excel Download
+  // Handle Excel Download for Sales + Purchase
   const downloadExcel = () => {
     if (invoices.length === 0 && purchases.length === 0) {
       return toast.error("No report data to export for this timeframe.");
@@ -204,6 +204,67 @@ export default function GstReport() {
     toast.success("Excel File Downloaded!");
   };
 
+  // Handle Excel Download for Sales Only
+  const downloadSalesExcel = () => {
+    if (invoices.length === 0) {
+      return toast.error("No sales report data to export for this timeframe.");
+    }
+
+    // Sales statement sheet
+    const salesExcelData = invoices.map((inv) => ({
+      "Invoice Date": format(new Date(inv.createdAt), "dd-MMM-yyyy"),
+      "Invoice Number": inv.invoiceNumber,
+      "Customer Name": inv.customer?.name || "Walk-in Customer",
+      "Customer Phone": inv.customer?.phone || "",
+      "Sale Type":
+        inv.customer?.type === "RETAIL" ? "B2C (Retail)" : "B2B (Dealer)",
+      "Billed From (Shop)": inv.location?.name || "Unknown",
+      "Payment Mode": inv.paymentMode,
+      "Taxable Value (₹)": Number(inv.subtotal.toFixed(2)),
+      "CGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
+      "SGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
+      "Total GST (₹)": Number(inv.totalGst.toFixed(2)),
+      "Grand Total (₹)": Number(inv.grandTotal.toFixed(2)),
+    }));
+
+    // Summary sheet for sales only
+    const summarySheetData = [
+      { Metric: "Report Range", Value: displayRangeLabel },
+      { Metric: "Total Sales Invoices", Value: summary.totalInvoices },
+      {
+        Metric: "Total Sales Amount (₹)",
+        Value: Number(summary.grandTotal.toFixed(2)),
+      },
+      {
+        Metric: "B2B (Dealers) Revenue (₹)",
+        Value: Number(summary.b2bSales.toFixed(2)),
+      },
+      {
+        Metric: "B2C (Retail) Revenue (₹)",
+        Value: Number(summary.b2cSales.toFixed(2)),
+      },
+      {
+        Metric: "Taxable Sales Value (₹)",
+        Value: Number(summary.totalTaxable.toFixed(2)),
+      },
+      {
+        Metric: "Total Collected GST (₹)",
+        Value: Number((summary.totalCgst + summary.totalSgst).toFixed(2)),
+      },
+    ];
+
+    // Build workbook
+    const summaryWorksheet = XLSX.utils.json_to_sheet(summarySheetData);
+    const salesWorksheet = XLSX.utils.json_to_sheet(salesExcelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Summary");
+    XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Sales Statement");
+
+    const safeRangeLabel = displayRangeLabel.replace(/[^a-zA-Z0-9]+/g, "_");
+    XLSX.writeFile(workbook, `Unnati_Sales_Report_${safeRangeLabel}.xlsx`);
+    toast.success("Sales Report Downloaded!");
+  };
+
   const months = [
     "January",
     "February",
@@ -279,16 +340,25 @@ export default function GstReport() {
           )}
         </div>
 
-        <button
-          onClick={downloadExcel}
-          disabled={
-            loading || (invoices.length === 0 && purchases.length === 0)
-          }
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-        >
-          <FileSpreadsheet className="w-5 h-5" /> Download Sales + Purchase
-          Excel
-        </button>
+        <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+          <button
+            onClick={downloadSalesExcel}
+            disabled={loading || invoices.length === 0}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+          >
+            <FileSpreadsheet className="w-5 h-5" /> Download Sales Excel
+          </button>
+          <button
+            onClick={downloadExcel}
+            disabled={
+              loading || (invoices.length === 0 && purchases.length === 0)
+            }
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+          >
+            <FileSpreadsheet className="w-5 h-5" /> Download Sales + Purchase
+            Excel
+          </button>
+        </div>
       </div>
 
       <div className="bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-700 text-sm font-semibold">
