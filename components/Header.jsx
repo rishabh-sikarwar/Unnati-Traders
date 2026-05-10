@@ -19,7 +19,6 @@ import {
   MenuIcon,
   Receipt,
   PackageSearch,
-  ShoppingCartIcon,
   ScrollText,
   UsersRound,
   X,
@@ -201,15 +200,6 @@ const Header = () => {
                       </Link>
                     ))}
                   </nav>
-                )}
-
-                {!isRoleLoading && !isInternalUser && (
-                  <Link
-                    href="/cart"
-                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white/85 hover:text-white hover:bg-white/15 transition-all duration-200"
-                  >
-                    <ShoppingCartIcon size={18} /> <span>Cart</span>
-                  </Link>
                 )}
 
                 <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/30 transition-all duration-300 shrink-0 ml-1">

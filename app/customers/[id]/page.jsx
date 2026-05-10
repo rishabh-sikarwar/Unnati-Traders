@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, User, Receipt, HandCoins, Calendar } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import StatementPrintButton from "./statement-print-button"; // <-- Import the new button
+import InvoicePreviewModal from "@/components/customers/invoice-preview-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,8 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       date: inv.createdAt,
       type: "BILL",
       description: `Invoice #${inv.invoiceNumber}`,
+      invoiceId: inv.id,
+      invoiceNumber: inv.invoiceNumber,
       debit: inv.grandTotal,
       credit: 0,
     });
@@ -278,11 +281,18 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                         })}
                       </td>
                       <td className="py-4 px-6 text-sm">
-                        <span
-                          className={`font-bold ${row.type === "BILL" || row.type === "OPENING" ? "text-gray-900" : "text-green-700 print:text-gray-600"}`}
-                        >
-                          {row.description}
-                        </span>
+                        {row.type === "BILL" ? (
+                          <InvoicePreviewModal
+                            invoiceId={row.invoiceId}
+                            invoiceNumber={row.invoiceNumber}
+                          />
+                        ) : (
+                          <span
+                            className={`font-bold ${row.type === "BILL" || row.type === "OPENING" ? "text-gray-900" : "text-green-700 print:text-gray-600"}`}
+                          >
+                            {row.description}
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-right text-sm font-bold text-red-500 print:text-gray-900">
                         {row.debit > 0 ? `₹${formatNumber(row.debit, 2)}` : "-"}
