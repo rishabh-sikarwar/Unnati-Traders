@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Package, ArrowRightLeft } from "lucide-react";
+import { Package, ArrowRightLeft, DownloadCloud } from "lucide-react";
 import Link from "next/link";
 import InventoryTable from "@/components/inventory/InventoryTable";
 import { currentUser } from "@clerk/nextjs/server";
@@ -43,7 +43,15 @@ export default async function InventoryPage() {
             </p>
           </div>
 
-          <div className="flex w-full md:w-auto">
+          <div className="flex w-full md:w-auto flex-col sm:flex-row gap-3">
+            {dbUser.role === "ADMIN" && (
+              <Link
+                href="/admin/inventory-export"
+                className="w-full md:w-auto flex items-center justify-center gap-2 bg-white text-[#522874] border border-[#522874]/20 px-4 py-2.5 rounded-lg font-bold hover:bg-purple-50 transition-all shadow-sm active:scale-95"
+              >
+                <DownloadCloud size={18} /> Stock Excel
+              </Link>
+            )}
             <Link
               href="/admin/transfer"
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#522874] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95"

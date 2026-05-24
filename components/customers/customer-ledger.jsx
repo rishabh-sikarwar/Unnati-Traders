@@ -72,23 +72,21 @@ export default function CustomerLedger({
 
   // --- TRIGGER SERVER RE-FETCH ---
   const applyFilters = (search, date, shop, dues, start, end) => {
-    let url = `/customers?search=${search}&date=${date}&shopId=${shop}&duesOnly=${dues}`;
-    if (date === "custom" && start && end) {
-      url += `&start=${start}&end=${end}`;
-    }
-    router.push(url);
-  };
+    const params = new URLSearchParams();
 
-  const handleSearchKeyPress = (e) => {
-    if (e.key === "Enter")
-      applyFilters(
-        searchQuery,
-        dateFilter,
-        shopFilter,
-        filterDuesOnly,
-        customStart,
-        customEnd,
-      );
+    if (search) params.set("search", search);
+    if (date !== "all") params.set("date", date);
+    if (shop !== "ALL") params.set("shopId", shop);
+    if (dues) params.set("duesOnly", "true");
+    if (date === "custom" && start && end) {
+      params.set("start", start);
+      params.set("end", end);
+    }
+
+    const queryString = params.toString();
+    router.replace(queryString ? `/customers?${queryString}` : "/customers", {
+      scroll: false,
+    });
   };
 
   // --- API CALLS ---
@@ -215,11 +213,21 @@ export default function CustomerLedger({
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
-            type="text"
-            placeholder="Search Name or Phone (Press Enter)..."
+            type="search"
+            placeholder="Search Name or Phone..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearchKeyPress}
+            onChange={(e) => {
+              const nextSearch = e.target.value;
+              setSearchQuery(nextSearch);
+              applyFilters(
+                nextSearch,
+                dateFilter,
+                shopFilter,
+                filterDuesOnly,
+                customStart,
+                customEnd,
+              );
+            }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
           />
         </div>
