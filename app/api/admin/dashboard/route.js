@@ -19,7 +19,8 @@ export async function GET(req) {
 
     // --- 1. PARSE FILTERS FROM URL ---
     const { searchParams } = new URL(req.url);
-    const days = parseInt(searchParams.get("days")) || 30;
+    const range = (searchParams.get("range") || "month").toLowerCase();
+    const daysParam = parseInt(searchParams.get("days"));
     const urlLocationId = searchParams.get("locationId");
 
     let locationId;
@@ -34,11 +35,22 @@ export async function GET(req) {
       locationId = "ALL";
     }
 
-    // Calculate the cutoff date
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Calculate the summary window.
+    let cutoffDate;
+    let summaryEndDate;
+
+    if (range === "month") {
+      const now = new Date();
+      cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      summaryEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
+      cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      summaryEndDate = new Date();
+    }
 
     // Build the dynamic WHERE clauses
-    const dateFilter = { gte: cutoffDate };
+    const dateFilter = { gte: cutoffDate, lte: summaryEndDate };
     const locationFilter = locationId !== "ALL" ? { locationId } : {};
 
     const baseWhere = {
@@ -54,10 +66,7 @@ export async function GET(req) {
 
     const purchases = await prisma.purchase.aggregate({
       _sum: { totalAmount: true },
-      where: {
-        ...baseWhere,
-        items: { some: {} },
-      },
+      where: { status: "COMPLETED", purchaseDate: dateFilter, ...locationFilter },
     });
 
     const orders = await prisma.invoice.count({
@@ -105,14 +114,14 @@ export async function GET(req) {
 
     const recentPurchases = await prisma.purchase.findMany({
       where: {
-        createdAt: { gte: sixMonthsAgo },
+        status: "COMPLETED",
+        purchaseDate: { gte: sixMonthsAgo },
         ...locationFilter,
-        items: { some: {} },
       },
-      select: { totalAmount: true, createdAt: true },
+      select: { totalAmount: true, purchaseDate: true },
     });
     recentPurchases.forEach((pur) => {
-      const month = monthFormatter.format(new Date(pur.createdAt));
+      const month = monthFormatter.format(new Date(pur.purchaseDate));
       if (monthlyDataMap[month])
         monthlyDataMap[month].purchases += pur.totalAmount;
     });

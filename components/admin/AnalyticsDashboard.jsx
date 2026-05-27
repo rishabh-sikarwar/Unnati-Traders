@@ -42,7 +42,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
   const [loading, setLoading] = useState(false);
 
   // Filter States
-  const [dateRange, setDateRange] = useState("30"); // days
+  const [dateRange, setDateRange] = useState("month"); // month or days
   const [locationId, setLocationId] = useState(
     initialData?.defaultLocationId || "ALL",
   );
@@ -51,7 +51,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/dashboard?days=${dateRange}&locationId=${locationId}`,
+        `/api/admin/dashboard?range=${dateRange}&locationId=${locationId}`,
       );
       if (!res.ok) throw new Error("Failed to fetch filtered data");
       const newData = await res.json();
@@ -86,8 +86,8 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
             onChange={(e) => setDateRange(e.target.value)}
             className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer flex-1 sm:flex-none"
           >
+            <option value="month">This Month</option>
             <option value="7">Last 7 Days</option>
-            <option value="30">Last 30 Days</option>
             <option value="90">Last 3 Months</option>
             <option value="365">This Year</option>
           </select>
