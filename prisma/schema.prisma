@@ -9,6 +9,7 @@ datasource db {
 model Location {
   id        String       @id @default(uuid())
   name      String
+  code      String       @unique @default("UT")
   type      LocationType
   address   String?
   createdAt DateTime     @default(now())

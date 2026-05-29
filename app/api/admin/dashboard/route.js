@@ -42,7 +42,15 @@ export async function GET(req) {
     if (range === "month") {
       const now = new Date();
       cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      summaryEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      summaryEndDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
     } else {
       const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
       cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -66,7 +74,11 @@ export async function GET(req) {
 
     const purchases = await prisma.purchase.aggregate({
       _sum: { totalAmount: true },
-      where: { status: "COMPLETED", purchaseDate: dateFilter, ...locationFilter },
+      where: {
+        status: "COMPLETED",
+        purchaseDate: dateFilter,
+        ...locationFilter,
+      },
     });
 
     const orders = await prisma.invoice.count({
