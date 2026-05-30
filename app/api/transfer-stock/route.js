@@ -5,6 +5,7 @@ import { currentUser } from "@clerk/nextjs/server";
 export async function POST(req) {
   try {
     let { productId, fromLocation, toLocation, quantity } = await req.json();
+    quantity = Number(quantity);
 
     const clerkUser = await currentUser();
     if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -47,6 +48,16 @@ export async function POST(req) {
         where: { productId_locationId: { productId, locationId: toLocation } },
         update: { quantity: { increment: quantity } },
         create: { productId, locationId: toLocation, quantity },
+      });
+
+      await tx.transferLog.create({
+        data: {
+          productId,
+          fromLocationId: fromLocation,
+          toLocationId: toLocation,
+          quantity,
+          userId: dbUser.id,
+        },
       });
     });
 

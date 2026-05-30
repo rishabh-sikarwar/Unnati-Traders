@@ -382,6 +382,9 @@ export default function PurchaseList({
                           <div className="text-xs text-gray-500 mt-0.5">
                             Size: {item.product.size} | SKU: {item.product.sku}
                           </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            HSN: {item.product.hsnCode || "4011"}
+                          </div>
                         </td>
                         <td className="py-4 px-4 text-center font-black text-gray-800 text-lg">
                           {item.quantity}

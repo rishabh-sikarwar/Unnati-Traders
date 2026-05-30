@@ -19,6 +19,8 @@ model Location {
   invoices    Invoice[]
   purchases   Purchase[]
   returns     ReturnLog[]
+  transferFromLogs TransferLog[] @relation("TransferFromLocation")
+  transferToLogs   TransferLog[] @relation("TransferToLocation")
 }
 
 model User {
@@ -35,6 +37,7 @@ model User {
   invoices  Invoice[]
   purchases Purchase[]
   returns   ReturnLog[]
+  transferLogs TransferLog[]
 }
 
 model Product {
@@ -59,6 +62,7 @@ model Product {
   invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
   returns       ReturnLog[]
+  transferLogs  TransferLog[]
 }
 
 model Inventory {
@@ -198,6 +202,24 @@ model ReturnLog {
   user   User?   @relation(fields: [userId], references: [id])
 }
 
+model TransferLog {
+  id             String   @id @default(uuid())
+  quantity       Int
+  createdAt      DateTime @default(now())
+
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+
+  fromLocationId String
+  fromLocation   Location @relation("TransferFromLocation", fields: [fromLocationId], references: [id])
+
+  toLocationId   String
+  toLocation     Location @relation("TransferToLocation", fields: [toLocationId], references: [id])
+
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+}
+
 enum PurchaseStatus {
   COMPLETED
   PENDING
@@ -239,6 +261,7 @@ enum TyreCategory {
   TRACTOR_TRAILER
   TWO_WHEELER
   THREE_WHEELER
+  TUBE
   INDUSTRIAL
   JEEP
   SCV_RADIAL

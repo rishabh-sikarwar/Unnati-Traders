@@ -88,10 +88,12 @@ export default function StockPage() {
 
   const filteredCatalogue = useMemo(() => {
     return catalogue.filter((p) => {
+      const query = searchQuery.toLowerCase();
       const matchesSearch =
-        p.modelName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.size.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+        p.modelName.toLowerCase().includes(query) ||
+        p.size.toLowerCase().includes(query) ||
+        p.sku.toLowerCase().includes(query) ||
+        (p.hsnCode || "").toLowerCase().includes(query);
 
       const matchesCategory =
         selectedCategory === "ALL" || p.category === selectedCategory;
@@ -507,6 +509,7 @@ export default function StockPage() {
                 <option value="TRUCK_BUS_RADIAL">Truck/Bus Radial</option>
                 <option value="TRUCK_BUS_BIAS">Truck/Bus Bias</option>
                 <option value="LIGHT_COMMERCIAL">Light Commercial (LCV)</option>
+                <option value="TUBE">Tube</option>
                 <option value="TRACTOR_FARM">Tractor/Farm</option>
                 <option value="INDUSTRIAL">Industrial</option>
                 <option value="GENERAL">General</option>
@@ -557,7 +560,7 @@ export default function StockPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by SKU, Model, or Size..."
+              placeholder="Search by SKU, Model, Size, or HSN..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
@@ -646,6 +649,9 @@ export default function StockPage() {
                         </span>
                         <code className="text-xs text-gray-400 font-mono mt-0.5">
                           SKU: {product.sku}
+                        </code>
+                        <code className="text-xs text-gray-400 font-mono mt-0.5">
+                          HSN: {product.hsnCode}
                         </code>
                       </div>
                     </td>

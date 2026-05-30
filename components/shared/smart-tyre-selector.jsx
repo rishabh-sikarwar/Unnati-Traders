@@ -36,7 +36,8 @@ export default function SmartTyreSelector({
     return (
       p.modelName.toLowerCase().includes(query) ||
       p.size.toLowerCase().includes(query) ||
-      p.sku.toLowerCase().includes(query)
+      p.sku.toLowerCase().includes(query) ||
+      (p.hsnCode || "").toLowerCase().includes(query)
     );
   });
 
@@ -53,7 +54,7 @@ export default function SmartTyreSelector({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by model, size, or SKU..."
+          placeholder="Search by model, size, SKU, or HSN..."
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -92,6 +93,11 @@ export default function SmartTyreSelector({
                       </span>
                     </span>
                     <span className="text-xs text-gray-400">SKU: {p.sku}</span>
+                    {p.hsnCode && (
+                      <span className="text-xs text-gray-400">
+                        HSN: {p.hsnCode}
+                      </span>
+                    )}
                   </div>
                   {selectedProductId === p.id && <Check className="w-4 h-4" />}
                 </li>
