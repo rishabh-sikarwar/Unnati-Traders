@@ -8,13 +8,19 @@ export async function POST(req) {
     quantity = Number(quantity);
 
     const clerkUser = await currentUser();
-    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const dbUser = await prisma.user.findUnique({ where: { id: clerkUser.id } });
-    if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!clerkUser)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await prisma.user.findUnique({
+      where: { id: clerkUser.id },
+    });
+    if (!dbUser)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (dbUser.role === "SHOPKEEPER" && fromLocation !== dbUser.locationId) {
-      return NextResponse.json({ error: "You can only transfer stock from your own shop." }, { status: 403 });
+      return NextResponse.json(
+        { error: "You can only transfer stock from your own shop." },
+        { status: 403 },
+      );
     }
-
 
     if (!productId || !fromLocation || !toLocation || !quantity) {
       return NextResponse.json(
