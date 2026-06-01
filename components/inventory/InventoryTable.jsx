@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Filter, PackageX } from "lucide-react";
+import { Search, Filter, PackageX, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function InventoryTable({
   products,
@@ -10,6 +11,8 @@ export default function InventoryTable({
   userLocationId,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingProductId, setPendingProductId] = useState(null);
+  const router = useRouter();
 
   // FIX: If Admin, default to ALL. If Shopkeeper, force default to their shop ID.
   const [selectedLocation, setSelectedLocation] = useState(
@@ -23,6 +26,7 @@ export default function InventoryTable({
         if (inv.quantity > 0) {
           rows.push({
             id: inv.id,
+            productId: p.id,
             modelName: p.modelName,
             size: p.size,
             sku: p.sku,
@@ -49,6 +53,15 @@ export default function InventoryTable({
 
     return matchesSearch && matchesLocation;
   });
+
+  const openLedger = (productId) => {
+    if (pendingProductId) return;
+
+    setPendingProductId(productId);
+    window.setTimeout(() => {
+      router.push(`/inventory/${productId}`);
+    }, 120);
+  };
 
   return (
     <div className="space-y-6">
@@ -121,7 +134,17 @@ export default function InventoryTable({
               filteredData.map((row) => (
                 <tr
                   key={row.id}
-                  className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
+                  className={`block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0 cursor-pointer ${pendingProductId === row.productId ? "bg-purple-50/40 opacity-70 cursor-wait" : ""}`}
+                  onClick={() => openLedger(row.productId)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openLedger(row.productId);
+                    }
+                  }}
+                  role="link"
+                  aria-busy={pendingProductId === row.productId}
+                  tabIndex={0}
                 >
                   <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
                     <div className="flex flex-col">
@@ -134,6 +157,12 @@ export default function InventoryTable({
                       <code className="text-xs text-gray-400 font-mono mt-0.5">
                         SKU: {row.sku}
                       </code>
+                      {pendingProductId === row.productId && (
+                        <span className="mt-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#522874]">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Opening ledger...
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="block md:table-cell md:p-4 mb-3 md:mb-0">

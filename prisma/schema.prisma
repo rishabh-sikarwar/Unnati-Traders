@@ -16,6 +16,7 @@ model Location {
 
   users       User[]
   inventories Inventory[]
+  stockSnapshots StockSnapshot[]
   invoices    Invoice[]
   purchases   Purchase[]
   returns     ReturnLog[]
@@ -59,6 +60,7 @@ model Product {
   createdAt   DateTime @default(now())
 
   inventories   Inventory[]
+  stockSnapshots StockSnapshot[]
   invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
   returns       ReturnLog[]
@@ -218,6 +220,20 @@ model TransferLog {
 
   userId         String?
   user           User?    @relation(fields: [userId], references: [id])
+}
+
+model StockSnapshot {
+  id         String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity    Int
+  month       Int
+  year        Int
+  createdAt   DateTime @default(now())
+
+  @@unique([productId, locationId, month, year])
 }
 
 enum PurchaseStatus {
