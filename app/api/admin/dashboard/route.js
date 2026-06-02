@@ -106,7 +106,11 @@ export async function GET(req) {
 
     const monthlyDataMap = {};
     last6Months.forEach(({ month }) => {
-      monthlyDataMap[month] = { month, sales: 0, purchases: 0 };
+      monthlyDataMap[month] = {
+        month,
+        sales: toDecimal(0),
+        purchases: toDecimal(0),
+      };
     });
 
     const sixMonthsAgo = new Date();
