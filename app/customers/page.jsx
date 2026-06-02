@@ -177,6 +177,18 @@ export default async function CustomersPage({ searchParams }) {
 
   const finalCustomers = processedCustomers.slice(0, 200);
 
+  const cleanCustomers = finalCustomers.map((customer) => ({
+    ...customer,
+    globalBilled: Number(customer.globalBilled),
+    globalPaid: Number(customer.globalPaid),
+    openingBalance: Number(customer.openingBalance),
+    displayBilled: Number(customer.displayBilled),
+    displayPaid: Number(customer.displayPaid),
+    outstandingDues: Number(customer.outstandingDues),
+  }));
+
+  const cleanGlobalOutstanding = Number(globalOutstanding);
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -193,8 +205,8 @@ export default async function CustomersPage({ searchParams }) {
         </div>
 
         <CustomerLedger
-          customers={finalCustomers}
-          globalOutstanding={globalOutstanding}
+          customers={cleanCustomers}
+          globalOutstanding={cleanGlobalOutstanding}
           locations={locations}
           userId={dbUser.id}
           currentFilters={{
