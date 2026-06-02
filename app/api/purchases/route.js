@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { maxTime } from "date-fns/constants";
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
+import { moneyToString } from "@/lib/money";
 
 export async function POST(req) {
   try {
@@ -33,7 +34,7 @@ export async function POST(req) {
           data: {
             invoiceNumber,
             supplierName: supplierName || "Apollo Tyres",
-            totalAmount,
+            totalAmount: moneyToString(totalAmount),
             locationId,
             userId,
             purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
@@ -41,8 +42,8 @@ export async function POST(req) {
               create: items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
-                unitCost: item.unitCost,
-                totalCost: item.totalCost,
+                unitCost: moneyToString(item.unitCost),
+                totalCost: moneyToString(item.totalCost),
               })),
             },
           },

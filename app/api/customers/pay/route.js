@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { moneyToString } from "@/lib/money";
 
 export async function POST(req) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req) {
     // Record the payment log
     const payment = await prisma.paymentLog.create({
       data: {
-        amount: parseFloat(amount),
+        amount: moneyToString(amount),
         paymentMode: paymentMode,
         remarks: remarks || null,
         customerId: customerId,

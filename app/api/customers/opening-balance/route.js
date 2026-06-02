@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { moneyToString } from "@/lib/money";
 
 export async function POST(req) {
   try {
@@ -18,8 +19,8 @@ export async function POST(req) {
       );
     }
 
-    const parsedAmount = Number(amount);
-    if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
+    const parsedAmount = moneyToString(amount);
+    if (Number(parsedAmount) < 0) {
       return NextResponse.json(
         { error: "Opening balance must be a valid non-negative number" },
         { status: 400 },

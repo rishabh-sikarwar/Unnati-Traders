@@ -53,7 +53,7 @@ model Product {
   hsnCode  String?      @default("4011")
 
   description String?
-  basePrice   Float
+  basePrice   Decimal  @db.Decimal(18, 2)
   gstRate     Int      @default(28)
   lowStock    Int      @default(5)
   isArchived  Boolean  @default(false)
@@ -88,7 +88,7 @@ model Customer {
   phone      String?
   gstNumber  String?
   address    String?
-  openingBalance Float     @default(0)
+  openingBalance Decimal   @default(0) @db.Decimal(18, 2)
   isArchived Boolean      @default(false)
   createdAt  DateTime     @default(now())
 
@@ -100,17 +100,17 @@ model Customer {
 model Invoice {
   id            String        @id @default(uuid())
   invoiceNumber String        @unique
-  subtotal      Float
-  totalGst      Float
-  grandTotal    Float
+  subtotal      Decimal   @db.Decimal(18, 2)
+  totalGst      Decimal   @db.Decimal(18, 2)
+  grandTotal    Decimal   @db.Decimal(18, 2)
   status        InvoiceStatus @default(COMPLETED)
   createdAt     DateTime      @default(now())
 
   paymentMode PaymentMode @default(CASH)
-  amountPaid  Float       @default(0)
-  splitCash   Float       @default(0)
-  splitUpi    Float       @default(0)
-  splitCard   Float       @default(0)
+  amountPaid  Decimal     @default(0) @db.Decimal(18, 2)
+  splitCash   Decimal     @default(0) @db.Decimal(18, 2)
+  splitUpi    Decimal     @default(0) @db.Decimal(18, 2)
+  splitCard   Decimal     @default(0) @db.Decimal(18, 2)
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
@@ -128,8 +128,8 @@ model Invoice {
 model InvoiceItem {
   id         String @id @default(uuid())
   quantity   Int
-  unitPrice  Float
-  totalPrice Float
+  unitPrice  Decimal  @db.Decimal(18, 2)
+  totalPrice Decimal  @db.Decimal(18, 2)
   tyreCode   String?
 
   invoiceId String
@@ -141,7 +141,7 @@ model InvoiceItem {
 
 model PaymentLog {
   id          String      @id @default(uuid())
-  amount      Float
+  amount      Decimal   @db.Decimal(18, 2)
   paymentMode PaymentMode
   remarks     String?
   createdAt   DateTime    @default(now())
@@ -156,7 +156,7 @@ model Purchase {
   id            String         @id @default(uuid())
   invoiceNumber String // The official Apollo Invoice Number
   supplierName  String         @default("Apollo Tyres")
-  totalAmount   Float
+  totalAmount   Decimal  @db.Decimal(18, 2)
   status        PurchaseStatus @default(COMPLETED)
   createdAt     DateTime       @default(now())
   purchaseDate  DateTime       @default(now())
@@ -173,8 +173,8 @@ model Purchase {
 model PurchaseItem {
   id        String @id @default(uuid())
   quantity  Int
-  unitCost  Float // Buying price (Cost), not selling price
-  totalCost Float
+  unitCost  Decimal  @db.Decimal(18, 2) // Buying price (Cost), not selling price
+  totalCost Decimal   @db.Decimal(18, 2)
 
   purchaseId String
   purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
@@ -186,7 +186,7 @@ model PurchaseItem {
 model ReturnLog {
   id           String          @id @default(uuid())
   quantity     Int
-  refundAmount Float
+  refundAmount Decimal        @db.Decimal(18, 2)
   condition    ReturnCondition @default(GOOD)
   reason       String?
   createdAt    DateTime        @default(now())

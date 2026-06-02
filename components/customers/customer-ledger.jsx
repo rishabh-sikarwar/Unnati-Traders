@@ -16,6 +16,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
+import { toDecimal, moneyToString } from "@/lib/money";
 
 export default function CustomerLedger({
   customers,
@@ -92,9 +93,9 @@ export default function CustomerLedger({
   // --- API CALLS ---
   const handlePayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0)
+    if (!payAmount || toDecimal(payAmount).lte(0))
       return toast.error("Enter a valid amount");
-    if (Number(payAmount) > paymentModal.customer.outstandingDues)
+    if (toDecimal(payAmount).gt(paymentModal.customer.outstandingDues))
       return toast.error("Amount exceeds outstanding dues!");
 
     setIsSubmitting(true);
@@ -106,7 +107,7 @@ export default function CustomerLedger({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: paymentModal.customer.id,
-          amount: Number(payAmount),
+          amount: moneyToString(payAmount),
           paymentMode: payMode,
           remarks: remarks,
           userId: userId,
@@ -157,7 +158,7 @@ export default function CustomerLedger({
 
     if (!openingModal.customer) return;
     if (openingAmount === "") return toast.error("Enter previous due amount");
-    if (Number(openingAmount) < 0)
+    if (toDecimal(openingAmount).lt(0))
       return toast.error("Previous due cannot be negative");
 
     setIsOpeningSubmitting(true);
@@ -169,7 +170,7 @@ export default function CustomerLedger({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerIds: openingModal.customer.ids,
-          amount: Number(openingAmount),
+          amount: moneyToString(openingAmount),
         }),
       });
 
@@ -396,10 +397,10 @@ export default function CustomerLedger({
                       {c.type.replace("_", " ")}
                     </span>
                   </div>
-                  {Number(c.openingBalance || 0) > 0 && (
+                  {toDecimal(c.openingBalance || 0).gt(0) && (
                     <div className="text-[11px] mt-1 font-bold text-amber-700 bg-amber-50 border border-amber-100 inline-block px-2 py-0.5 rounded">
                       Previous Due:{" "}
-                      {`₹${formatNumber(Number(c.openingBalance || 0), 2)}`}
+                      {`₹${formatNumber(c.openingBalance || 0, 2)}`}
                     </div>
                   )}
                 </td>
@@ -432,7 +433,7 @@ export default function CustomerLedger({
                       Global Dues:
                     </span>
                     <span
-                      className={`font-black text-lg ${c.outstandingDues > 0 ? "text-red-600" : "text-gray-400"}`}
+                      className={`font-black text-lg ${toDecimal(c.outstandingDues).gt(0) ? "text-red-600" : "text-gray-400"}`}
                     >
                       {`₹${formatNumber(c.outstandingDues, 2)}`}
                     </span>
@@ -454,7 +455,7 @@ export default function CustomerLedger({
 
                     <button
                       onClick={() => {
-                        setOpeningAmount(String(Number(c.openingBalance || 0)));
+                        setOpeningAmount(moneyToString(c.openingBalance || 0));
                         setOpeningModal({ isOpen: true, customer: c });
                       }}
                       className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
@@ -462,10 +463,10 @@ export default function CustomerLedger({
                       <Landmark className="w-4 h-4" /> Set Previous Due
                     </button>
 
-                    {c.outstandingDues > 0 ? (
+                    {toDecimal(c.outstandingDues).gt(0) ? (
                       <button
                         onClick={() => {
-                          setPayAmount(c.outstandingDues);
+                          setPayAmount(moneyToString(c.outstandingDues));
                           setPaymentModal({ isOpen: true, customer: c });
                         }}
                         className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
@@ -590,7 +591,8 @@ export default function CustomerLedger({
                     required
                     type="number"
                     min="1"
-                    max={paymentModal.customer.outstandingDues}
+                    step="0.01"
+                    max={moneyToString(paymentModal.customer.outstandingDues)}
                     value={payAmount}
                     onChange={(e) => setPayAmount(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold"

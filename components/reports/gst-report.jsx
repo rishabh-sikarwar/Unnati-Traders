@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
+import { toDecimal } from "@/lib/money";
 
 export default function GstReport() {
   const [loading, setLoading] = useState(false);
@@ -70,32 +71,32 @@ export default function GstReport() {
 
   // Calculate Summaries
   const summary = useMemo(() => {
-    let b2bSales = 0;
-    let b2cSales = 0;
-    let totalTaxable = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
+    let b2bSales = toDecimal(0);
+    let b2cSales = toDecimal(0);
+    let totalTaxable = toDecimal(0);
+    let totalCgst = toDecimal(0);
+    let totalSgst = toDecimal(0);
 
     invoices.forEach((inv) => {
       if (
         inv.customer?.type === "SUB_DEALER" ||
         inv.customer?.type === "DISTRIBUTOR"
       ) {
-        b2bSales += inv.grandTotal;
+        b2bSales = b2bSales.plus(toDecimal(inv.grandTotal));
       } else {
-        b2cSales += inv.grandTotal;
+        b2cSales = b2cSales.plus(toDecimal(inv.grandTotal));
       }
-      totalTaxable += inv.subtotal;
-      totalCgst += inv.totalGst / 2; // Split GST equally
-      totalSgst += inv.totalGst / 2;
+      totalTaxable = totalTaxable.plus(toDecimal(inv.subtotal));
+      totalCgst = totalCgst.plus(toDecimal(inv.totalGst).div(2)); // Split GST equally
+      totalSgst = totalSgst.plus(toDecimal(inv.totalGst).div(2));
     });
 
     const totalPurchaseValue = purchases.reduce(
-      (sum, purchase) => sum + (Number(purchase.totalAmount) || 0),
-      0,
+      (sum, purchase) => sum.plus(toDecimal(purchase.totalAmount)),
+      toDecimal(0),
     );
 
-    const grandTotal = b2bSales + b2cSales;
+    const grandTotal = b2bSales.plus(b2cSales);
 
     return {
       b2bSales,
@@ -107,7 +108,7 @@ export default function GstReport() {
       totalInvoices: invoices.length,
       totalPurchases: purchases.length,
       totalPurchaseValue,
-      netRevenueAfterPurchase: grandTotal - totalPurchaseValue,
+      netRevenueAfterPurchase: grandTotal.minus(totalPurchaseValue),
     };
   }, [invoices, purchases]);
 
@@ -139,11 +140,11 @@ export default function GstReport() {
         inv.customer?.type === "RETAIL" ? "B2C (Retail)" : "B2B (Dealer)",
       "Billed From (Shop)": inv.location?.name || "Unknown",
       "Payment Mode": inv.paymentMode,
-      "Taxable Value (₹)": Number(inv.subtotal.toFixed(2)),
-      "CGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
-      "SGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
-      "Total GST (₹)": Number(inv.totalGst.toFixed(2)),
-      "Grand Total (₹)": Number(inv.grandTotal.toFixed(2)),
+      "Taxable Value (₹)": Number(toDecimal(inv.subtotal).toFixed(2)),
+      "CGST (₹)": Number(toDecimal(inv.totalGst).div(2).toFixed(2)),
+      "SGST (₹)": Number(toDecimal(inv.totalGst).div(2).toFixed(2)),
+      "Total GST (₹)": Number(toDecimal(inv.totalGst).toFixed(2)),
+      "Grand Total (₹)": Number(toDecimal(inv.grandTotal).toFixed(2)),
     }));
 
     // Purchase statement sheet
@@ -152,7 +153,9 @@ export default function GstReport() {
       "Apollo Invoice Number": purchase.invoiceNumber,
       Supplier: purchase.supplierName || "Apollo Tyres",
       "Purchased For (Shop)": purchase.location?.name || "Unknown",
-      "Purchase Amount (₹)": Number((purchase.totalAmount || 0).toFixed(2)),
+      "Purchase Amount (₹)": Number(
+        toDecimal(purchase.totalAmount || 0).toFixed(2),
+      ),
       Status: purchase.status,
     }));
 
@@ -179,7 +182,7 @@ export default function GstReport() {
       },
       {
         Metric: "Total Collected GST (₹)",
-        Value: Number((summary.totalCgst + summary.totalSgst).toFixed(2)),
+        Value: Number(summary.totalCgst.plus(summary.totalSgst).toFixed(2)),
       },
     ];
 
@@ -220,11 +223,11 @@ export default function GstReport() {
         inv.customer?.type === "RETAIL" ? "B2C (Retail)" : "B2B (Dealer)",
       "Billed From (Shop)": inv.location?.name || "Unknown",
       "Payment Mode": inv.paymentMode,
-      "Taxable Value (₹)": Number(inv.subtotal.toFixed(2)),
-      "CGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
-      "SGST (₹)": Number((inv.totalGst / 2).toFixed(2)),
-      "Total GST (₹)": Number(inv.totalGst.toFixed(2)),
-      "Grand Total (₹)": Number(inv.grandTotal.toFixed(2)),
+      "Taxable Value (₹)": Number(toDecimal(inv.subtotal).toFixed(2)),
+      "CGST (₹)": Number(toDecimal(inv.totalGst).div(2).toFixed(2)),
+      "SGST (₹)": Number(toDecimal(inv.totalGst).div(2).toFixed(2)),
+      "Total GST (₹)": Number(toDecimal(inv.totalGst).toFixed(2)),
+      "Grand Total (₹)": Number(toDecimal(inv.grandTotal).toFixed(2)),
     }));
 
     // Summary sheet for sales only
@@ -249,7 +252,7 @@ export default function GstReport() {
       },
       {
         Metric: "Total Collected GST (₹)",
-        Value: Number((summary.totalCgst + summary.totalSgst).toFixed(2)),
+        Value: Number(summary.totalCgst.plus(summary.totalSgst).toFixed(2)),
       },
     ];
 
@@ -395,7 +398,7 @@ export default function GstReport() {
                 Total Collected GST
               </p>
               <h3 className="text-2xl font-black text-gray-800">
-                {`₹${formatNumber(summary.totalCgst + summary.totalSgst, 2)}`}
+                {`₹${formatNumber(summary.totalCgst.plus(summary.totalSgst), 2)}`}
               </h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-green-500">
@@ -512,7 +515,7 @@ export default function GstReport() {
                           {purchase.supplierName || "Apollo Tyres"}
                         </td>
                         <td className="py-2 text-right font-black text-gray-900">
-                          {`₹${formatNumber(Number(purchase.totalAmount || 0), 2)}`}
+                          {`₹${formatNumber(toDecimal(purchase.totalAmount || 0), 2)}`}
                         </td>
                       </tr>
                     ))}

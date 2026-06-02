@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { formatNumber } from "@/lib/format";
+import { toDecimal, moneyToString } from "@/lib/money";
 import { currentUser } from "@clerk/nextjs/server";
 import nodemailer from "nodemailer";
 
@@ -101,20 +102,20 @@ export async function POST(req) {
             // C. Smart Payment Logic (Splits)
             const isCredit = customerInfo.paymentMode === "Credit";
             const isMultiple = customerInfo.paymentMode === "Multiple";
-            let actualAmountPaid = totals.grandTotal;
-            let splitCash = 0;
-            let splitUpi = 0;
-            let splitCard = 0;
+            let actualAmountPaid = toDecimal(totals.grandTotal);
+            let splitCash = toDecimal(0);
+            let splitUpi = toDecimal(0);
+            let splitCard = toDecimal(0);
 
             if (isCredit) {
-              actualAmountPaid = Number(customerInfo.initialPayment) || 0;
+              actualAmountPaid = toDecimal(customerInfo.initialPayment);
               splitCash = actualAmountPaid;
             } else if (isMultiple) {
               const splits = customerInfo.splitPayments;
-              splitCash = Number(splits.cash) || 0;
-              splitUpi = Number(splits.upi) || 0;
-              splitCard = Number(splits.card) || 0;
-              actualAmountPaid = splitCash + splitUpi + splitCard;
+              splitCash = toDecimal(splits.cash);
+              splitUpi = toDecimal(splits.upi);
+              splitCard = toDecimal(splits.card);
+              actualAmountPaid = splitCash.plus(splitUpi).plus(splitCard);
             } else {
               const normalizedMode = customerInfo.paymentMode.toUpperCase();
               if (normalizedMode === "CASH") splitCash = actualAmountPaid;
@@ -158,14 +159,14 @@ export async function POST(req) {
             const invoice = await tx.invoice.create({
               data: {
                 invoiceNumber,
-                subtotal: totals.subtotal,
-                totalGst: totals.totalGst,
-                grandTotal: totals.grandTotal,
+                subtotal: moneyToString(totals.subtotal),
+                totalGst: moneyToString(totals.totalGst),
+                grandTotal: moneyToString(totals.grandTotal),
                 paymentMode: modeEnum,
-                amountPaid: actualAmountPaid,
-                splitCash,
-                splitUpi,
-                splitCard,
+                amountPaid: moneyToString(actualAmountPaid),
+                splitCash: moneyToString(splitCash),
+                splitUpi: moneyToString(splitUpi),
+                splitCard: moneyToString(splitCard),
                 status: "COMPLETED",
                 customerId: dbCustomer.id,
                 locationId,
@@ -186,10 +187,10 @@ export async function POST(req) {
             // F. Create Payment Logs
             if (isMultiple) {
               const splits = customerInfo.splitPayments;
-              if (Number(splits.cash) > 0) {
+              if (toDecimal(splits.cash).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
-                    amount: Number(splits.cash),
+                    amount: moneyToString(splits.cash),
                     paymentMode: "CASH",
                     customerId: dbCustomer.id,
                     userId,
@@ -198,10 +199,10 @@ export async function POST(req) {
                   },
                 });
               }
-              if (Number(splits.upi) > 0) {
+              if (toDecimal(splits.upi).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
-                    amount: Number(splits.upi),
+                    amount: moneyToString(splits.upi),
                     paymentMode: "UPI",
                     customerId: dbCustomer.id,
                     userId,
@@ -210,10 +211,10 @@ export async function POST(req) {
                   },
                 });
               }
-              if (Number(splits.card) > 0) {
+              if (toDecimal(splits.card).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
-                    amount: Number(splits.card),
+                    amount: moneyToString(splits.card),
                     paymentMode: "CARD",
                     customerId: dbCustomer.id,
                     userId,
@@ -222,10 +223,10 @@ export async function POST(req) {
                   },
                 });
               }
-            } else if (actualAmountPaid > 0) {
+            } else if (actualAmountPaid.gt(0)) {
               await tx.paymentLog.create({
                 data: {
-                  amount: actualAmountPaid,
+                  amount: moneyToString(actualAmountPaid),
                   paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
                   customerId: dbCustomer.id,
                   userId,

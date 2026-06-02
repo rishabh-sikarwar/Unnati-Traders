@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { toDecimal } from "@/lib/money";
 
 export async function GET(req) {
   try {
@@ -121,7 +122,11 @@ export async function GET(req) {
     });
     recentInvoices.forEach((inv) => {
       const month = monthFormatter.format(new Date(inv.createdAt));
-      if (monthlyDataMap[month]) monthlyDataMap[month].sales += inv.grandTotal;
+      if (monthlyDataMap[month]) {
+        monthlyDataMap[month].sales = monthlyDataMap[month].sales.plus(
+          toDecimal(inv.grandTotal),
+        );
+      }
     });
 
     const recentPurchases = await prisma.purchase.findMany({
@@ -134,8 +139,11 @@ export async function GET(req) {
     });
     recentPurchases.forEach((pur) => {
       const month = monthFormatter.format(new Date(pur.purchaseDate));
-      if (monthlyDataMap[month])
-        monthlyDataMap[month].purchases += pur.totalAmount;
+      if (monthlyDataMap[month]) {
+        monthlyDataMap[month].purchases = monthlyDataMap[month].purchases.plus(
+          toDecimal(pur.totalAmount),
+        );
+      }
     });
 
     const salesData = Object.values(monthlyDataMap);
@@ -153,27 +161,28 @@ export async function GET(req) {
         .replace(/_/g, " ")
         .replace(/\w\S*/g, (w) => w.replace(/^\w/, (c) => c.toUpperCase()));
 
-      categoryRevenueMap[cleanCategory] =
-        (categoryRevenueMap[cleanCategory] || 0) + item.totalPrice;
+      categoryRevenueMap[cleanCategory] = (
+        categoryRevenueMap[cleanCategory] || toDecimal(0)
+      ).plus(toDecimal(item.totalPrice));
     });
 
     let categoryData = Object.keys(categoryRevenueMap)
       .map((key) => ({ name: key, value: categoryRevenueMap[key] }))
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => toDecimal(b.value).comparedTo(toDecimal(a.value)));
 
     if (categoryData.length > 5) {
       const top5 = categoryData.slice(0, 5);
       const othersValue = categoryData
         .slice(5)
-        .reduce((sum, cat) => sum + cat.value, 0);
+        .reduce((sum, cat) => sum.plus(toDecimal(cat.value)), toDecimal(0));
       top5.push({ name: "Other", value: othersValue });
       categoryData = top5;
     }
 
     return NextResponse.json({
       summary: {
-        totalSales: sales._sum.grandTotal || 0,
-        totalPurchases: purchases._sum.totalAmount || 0,
+        totalSales: toDecimal(sales._sum.grandTotal || 0),
+        totalPurchases: toDecimal(purchases._sum.totalAmount || 0),
         totalOrders: orders,
         totalStock: stock._sum.quantity || 0,
       },

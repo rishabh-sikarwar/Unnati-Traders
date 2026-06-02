@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, User, Receipt, HandCoins, Calendar } from "lucide-react";
 import { formatNumber } from "@/lib/format";
+import { toDecimal } from "@/lib/money";
 import StatementPrintButton from "./statement-print-button"; // <-- Import the new button
 import InvoicePreviewModal from "@/components/customers/invoice-preview-modal";
 
@@ -42,7 +43,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   let allInvoices = [];
   let allPayments = [];
   let allReturns = [];
-  let openingBalance = 0;
+  let openingBalance = toDecimal(0);
 
   // Use the best available profile info from the latest duplicate
   let bestProfile = matchingCustomers[matchingCustomers.length - 1];
@@ -51,7 +52,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     allInvoices.push(...c.invoices);
     allPayments.push(...c.payments);
     if (c.returns) allReturns.push(...c.returns);
-    openingBalance += Number(c.openingBalance || 0);
+    openingBalance = openingBalance.plus(toDecimal(c.openingBalance || 0));
 
     if (c.phone && !bestProfile.phone) bestProfile.phone = c.phone;
     if (c.gstNumber && !bestProfile.gstNumber)
@@ -81,7 +82,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   // 2. The Ledger Engine: Combine everything into one chronological timeline
   let transactions = [];
 
-  if (openingBalance > 0) {
+  if (openingBalance.gt(0)) {
     const oldestCreatedAt = matchingCustomers.reduce((oldest, c) => {
       if (!oldest) return c.createdAt;
       return new Date(c.createdAt) < new Date(oldest) ? c.createdAt : oldest;
@@ -93,7 +94,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       type: "OPENING",
       description: "Opening Balance (Previous Due)",
       debit: openingBalance,
-      credit: 0,
+      credit: toDecimal(0),
     });
   }
 
@@ -107,8 +108,8 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       description: `Invoice #${inv.invoiceNumber}`,
       invoiceId: inv.id,
       invoiceNumber: inv.invoiceNumber,
-      debit: inv.grandTotal,
-      credit: 0,
+      debit: toDecimal(inv.grandTotal),
+      credit: toDecimal(0),
     });
   });
 
@@ -119,8 +120,8 @@ export default async function CustomerStatementPage({ params, searchParams }) {
       date: pay.createdAt,
       type: "PAYMENT",
       description: `Payment Received (${pay.paymentMode}) ${pay.remarks ? `- ${pay.remarks}` : ""}`,
-      debit: 0,
-      credit: pay.amount,
+      debit: toDecimal(0),
+      credit: toDecimal(pay.amount),
     });
   });
 
@@ -132,8 +133,8 @@ export default async function CustomerStatementPage({ params, searchParams }) {
         date: ret.createdAt,
         type: "RETURN",
         description: `Tyre Return Credit (Qty: ${ret.quantity})`,
-        debit: 0,
-        credit: ret.refundAmount,
+        debit: toDecimal(0),
+        credit: toDecimal(ret.refundAmount),
       });
     });
   }
@@ -142,16 +143,17 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
   // 4. Calculate the Running Balance (Like a Bank Passbook)
-  let currentBalance = 0;
-  let totalBilled = 0;
-  let totalPaid = 0;
+  let currentBalance = toDecimal(0);
+  let totalBilled = toDecimal(0);
+  let totalPaid = toDecimal(0);
 
   const statement = transactions.map((t) => {
-    currentBalance += t.debit;
-    currentBalance -= t.credit;
+    currentBalance = currentBalance
+      .plus(toDecimal(t.debit))
+      .minus(toDecimal(t.credit));
 
-    totalBilled += t.debit;
-    totalPaid += t.credit;
+    totalBilled = totalBilled.plus(toDecimal(t.debit));
+    totalPaid = totalPaid.plus(toDecimal(t.credit));
 
     return { ...t, balance: currentBalance };
   });

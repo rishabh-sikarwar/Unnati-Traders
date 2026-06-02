@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import CustomerLedger from "@/components/customers/customer-ledger";
 import { UsersRound } from "lucide-react";
+import { toDecimal } from "@/lib/money";
 import {
   startOfDay,
   endOfDay,
@@ -78,7 +79,7 @@ export default async function CustomersPage({ searchParams }) {
 
   // --- 3. SERVER-SIDE MATH & DEDUPLICATION ---
   const groupedData = {};
-  let globalOutstanding = 0;
+  let globalOutstanding = toDecimal(0);
 
   for (const c of customers) {
     const key = c.name.toLowerCase().trim();
@@ -91,11 +92,11 @@ export default async function CustomersPage({ searchParams }) {
         address: c.address,
         ids: [c.id],
         id: c.id,
-        globalBilled: 0,
-        globalPaid: 0,
-        openingBalance: 0,
-        displayBilled: 0,
-        displayPaid: 0,
+        globalBilled: toDecimal(0),
+        globalPaid: toDecimal(0),
+        openingBalance: toDecimal(0),
+        displayBilled: toDecimal(0),
+        displayPaid: toDecimal(0),
         interactedWithShop: false,
       };
     } else {
@@ -104,11 +105,13 @@ export default async function CustomersPage({ searchParams }) {
     }
 
     const group = groupedData[key];
-    group.openingBalance += Number(c.openingBalance || 0);
+    group.openingBalance = group.openingBalance.plus(
+      toDecimal(c.openingBalance || 0),
+    );
 
     // Process Invoices
     for (const inv of c.invoices) {
-      group.globalBilled += inv.grandTotal;
+      group.globalBilled = group.globalBilled.plus(toDecimal(inv.grandTotal));
       if (shopFilter === "ALL" || inv.locationId === shopFilter) {
         group.interactedWithShop = true;
       }
@@ -118,20 +121,22 @@ export default async function CustomersPage({ searchParams }) {
         (!cutoffStart || invDate >= cutoffStart) &&
         (!cutoffEnd || invDate <= cutoffEnd)
       ) {
-        group.displayBilled += inv.grandTotal;
+        group.displayBilled = group.displayBilled.plus(
+          toDecimal(inv.grandTotal),
+        );
       }
     }
 
     // Process Payments
     for (const pay of c.payments) {
-      group.globalPaid += pay.amount;
+      group.globalPaid = group.globalPaid.plus(toDecimal(pay.amount));
 
       const payDate = new Date(pay.createdAt);
       if (
         (!cutoffStart || payDate >= cutoffStart) &&
         (!cutoffEnd || payDate <= cutoffEnd)
       ) {
-        group.displayPaid += pay.amount;
+        group.displayPaid = group.displayPaid.plus(toDecimal(pay.amount));
       }
     }
   }
@@ -140,8 +145,9 @@ export default async function CustomersPage({ searchParams }) {
   let processedCustomers = [];
 
   for (const group of Object.values(groupedData)) {
-    const outstandingDues =
-      group.globalBilled + group.openingBalance - group.globalPaid;
+    const outstandingDues = group.globalBilled
+      .plus(group.openingBalance)
+      .minus(group.globalPaid);
     group.outstandingDues = outstandingDues;
 
     // Apply Filters
@@ -151,21 +157,21 @@ export default async function CustomersPage({ searchParams }) {
       !(group.phone && group.phone.includes(searchQuery))
     )
       continue;
-    if (duesOnly && outstandingDues <= 0) continue;
+    if (duesOnly && !outstandingDues.gt(0)) continue;
     if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
 
     // If a date filter is applied, only show customers who had activity OR owe money
     const hasActivity =
       dateFilter === "all" ||
-      group.displayBilled > 0 ||
-      group.displayPaid > 0 ||
-      outstandingDues > 0;
+      group.displayBilled.gt(0) ||
+      group.displayPaid.gt(0) ||
+      outstandingDues.gt(0);
     if (!hasActivity) continue;
 
     processedCustomers.push(group);
 
-    if (outstandingDues > 0) {
-      globalOutstanding += outstandingDues;
+    if (outstandingDues.gt(0)) {
+      globalOutstanding = globalOutstanding.plus(outstandingDues);
     }
   }
 

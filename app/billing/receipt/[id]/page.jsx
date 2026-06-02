@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import PrintButton from "./print-button";
+import { toDecimal } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -54,33 +55,32 @@ export default async function ReceiptPage({ params }) {
   const hasGst = Boolean(invoice.customer?.gstNumber);
   const isIgst = hasGst && !invoice.customer.gstNumber.startsWith("23");
 
-  const cgstSgstAmount = isIgst ? 0 : invoice.totalGst / 2;
-  const igstAmount = isIgst ? invoice.totalGst : 0;
+  const cgstSgstAmount = isIgst
+    ? toDecimal(0)
+    : toDecimal(invoice.totalGst).div(2);
+  const igstAmount = isIgst ? toDecimal(invoice.totalGst) : toDecimal(0);
 
   // Prefer invoice-level split amounts; fallback to payment logs for older records.
   const paymentLogs = Array.isArray(invoice.payments) ? invoice.payments : [];
   const logCash = paymentLogs
     .filter((p) => p.paymentMode === "CASH")
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum.plus(toDecimal(p.amount)), toDecimal(0));
   const logUpi = paymentLogs
     .filter((p) => p.paymentMode === "UPI")
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum.plus(toDecimal(p.amount)), toDecimal(0));
   const logCard = paymentLogs
     .filter((p) => p.paymentMode === "CARD")
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum.plus(toDecimal(p.amount)), toDecimal(0));
 
-  const cashAmount =
-    (Number(invoice.splitCash) || 0) > 0
-      ? Number(invoice.splitCash) || 0
-      : logCash;
-  const upiAmount =
-    (Number(invoice.splitUpi) || 0) > 0
-      ? Number(invoice.splitUpi) || 0
-      : logUpi;
-  const cardAmount =
-    (Number(invoice.splitCard) || 0) > 0
-      ? Number(invoice.splitCard) || 0
-      : logCard;
+  const cashAmount = toDecimal(invoice.splitCash).gt(0)
+    ? toDecimal(invoice.splitCash)
+    : logCash;
+  const upiAmount = toDecimal(invoice.splitUpi).gt(0)
+    ? toDecimal(invoice.splitUpi)
+    : logUpi;
+  const cardAmount = toDecimal(invoice.splitCard).gt(0)
+    ? toDecimal(invoice.splitCard)
+    : logCard;
 
   return (
     <>
@@ -166,7 +166,7 @@ export default async function ReceiptPage({ params }) {
             <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
               <div className="space-y-1 text-sm">
                 <h1 className="text-3xl font-black text-[#522874] tracking-tighter leading-none mb-2">
-                  UNNATI  TRADERS
+                  UNNATI TRADERS
                 </h1>
                 <p>
                   <span className="font-bold text-gray-500 uppercase text-xs">

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 import { formatNumber } from "@/lib/format";
+import { toDecimal, moneyToString } from "@/lib/money";
 
 export default function PurchaseForm({
   products,
@@ -84,11 +85,11 @@ export default function PurchaseForm({
   };
 
   const grandTotal = useMemo(() => {
-    return cart.reduce(
-      (total, item) =>
-        total + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0),
-      0,
-    );
+    return cart.reduce((total, item) => {
+      return total.plus(
+        toDecimal(item.quantity).times(toDecimal(item.unitCost)),
+      );
+    }, toDecimal(0));
   }, [cart]);
 
   const selectedProductIds = useMemo(
@@ -112,8 +113,10 @@ export default function PurchaseForm({
       return {
         productId: item.productId,
         quantity: Number(item.quantity),
-        unitCost: Number(item.unitCost),
-        totalCost: Number(item.quantity) * Number(item.unitCost),
+        unitCost: moneyToString(item.unitCost),
+        totalCost: moneyToString(
+          toDecimal(item.quantity).times(toDecimal(item.unitCost)),
+        ),
       };
     });
 
@@ -245,8 +248,9 @@ export default function PurchaseForm({
             )}
 
             {cart.map((item) => {
-              const lineTotal =
-                (Number(item.quantity) || 0) * (Number(item.unitCost) || 0);
+              const lineTotal = toDecimal(item.quantity).times(
+                toDecimal(item.unitCost),
+              );
               const availableProducts = products.filter(
                 (p) =>
                   !selectedProductIds.includes(p.id) || p.id === item.productId,
@@ -291,6 +295,7 @@ export default function PurchaseForm({
                         required
                         type="number"
                         min="1"
+                        step="0.01"
                         value={item.unitCost}
                         onChange={(e) =>
                           updateItem(item.rowId, "unitCost", e.target.value)

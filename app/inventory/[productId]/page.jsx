@@ -2,36 +2,21 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  CalendarDays,
-  Package,
-  Filter,
-  RotateCcw,
-} from "lucide-react";
-import {
-  endOfDay,
-  endOfMonth,
-  format,
-  isValid,
-  parseISO,
-  startOfDay,
-  startOfMonth,
-  subMonths,
-} from "date-fns";
+import { ChevronLeft, Package, CalendarDays } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-function getSearchParamValue(value) {
-  if (Array.isArray(value)) return value[0] ?? "";
-  return value ?? "";
-}
+function getCurrentMonthWindow() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthIndex = now.getMonth();
 
-function parseDateInput(value, fallback) {
-  if (!value) return fallback;
-
-  const parsed = parseISO(value);
-  return isValid(parsed) ? parsed : fallback;
+  return {
+    month: monthIndex + 1,
+    year,
+    startDate: new Date(year, monthIndex, 1),
+    endDate: new Date(year, monthIndex + 1, 1),
+  };
 }
 
 function sumQuantity(records = []) {
@@ -43,70 +28,14 @@ function getUserLabel(user) {
 }
 
 function formatDateTime(value) {
-  return format(new Date(value), "dd MMM yyyy, hh:mm a");
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
-function getFilterConfig(searchParams = {}) {
-  const now = new Date();
-  const currentMonthStart = startOfMonth(now);
-  const currentMonthEnd = endOfMonth(now);
-
-  const rawFilter = getSearchParamValue(searchParams.date);
-  const selectedDateFilter = ["this_month", "last_month", "custom"].includes(
-    rawFilter,
-  )
-    ? rawFilter
-    : "this_month";
-
-  let startDate = currentMonthStart;
-  let endDate = currentMonthEnd;
-
-  if (selectedDateFilter === "last_month") {
-    const previousMonth = subMonths(now, 1);
-    startDate = startOfMonth(previousMonth);
-    endDate = endOfMonth(previousMonth);
-  }
-
-  let customStart = format(currentMonthStart, "yyyy-MM-dd");
-  let customEnd = format(currentMonthEnd, "yyyy-MM-dd");
-
-  if (selectedDateFilter === "custom") {
-    const startInput = getSearchParamValue(searchParams.start);
-    const endInput = getSearchParamValue(searchParams.end);
-    const parsedStart = parseDateInput(startInput, currentMonthStart);
-    const parsedEnd = parseDateInput(endInput, currentMonthEnd);
-    const normalizedStart = parsedStart <= parsedEnd ? parsedStart : parsedEnd;
-    const normalizedEnd = parsedStart <= parsedEnd ? parsedEnd : parsedStart;
-
-    startDate = startOfDay(normalizedStart);
-    endDate = endOfDay(normalizedEnd);
-    customStart = format(normalizedStart, "yyyy-MM-dd");
-    customEnd = format(normalizedEnd, "yyyy-MM-dd");
-  }
-
-  const targetMonth = startDate.getMonth() + 1;
-  const targetYear = startDate.getFullYear();
-  const isCurrentMonthView =
-    selectedDateFilter === "this_month" &&
-    targetMonth === now.getMonth() + 1 &&
-    targetYear === now.getFullYear();
-
-  return {
-    selectedDateFilter,
-    startDate,
-    endDate,
-    targetMonth,
-    targetYear,
-    isCurrentMonthView,
-    customStart,
-    customEnd,
-  };
-}
-
-export default async function ItemLedgerPage({ params, searchParams }) {
+export default async function ItemLedgerPage({ params }) {
   const { productId } = await params;
-  const awaitedSearchParams = await searchParams;
-  const filterConfig = getFilterConfig(awaitedSearchParams);
 
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
@@ -117,19 +46,25 @@ export default async function ItemLedgerPage({ params, searchParams }) {
 
   if (!dbUser) redirect("/");
 
+  const { month, year, startDate, endDate } = getCurrentMonthWindow();
+
   const [product, invoices, purchases, transferLogs, snapshots] =
     await Promise.all([
       prisma.product.findUnique({
         where: { id: productId },
         include: {
-          inventories: true,
+          inventories: {
+            include: {
+              location: true,
+            },
+          },
         },
       }),
       prisma.invoice.findMany({
         where: {
           createdAt: {
-            gte: filterConfig.startDate,
-            lte: filterConfig.endDate,
+            gte: startDate,
+            lt: endDate,
           },
         },
         include: {
@@ -148,8 +83,8 @@ export default async function ItemLedgerPage({ params, searchParams }) {
       prisma.purchase.findMany({
         where: {
           purchaseDate: {
-            gte: filterConfig.startDate,
-            lte: filterConfig.endDate,
+            gte: startDate,
+            lt: endDate,
           },
         },
         include: {
@@ -169,8 +104,8 @@ export default async function ItemLedgerPage({ params, searchParams }) {
         where: {
           productId,
           createdAt: {
-            gte: filterConfig.startDate,
-            lte: filterConfig.endDate,
+            gte: startDate,
+            lt: endDate,
           },
         },
         include: {
@@ -185,8 +120,8 @@ export default async function ItemLedgerPage({ params, searchParams }) {
       prisma.stockSnapshot.findMany({
         where: {
           productId,
-          month: filterConfig.targetMonth,
-          year: filterConfig.targetYear,
+          month,
+          year,
         },
       }),
     ]);
@@ -195,7 +130,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
 
   const currentLiveStock = sumQuantity(product.inventories);
 
-  const salesRows = invoices.flatMap((invoice) =>
+  const monthlySales = invoices.flatMap((invoice) =>
     invoice.items.map((item) => ({
       date: invoice.createdAt,
       type: "SALE",
@@ -207,7 +142,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
     })),
   );
 
-  const purchaseRows = purchases.flatMap((purchase) =>
+  const monthlyPurchases = purchases.flatMap((purchase) =>
     purchase.items.map((item) => ({
       date: purchase.purchaseDate,
       type: "PURCHASE",
@@ -219,7 +154,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
     })),
   );
 
-  const transferRows = transferLogs.map((transfer) => ({
+  const monthlyTransfers = transferLogs.map((transfer) => ({
     date: transfer.createdAt,
     type: "TRANSFER",
     reference: `XFER-${transfer.id.slice(0, 8).toUpperCase()}`,
@@ -229,31 +164,17 @@ export default async function ItemLedgerPage({ params, searchParams }) {
     user: getUserLabel(transfer.user),
   }));
 
-  const timeline = [...salesRows, ...purchaseRows, ...transferRows].sort(
+  const timeline = [...monthlySales, ...monthlyPurchases, ...monthlyTransfers].sort(
     (left, right) => new Date(right.date) - new Date(left.date),
   );
 
-  const totalOut = sumQuantity(
-    salesRows.map((row) => ({ quantity: row.qtyOut })),
-  );
-  const totalIn = sumQuantity(
-    purchaseRows.map((row) => ({ quantity: row.qtyIn })),
-  );
-  const totalTransferred = sumQuantity(
-    transferLogs.map((transfer) => ({ quantity: transfer.quantity })),
-  );
-
+  const salesOut = sumQuantity(monthlySales.map((item) => ({ quantity: item.qtyOut })));
+  const purchasesIn = sumQuantity(monthlyPurchases.map((item) => ({ quantity: item.qtyIn })));
   const openingStockFromSnapshots = sumQuantity(snapshots);
   const openingStockSource =
     snapshots.length > 0 ? "Static Snapshot" : "Dynamic Fallback";
   const openingStock =
-    snapshots.length > 0
-      ? openingStockFromSnapshots
-      : currentLiveStock + totalOut - totalIn;
-
-  const closingStock = filterConfig.isCurrentMonthView
-    ? currentLiveStock
-    : openingStock + totalIn - totalOut;
+    snapshots.length > 0 ? openingStockFromSnapshots : currentLiveStock + salesOut - purchasesIn;
 
   const statCards = [
     {
@@ -265,46 +186,26 @@ export default async function ItemLedgerPage({ params, searchParams }) {
     },
     {
       label: "Total In",
-      value: totalIn,
-      note: "Purchases in range",
+      value: purchasesIn,
+      note: "Purchases this month",
       accent: "text-emerald-700",
       bg: "bg-emerald-50",
     },
     {
       label: "Total Out",
-      value: totalOut,
-      note: "Sales in range",
+      value: salesOut,
+      note: "Sales this month",
       accent: "text-rose-700",
       bg: "bg-rose-50",
     },
     {
-      label: "Internal Transfers",
-      value: totalTransferred,
-      note: "Movement between shops",
-      accent: "text-sky-700",
-      bg: "bg-sky-50",
-    },
-    {
-      label: filterConfig.isCurrentMonthView
-        ? "Current Live Stock"
-        : "Closing Stock",
-      value: closingStock,
-      note: filterConfig.isCurrentMonthView
-        ? "Live inventory balance"
-        : "Opening + In - Out",
+      label: "Current Live Stock",
+      value: currentLiveStock,
+      note: "Live inventory balance",
       accent: "text-slate-800",
       bg: "bg-slate-50",
     },
   ];
-
-  const selectedRangeLabel =
-    filterConfig.selectedDateFilter === "this_month"
-      ? format(filterConfig.startDate, "MMMM yyyy")
-      : filterConfig.selectedDateFilter === "last_month"
-        ? format(filterConfig.startDate, "MMMM yyyy")
-        : `${format(filterConfig.startDate, "dd MMM yyyy")} to ${format(filterConfig.endDate, "dd MMM yyyy")}`;
-
-  const formAction = `/inventory/${productId}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 px-4 md:px-8 pb-10 pt-24 md:pt-32">
@@ -317,7 +218,10 @@ export default async function ItemLedgerPage({ params, searchParams }) {
             <ChevronLeft size={16} /> Back to Inventory
           </Link>
           <span className="inline-flex items-center gap-2 rounded-full bg-[#522874]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#522874]">
-            <CalendarDays size={14} /> {selectedRangeLabel}
+            <CalendarDays size={14} />
+            {new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(
+              new Date(year, month - 1, 1),
+            )}
           </span>
         </div>
 
@@ -342,108 +246,31 @@ export default async function ItemLedgerPage({ params, searchParams }) {
                 <div className="text-xs font-bold uppercase tracking-wide text-gray-400">
                   Product
                 </div>
-                <div className="mt-1 font-semibold text-gray-900">
-                  {product.modelName}
-                </div>
+                <div className="mt-1 font-semibold text-gray-900">{product.modelName}</div>
               </div>
               <div className="rounded-xl bg-gray-50 px-4 py-3 border border-gray-200">
                 <div className="text-xs font-bold uppercase tracking-wide text-gray-400">
                   Size
                 </div>
-                <div className="mt-1 font-semibold text-gray-900">
-                  {product.size}
-                </div>
+                <div className="mt-1 font-semibold text-gray-900">{product.size}</div>
               </div>
               <div className="rounded-xl bg-gray-50 px-4 py-3 border border-gray-200 sm:col-span-2">
                 <div className="text-xs font-bold uppercase tracking-wide text-gray-400">
                   SKU
                 </div>
-                <div className="mt-1 font-mono font-semibold text-[#522874]">
-                  {product.sku}
-                </div>
+                <div className="mt-1 font-mono font-semibold text-[#522874]">{product.sku}</div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 md:px-5 py-4">
-          <form method="get" action={formAction} className="space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-              <div className="flex-1 space-y-2">
-                <label className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
-                  Date Filter
-                </label>
-                <div className="relative">
-                  <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <select
-                    name="date"
-                    defaultValue={filterConfig.selectedDateFilter}
-                    className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50 px-10 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#522874]/40 focus:bg-white focus:ring-4 focus:ring-[#522874]/10"
-                  >
-                    <option value="this_month">This Month</option>
-                    <option value="last_month">Last Month</option>
-                    <option value="custom">Custom Range</option>
-                  </select>
-                </div>
-              </div>
-
-              {filterConfig.selectedDateFilter === "custom" ? (
-                <>
-                  <div className="flex-1 space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      name="start"
-                      defaultValue={filterConfig.customStart}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#522874]/40 focus:bg-white focus:ring-4 focus:ring-[#522874]/10"
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      name="end"
-                      defaultValue={filterConfig.customEnd}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none transition focus:border-[#522874]/40 focus:bg-white focus:ring-4 focus:ring-[#522874]/10"
-                    />
-                  </div>
-                </>
-              ) : null}
-
-              <div className="flex items-center gap-3 lg:ml-auto">
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center rounded-xl bg-[#522874] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#3f1f57] active:scale-[0.99]"
-                >
-                  Apply
-                </button>
-                <Link
-                  href={`/inventory/${productId}`}
-                  className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
-                >
-                  <RotateCcw size={14} className="mr-2" /> Reset
-                </Link>
-              </div>
-            </div>
-          </form>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {statCards.map((card) => (
-            <div
-              key={card.label}
-              className={`rounded-2xl border border-gray-200 ${card.bg} p-5 shadow-sm`}
-            >
+            <div key={card.label} className={`rounded-2xl border border-gray-200 ${card.bg} p-5 shadow-sm`}>
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
                 {card.label}
               </div>
-              <div className={`mt-3 text-3xl font-black ${card.accent}`}>
-                {card.value}
-              </div>
+              <div className={`mt-3 text-3xl font-black ${card.accent}`}>{card.value}</div>
               <div className="mt-2 text-sm text-gray-600">{card.note}</div>
             </div>
           ))}
@@ -451,11 +278,9 @@ export default async function ItemLedgerPage({ params, searchParams }) {
 
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg font-bold text-gray-900">
-              Unified Timeline
-            </h2>
+            <h2 className="text-lg font-bold text-gray-900">Unified Timeline</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Sales, purchases, and transfers for the selected period.
+              Sales, purchases, and transfers for the current month.
             </p>
           </div>
 
@@ -475,11 +300,8 @@ export default async function ItemLedgerPage({ params, searchParams }) {
               <tbody>
                 {timeline.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-12 text-center text-gray-500"
-                    >
-                      No activity found for the selected period.
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      No activity found for this month.
                     </td>
                   </tr>
                 ) : (
@@ -500,9 +322,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
                           {formatDateTime(item.date)}
                         </td>
                         <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${colorClasses}`}
-                          >
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${colorClasses}`}>
                             {item.type}
                           </span>
                         </td>

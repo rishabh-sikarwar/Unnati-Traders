@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 import { formatNumber } from "@/lib/format";
+import { toDecimal, moneyToString } from "@/lib/money";
 
 export default function BillingForm({
   inventory,
@@ -148,45 +149,48 @@ export default function BillingForm({
   const removeItem = (id) => setCart(cart.filter((item) => item.rowId !== id));
 
   const totals = useMemo(() => {
-    let rawItemsTotal = 0;
-    cart.forEach(
-      (item) =>
-        (rawItemsTotal +=
-          (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)),
-    );
+    let rawItemsTotal = toDecimal(0);
+    cart.forEach((item) => {
+      rawItemsTotal = rawItemsTotal.plus(
+        toDecimal(item.quantity).times(toDecimal(item.unitPrice)),
+      );
+    });
 
-    const dVal = Number(discount) || 0;
+    const dVal = toDecimal(discount);
     const discountAmount =
-      discountType === "%" ? rawItemsTotal * (dVal / 100) : dVal;
-    const grandTotal = Math.max(0, rawItemsTotal - discountAmount);
+      discountType === "%" ? rawItemsTotal.times(dVal).div(100) : dVal;
+    const grandTotal = rawItemsTotal.minus(discountAmount);
+    const safeGrandTotal = grandTotal.gt(0) ? grandTotal : toDecimal(0);
 
-    const cVal = Number(cgst) || 0;
-    const sVal = Number(sgst) || 0;
-    const iVal = Number(igst) || 0;
-    let totalPct = 0;
-    let totalFlat = 0;
+    const cVal = toDecimal(cgst);
+    const sVal = toDecimal(sgst);
+    const iVal = toDecimal(igst);
+    let totalPct = toDecimal(0);
+    let totalFlat = toDecimal(0);
 
-    if (cgstType === "%") totalPct += cVal;
-    else totalFlat += cVal;
-    if (sgstType === "%") totalPct += sVal;
-    else totalFlat += sVal;
-    if (igstType === "%") totalPct += iVal;
-    else totalFlat += iVal;
+    if (cgstType === "%") totalPct = totalPct.plus(cVal);
+    else totalFlat = totalFlat.plus(cVal);
+    if (sgstType === "%") totalPct = totalPct.plus(sVal);
+    else totalFlat = totalFlat.plus(sVal);
+    if (igstType === "%") totalPct = totalPct.plus(iVal);
+    else totalFlat = totalFlat.plus(iVal);
 
-    const taxableValue = Math.max(
-      0,
-      (grandTotal - totalFlat) / (1 + totalPct / 100),
-    );
+    const taxableValue = safeGrandTotal
+      .minus(totalFlat)
+      .div(toDecimal(1).plus(totalPct.div(100)));
+    const safeTaxableValue = taxableValue.gt(0) ? taxableValue : toDecimal(0);
 
     return {
       rawItemsTotal,
       discountAmount,
-      subtotal: taxableValue,
-      grandTotal,
-      totalGst:
-        (cgstType === "%" ? taxableValue * (cVal / 100) : cVal) +
-        (sgstType === "%" ? taxableValue * (sVal / 100) : sVal) +
-        (igstType === "%" ? taxableValue * (iVal / 100) : iVal),
+      subtotal: safeTaxableValue,
+      grandTotal: safeGrandTotal,
+      totalGst: (cgstType === "%"
+        ? safeTaxableValue.times(cVal).div(100)
+        : cVal
+      )
+        .plus(sgstType === "%" ? safeTaxableValue.times(sVal).div(100) : sVal)
+        .plus(igstType === "%" ? safeTaxableValue.times(iVal).div(100) : iVal),
     };
   }, [
     cart,
@@ -201,11 +205,13 @@ export default function BillingForm({
   ]);
 
   // CALCULATE SPLIT AMOUNTS
-  const totalSplitPaid =
-    Number(splitPayments.cash) +
-    Number(splitPayments.upi) +
-    Number(splitPayments.card);
-  const remainingSplitDue = Math.max(0, totals.grandTotal - totalSplitPaid);
+  const totalSplitPaid = toDecimal(splitPayments.cash)
+    .plus(toDecimal(splitPayments.upi))
+    .plus(toDecimal(splitPayments.card));
+  const remainingSplitDue = totals.grandTotal.minus(totalSplitPaid);
+  const safeRemainingSplitDue = remainingSplitDue.gt(0)
+    ? remainingSplitDue
+    : toDecimal(0);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -213,12 +219,12 @@ export default function BillingForm({
 
     if (
       customer.paymentMode === "Credit" &&
-      Number(initialPayment) > totals.grandTotal
+      toDecimal(initialPayment).gt(totals.grandTotal)
     )
       return toast.error("Initial payment cannot be greater than Total!");
     if (
       customer.paymentMode === "Multiple" &&
-      totalSplitPaid > totals.grandTotal
+      totalSplitPaid.gt(totals.grandTotal)
     )
       return toast.error("Split payments exceed the Grand Total!");
 
@@ -236,8 +242,10 @@ export default function BillingForm({
           productId: invRecord.productId,
           modelName: invRecord.product.modelName,
           quantity: qty,
-          unitPrice: Number(item.unitPrice),
-          totalPrice: qty * Number(item.unitPrice),
+          unitPrice: moneyToString(item.unitPrice),
+          totalPrice: moneyToString(
+            toDecimal(qty).times(toDecimal(item.unitPrice)),
+          ),
           tyreCode: item.tyreCode,
         };
       });
@@ -446,8 +454,9 @@ export default function BillingForm({
                 (i) => i.id === item.inventoryId,
               );
               const maxStock = selectedInv ? selectedInv.quantity : 0;
-              const lineTotal =
-                (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+              const lineTotal = toDecimal(item.quantity).times(
+                toDecimal(item.unitPrice),
+              );
               const availableInventory = searchableInventory.filter(
                 (inv) =>
                   !selectedInventoryIds.includes(inv.id) ||
@@ -506,6 +515,7 @@ export default function BillingForm({
                         required
                         type="number"
                         min="1"
+                        step="0.01"
                         max={maxStock || 1}
                         value={item.quantity}
                         onChange={(e) =>
@@ -522,6 +532,7 @@ export default function BillingForm({
                         required
                         type="number"
                         min="1"
+                        step="0.01"
                         value={item.unitPrice}
                         onChange={(e) =>
                           updateItem(item.rowId, "unitPrice", e.target.value)
@@ -586,6 +597,7 @@ export default function BillingForm({
                 <input
                   type="number"
                   min="0"
+                  step="0.01"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
@@ -623,6 +635,7 @@ export default function BillingForm({
                 <input
                   type="number"
                   min="0"
+                  step="0.01"
                   value={cgst}
                   onChange={(e) => setCgst(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
@@ -653,6 +666,7 @@ export default function BillingForm({
                 <input
                   type="number"
                   min="0"
+                  step="0.01"
                   value={sgst}
                   onChange={(e) => setSgst(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
@@ -683,6 +697,7 @@ export default function BillingForm({
                 <input
                   type="number"
                   min="0"
+                  step="0.01"
                   value={igst}
                   onChange={(e) => setIgst(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
@@ -744,7 +759,8 @@ export default function BillingForm({
                 <input
                   type="number"
                   min="0"
-                  max={totals.grandTotal}
+                  step="0.01"
+                  max={moneyToString(totals.grandTotal)}
                   value={initialPayment}
                   onChange={(e) => setInitialPayment(e.target.value)}
                   className="w-full px-4 py-3 bg-white/10 border border-orange-400/50 rounded-lg text-white font-bold outline-none focus:border-orange-400 transition-all placeholder-white/30"
@@ -754,10 +770,9 @@ export default function BillingForm({
                   <span className="text-white/70">Remaining Udhaar:</span>
                   <span className="text-orange-400 font-bold">
                     {`₹${formatNumber(
-                      Math.max(
-                        0,
-                        totals.grandTotal - (Number(initialPayment) || 0),
-                      ),
+                      totals.grandTotal.minus(toDecimal(initialPayment)).gt(0)
+                        ? totals.grandTotal.minus(toDecimal(initialPayment))
+                        : toDecimal(0),
                       2,
                     )}`}
                   </span>
@@ -780,6 +795,7 @@ export default function BillingForm({
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={splitPayments.cash}
                     onChange={(e) =>
                       setSplitPayments({
@@ -798,6 +814,7 @@ export default function BillingForm({
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={splitPayments.upi}
                     onChange={(e) =>
                       setSplitPayments({
@@ -816,6 +833,7 @@ export default function BillingForm({
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={splitPayments.card}
                     onChange={(e) =>
                       setSplitPayments({
@@ -831,7 +849,7 @@ export default function BillingForm({
                 <div className="flex justify-between mt-4 pt-3 border-t border-blue-500/30 text-sm font-medium">
                   <span className="text-white/70">Goes to Udhaar:</span>
                   <span className="text-blue-400 font-bold">
-                    {`₹${formatNumber(remainingSplitDue, 2)}`}
+                    {`₹${formatNumber(safeRemainingSplitDue, 2)}`}
                   </span>
                 </div>
               </div>

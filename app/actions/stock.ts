@@ -2,13 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { moneyToString } from "@/lib/money";
 
 export async function addTyreProduct(formData) {
   try {
     const sku = formData.get("sku");
     const modelName = formData.get("modelName");
     const size = formData.get("size");
-    const basePrice = parseFloat(formData.get("basePrice"));
+    const basePrice = moneyToString(formData.get("basePrice"));
 
     // fetch all locations
     const locations = await prisma.location.findMany();

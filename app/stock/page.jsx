@@ -346,6 +346,7 @@ export default function StockPage() {
                     required
                     type="number"
                     min="1"
+                    step="0.01"
                     value={editModal.product.basePrice}
                     onChange={(e) =>
                       setEditModal({
@@ -523,6 +524,7 @@ export default function StockPage() {
                 required
                 type="number"
                 min="1"
+                step="0.01"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
                 placeholder="3200"

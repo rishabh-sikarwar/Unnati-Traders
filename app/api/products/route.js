@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { moneyToString } from "@/lib/money";
 
 export async function GET() {
   try {
@@ -31,7 +32,7 @@ export async function POST(req) {
         modelName: body.modelName,
         size: body.size,
         category: body.category || "TWO_WHEELER",
-        basePrice: parseFloat(body.basePrice),
+        basePrice: moneyToString(body.basePrice),
         brand: "Apollo",
         gstRate: 28,
         hsnCode: body.hsnCode || "4011",
