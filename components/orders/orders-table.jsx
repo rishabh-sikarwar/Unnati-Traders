@@ -290,7 +290,7 @@ export default function OrdersTable({
           </span>
           <span className="text-xl font-black text-[#522874]">
             {`₹${formatNumber(
-              filteredOrders.reduce((sum, order) => sum + order.grandTotal, 0),
+              filteredOrders.reduce((sum, order) => sum + Number(order.grandTotal), 0),
               2,
             )}`}
           </span>

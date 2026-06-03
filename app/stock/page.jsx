@@ -28,6 +28,15 @@ export default function StockPage() {
   // --- FILTERS & SEARCH ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [pendingProductId, setPendingProductId] = useState(null);
+
+  const openLedger = (productId) => {
+    if (pendingProductId) return;
+    setPendingProductId(productId);
+    window.setTimeout(() => {
+      router.push(`/inventory/${productId}`);
+    }, 120);
+  };
 
   // --- NEW TYRE FORM ---
   const [newModel, setNewModel] = useState("");
@@ -638,7 +647,19 @@ export default function StockPage() {
                 return (
                   <tr
                     key={product.id}
-                    className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
+                    className={`block md:table-row border-b border-gray-100 transition-colors p-4 md:p-0 cursor-pointer hover:bg-purple-50/10 ${pendingProductId === product.id ? "bg-purple-50/40 opacity-70 cursor-wait" : ""}`}
+                    onClick={() => {
+                      openLedger(product.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openLedger(product.id);
+                      }
+                    }}
+                    role="link"
+                    aria-busy={pendingProductId === product.id}
+                    tabIndex={0}
                   >
                     {/* Details */}
                     <td className="block md:table-cell md:p-4 mb-2 md:mb-0">
@@ -655,6 +676,12 @@ export default function StockPage() {
                         <code className="text-xs text-gray-400 font-mono mt-0.5">
                           HSN: {product.hsnCode}
                         </code>
+                        {pendingProductId === product.id && (
+                          <span className="mt-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#522874]">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Opening ledger...
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -702,20 +729,24 @@ export default function StockPage() {
                     <td className="block md:table-cell md:p-4 md:text-right border-t md:border-none pt-4 md:pt-0">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => openEditModal(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(product);
+                          }}
                           className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
                         >
                           <Edit className="w-4 h-4 md:w-3.5 md:h-3.5" /> Edit
                         </button>
                         {canRemoveTyres && (
                           <button
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setDeleteModal({
                                 isOpen: true,
                                 productId: product.id,
                                 modelName: product.modelName,
-                              })
-                            }
+                              });
+                            }}
                             className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
                           >
                             <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
