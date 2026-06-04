@@ -21,6 +21,11 @@ export default async function InventoryExportPage() {
     orderBy: { modelName: "asc" },
   });
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   const locations = await prisma.location.findMany({
     orderBy: { name: "asc" },
   });
@@ -39,7 +44,7 @@ export default async function InventoryExportPage() {
           </p>
         </div>
 
-        <StockExportClient products={products} locations={locations} />
+        <StockExportClient products={serializedProducts} locations={locations} />
       </div>
     </div>
   );

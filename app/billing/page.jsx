@@ -38,6 +38,14 @@ export default async function BillingPage() {
     orderBy: { product: { modelName: "asc" } },
   });
 
+  const serializedInventory = localInventory.map((item) => ({
+    ...item,
+    product: {
+      ...item.product,
+      basePrice: Number(item.product.basePrice),
+    },
+  }));
+
   //fetch existing B2B customers
   const b2bCustomers = await prisma.customer.findMany({
     where: {
@@ -70,7 +78,7 @@ export default async function BillingPage() {
 
         {/* Pass the data to the interactive client form */}
         <BillingForm
-          inventory={localInventory}
+          inventory={serializedInventory}
           locationId={dbUser.locationId}
           userId={dbUser.id}
           b2bCustomers={b2bCustomers}

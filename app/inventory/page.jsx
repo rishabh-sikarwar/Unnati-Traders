@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Package, ArrowRightLeft, DownloadCloud } from "lucide-react";
+import { Package, ArrowRightLeft, DownloadCloud, PlusSquare } from "lucide-react";
 import Link from "next/link";
 import InventoryTable from "@/components/inventory/InventoryTable";
 import SnapshotOpeningStockButton from "@/components/inventory/snapshot-opening-stock-button";
@@ -24,6 +24,11 @@ export default async function InventoryPage() {
     orderBy: { modelName: "asc" },
   });
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   const locations = await prisma.location.findMany({
     orderBy: { name: "asc" },
   });
@@ -45,15 +50,22 @@ export default async function InventoryPage() {
           </div>
 
           <div className="flex w-full md:w-auto flex-col sm:flex-row gap-3">
-            {dbUser.role === "ADMIN" && (
               <Link
                 href="/admin/inventory-export"
                 className="w-full md:w-auto flex items-center justify-center gap-2 bg-white text-[#522874] border border-[#522874]/20 px-4 py-2.5 rounded-lg font-bold hover:bg-purple-50 transition-all shadow-sm active:scale-95"
               >
                 <DownloadCloud size={18} /> Stock Excel
               </Link>
-            )}
+            
             {dbUser.role === "ADMIN" && <SnapshotOpeningStockButton />}
+            {dbUser.role === "ADMIN" && (
+              <Link
+                href="/inventory/manage"
+                className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
+              >
+                <PlusSquare size={18} /> Manage Stock
+              </Link>
+            )}
             <Link
               href="/admin/transfer"
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#522874] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95"
@@ -65,7 +77,7 @@ export default async function InventoryPage() {
 
         {/* Pass the User Role and Location ID to the Table */}
         <InventoryTable
-          products={products}
+          products={serializedProducts}
           locations={locations}
           userRole={dbUser.role}
           userLocationId={dbUser.locationId}

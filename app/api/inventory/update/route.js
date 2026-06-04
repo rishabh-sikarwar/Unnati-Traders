@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { productId, locationId, quantity, type } = await req.json();
     const qtyNum = Number(quantity);
 
@@ -28,25 +34,36 @@ export async function POST(req) {
 
     const change = type === "add" ? qtyNum : -qtyNum;
 
-    // 3. Execute Upsert safely
-    const updated = await prisma.inventory.upsert({
-      where: {
-        productId_locationId: {
+    // 3. Execute transaction safely
+    const [updated] = await prisma.$transaction([
+      prisma.inventory.upsert({
+        where: {
+          productId_locationId: {
+            productId,
+            locationId,
+          },
+        },
+        update: {
+          quantity: {
+            increment: change,
+          },
+        },
+        create: {
           productId,
           locationId,
+          quantity: change,
         },
-      },
-      update: {
-        quantity: {
-          increment: change,
+      }),
+      prisma.stockAdjustmentLog.create({
+        data: {
+          productId,
+          locationId,
+          quantityChange: change,
+          type: type.toUpperCase(), // "ADD" or "REMOVE"
+          userId: clerkUser.id,
         },
-      },
-      create: {
-        productId,
-        locationId,
-        quantity: change,
-      },
-    });
+      }),
+    ]);
 
     return NextResponse.json(updated);
   } catch (error) {

@@ -9,6 +9,11 @@ export default async function TyresPage() {
     orderBy: { modelName: "asc" },
   });
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-16 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -25,7 +30,7 @@ export default async function TyresPage() {
           </p>
         </div>
 
-        <TyreCatalogue products={products} />
+        <TyreCatalogue products={serializedProducts} />
       </div>
     </div>
   );

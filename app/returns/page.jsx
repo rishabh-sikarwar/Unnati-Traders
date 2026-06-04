@@ -21,6 +21,17 @@ export default async function ReturnsPage() {
   // Fetch necessary data for the form dropdowns
   const customers = await prisma.customer.findMany({ orderBy: { name: "asc" } });
   const products = await prisma.product.findMany({ orderBy: { modelName: "asc" } });
+
+  const serializedCustomers = customers.map((c) => ({
+    ...c,
+    openingBalance: Number(c.openingBalance),
+  }));
+
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   const locations = await prisma.location.findMany({ orderBy: { name: "asc" } });
 
   return (
@@ -37,7 +48,7 @@ export default async function ReturnsPage() {
           </p>
         </div>
 
-        <ReturnForm customers={customers} products={products} locations={locations} userId={dbUser.id} />
+        <ReturnForm customers={serializedCustomers} products={serializedProducts} locations={locations} userId={dbUser.id} />
 
       </div>
     </div>

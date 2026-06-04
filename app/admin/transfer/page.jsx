@@ -29,6 +29,11 @@ export default async function TransferPage({ searchParams }) {
     orderBy: { modelName: "asc" },
   });
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   const locations = await prisma.location.findMany({
     orderBy: { name: "asc" },
   });
@@ -114,7 +119,7 @@ export default async function TransferPage({ searchParams }) {
         </div>
 
         {/* --- TRANSFER FORM --- */}
-        <TransferStockForm products={products} locations={locations} />
+        <TransferStockForm products={serializedProducts} locations={locations} />
 
         {/* --- HISTORY SECTION --- */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-8">

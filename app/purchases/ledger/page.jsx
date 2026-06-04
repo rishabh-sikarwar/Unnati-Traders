@@ -53,6 +53,20 @@ export default async function PurchaseLedgerPage() {
     orderBy: { createdAt: "desc" }, // Newest first
   });
 
+  const serializedPurchases = purchases.map((purchase) => ({
+    ...purchase,
+    totalAmount: Number(purchase.totalAmount),
+    items: purchase.items.map((item) => ({
+      ...item,
+      unitCost: Number(item.unitCost),
+      totalCost: Number(item.totalCost),
+      product: {
+        ...item.product,
+        basePrice: Number(item.product.basePrice),
+      },
+    })),
+  }));
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32 flex flex-col items-center">
       <div className="w-full max-w-6xl space-y-6 animate-in fade-in duration-500">
@@ -70,7 +84,7 @@ export default async function PurchaseLedgerPage() {
         </div>
 
         <PurchaseList
-          purchases={purchases}
+          purchases={serializedPurchases}
           locations={locations}
           userRole={dbUser.role}
           showShopFilter={showShopFilter}

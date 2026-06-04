@@ -90,6 +90,21 @@ export default async function OrdersPage({ searchParams }) {
     take: 500, // SAFEGUARD: Never fetch more than 500 at a time to prevent memory crashes
   });
 
+  const serializedInvoices = invoices.map((inv) => ({
+    ...inv,
+    subtotal: Number(inv.subtotal),
+    totalGst: Number(inv.totalGst),
+    grandTotal: Number(inv.grandTotal),
+    amountPaid: Number(inv.amountPaid),
+    splitCash: Number(inv.splitCash),
+    splitUpi: Number(inv.splitUpi),
+    splitCard: Number(inv.splitCard),
+    customer: inv.customer ? {
+      ...inv.customer,
+      openingBalance: Number(inv.customer.openingBalance),
+    } : null,
+  }));
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -109,7 +124,7 @@ export default async function OrdersPage({ searchParams }) {
 
         {/* Pass the data AND the current active filters to the UI */}
         <OrdersTable 
-          initialOrders={invoices} 
+          initialOrders={serializedInvoices} 
           userRole={dbUser.role} 
           locations={locations} 
           currentFilters={{ dateFilter, shopFilter, typeFilter, customStart, customEnd }}

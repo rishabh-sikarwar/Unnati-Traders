@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function SnapshotOpeningStockButton() {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const router = useRouter();
 
   const handleClick = async () => {
     if (loading) return;
 
     setLoading(true);
-    setMessage("");
+    const loadingToast = toast.loading("Updating opening stock snapshot...");
 
     try {
       const response = await fetch("/api/cron/snapshot-stock", {
@@ -24,15 +24,14 @@ export default function SnapshotOpeningStockButton() {
         throw new Error("Failed to update opening stock snapshot");
       }
 
-      setMessage("Opening stock updated");
+      toast.success("Opening stock snapshot updated successfully!", { id: loadingToast });
       router.refresh();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Snapshot update failed",
-      );
+      const errMsg =
+        error instanceof Error ? error.message : "Snapshot update failed";
+      toast.error(errMsg, { id: loadingToast });
     } finally {
       setLoading(false);
-      window.setTimeout(() => setMessage(""), 3000);
     }
   };
 
@@ -51,9 +50,6 @@ export default function SnapshotOpeningStockButton() {
         )}
         {loading ? "Saving Snapshot..." : "Set Opening Stock"}
       </button>
-      {message ? (
-        <p className="mt-2 text-xs font-semibold text-gray-500">{message}</p>
-      ) : null}
     </div>
   );
 }

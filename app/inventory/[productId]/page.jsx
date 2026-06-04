@@ -71,7 +71,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
   }
 
   // 3. FETCH DATA
-  const [product, invoices, purchases, transferLogs, snapshots] =
+  const [product, invoices, purchases, transferLogs, snapshots, stockAdjustmentLogs] =
     await Promise.all([
       prisma.product.findUnique({
         where: { id: productId },
@@ -96,6 +96,11 @@ export default async function ItemLedgerPage({ params, searchParams }) {
       }),
       prisma.stockSnapshot.findMany({
         where: { productId, month: targetMonth, year: targetYear },
+      }),
+      prisma.stockAdjustmentLog.findMany({
+        where: { productId, createdAt: { gte: startDate, lt: endDate } },
+        include: { location: true, user: true },
+        orderBy: { createdAt: "desc" },
       }),
     ]);
 
@@ -142,7 +147,17 @@ export default async function ItemLedgerPage({ params, searchParams }) {
     };
   });
 
-  const timeline = [...monthlySales, ...monthlyPurchases, ...monthlyTransfers].sort(
+  const manualAdjustments = stockAdjustmentLogs.map((log) => ({
+    date: log.createdAt,
+    type: log.type === "ADD" ? "MANUAL ADD" : "MANUAL REM",
+    reference: `ADJ-${log.id.slice(0, 6).toUpperCase()}`,
+    location: log.location?.name || "Unknown",
+    qtyIn: log.quantityChange > 0 ? log.quantityChange : 0,
+    qtyOut: log.quantityChange < 0 ? Math.abs(log.quantityChange) : 0,
+    user: getUserLabel(log.user),
+  }));
+
+  const timeline = [...monthlySales, ...monthlyPurchases, ...monthlyTransfers, ...manualAdjustments].sort(
     (left, right) => new Date(right.date) - new Date(left.date)
   );
 
@@ -284,7 +299,14 @@ export default async function ItemLedgerPage({ params, searchParams }) {
                   </tr>
                 ) : (
                   timeline.map((item, index) => {
-                    const colorClasses = item.type === "SALE" ? "bg-rose-50 text-rose-700 border-rose-200" : item.type === "PURCHASE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-sky-50 text-sky-700 border-sky-200";
+                    const colorClasses =
+                      item.type === "SALE"
+                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                        : item.type === "PURCHASE"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : item.type.startsWith("MANUAL")
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-sky-50 text-sky-700 border-sky-200";
                     return (
                       <tr key={`${item.type}-${item.reference}-${index}`} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 text-sm font-medium text-gray-600 whitespace-nowrap">{formatDateTime(item.date)}</td>

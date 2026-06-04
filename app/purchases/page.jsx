@@ -23,6 +23,11 @@ export default async function PurchasesPage() {
     orderBy: { modelName: "asc" },
   });
 
+  const serializedProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+  }));
+
   // Fetch active shops to determine where stock unloads
   const locations = await prisma.location.findMany({
     orderBy: { name: "asc" },
@@ -43,7 +48,7 @@ export default async function PurchasesPage() {
         </div>
 
         <PurchaseForm
-          products={products}
+          products={serializedProducts}
           locations={locations}
           userId={dbUser.id}
           userRole={dbUser.role}
