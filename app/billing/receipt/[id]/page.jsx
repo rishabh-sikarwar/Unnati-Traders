@@ -50,6 +50,8 @@ export default async function ReceiptPage({ params }) {
     { day: "2-digit", month: "2-digit", year: "numeric" },
   );
 
+  const roundOffAmount = Number(invoice.grandTotal) - (Number(invoice.subtotal) + Number(invoice.totalGst));
+
   // --- GST LOGIC (MP State Code is 23) ---
   // If GST number exists and DOES NOT start with 23, it is IGST. Otherwise, CGST + SGST.
   const hasGst = Boolean(invoice.customer?.gstNumber);
@@ -410,6 +412,13 @@ export default async function ReceiptPage({ params }) {
                     {`₹${formatNumber(invoice.totalGst, 2)}`}
                   </span>
                 </div>
+
+                {roundOffAmount > 0.001 && (
+                  <div className="flex justify-between px-2 text-sm text-gray-500">
+                    <span>Round Off</span>
+                    <span>{`+${roundOffAmount.toFixed(2)}`}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-between bg-gray-100 p-2 border border-gray-300 rounded">
                   <span className="font-black text-lg text-gray-900">

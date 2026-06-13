@@ -180,17 +180,26 @@ export default function BillingForm({
       .div(toDecimal(1).plus(totalPct.div(100)));
     const safeTaxableValue = taxableValue.gt(0) ? taxableValue : toDecimal(0);
 
+    const subtotal = safeTaxableValue;
+    const totalGst = (cgstType === "%"
+      ? safeTaxableValue.times(cVal).div(100)
+      : cVal
+    )
+      .plus(sgstType === "%" ? safeTaxableValue.times(sVal).div(100) : sVal)
+      .plus(igstType === "%" ? safeTaxableValue.times(iVal).div(100) : iVal);
+
+    const exactTotal = subtotal.plus(totalGst);
+    const roundedTotal = exactTotal.ceil();
+    const roundOffAmount = roundedTotal.minus(exactTotal);
+
     return {
       rawItemsTotal,
       discountAmount,
-      subtotal: safeTaxableValue,
-      grandTotal: safeGrandTotal,
-      totalGst: (cgstType === "%"
-        ? safeTaxableValue.times(cVal).div(100)
-        : cVal
-      )
-        .plus(sgstType === "%" ? safeTaxableValue.times(sVal).div(100) : sVal)
-        .plus(igstType === "%" ? safeTaxableValue.times(iVal).div(100) : iVal),
+      subtotal,
+      totalGst,
+      exactTotal,
+      grandTotal: roundedTotal,
+      roundOffAmount,
     };
   }, [
     cart,
@@ -711,6 +720,13 @@ export default function BillingForm({
                 Tax is calculated inclusively
               </span>
             </div>
+
+            {totals.roundOffAmount.gt(0) && (
+              <div className="flex justify-between items-center text-xs text-white/60 pt-2 border-t border-white/10">
+                <span>Round Off</span>
+                <span>+₹{totals.roundOffAmount.toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-white/20 pt-5 mb-6 mt-6">

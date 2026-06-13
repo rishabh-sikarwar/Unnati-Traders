@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { maxTime } from "date-fns/constants";
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { moneyToString } from "@/lib/money";
+import { toDecimal, moneyToString } from "@/lib/money";
 
 export async function POST(req) {
   try {
@@ -16,6 +16,12 @@ export async function POST(req) {
       totalAmount,
       userId,
     } = body;
+
+    // Calculate backend exactTotal from items, apply ceiling function to totalAmount
+    const exactTotal = items.reduce((sum, item) => {
+      return sum.plus(toDecimal(item.totalCost));
+    }, toDecimal(0));
+    totalAmount = exactTotal.ceil();
 
     const clerkUser = await currentUser();
     if (!clerkUser)

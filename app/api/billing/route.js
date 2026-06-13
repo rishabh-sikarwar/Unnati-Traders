@@ -23,6 +23,12 @@ export async function POST(req) {
   try {
     let { customerInfo, items, locationId, userId, totals } = await req.json();
 
+    // Calculate backend exactTotal (subtotal + taxes) and round up to next integer for grandTotal
+    const subDecimal = toDecimal(totals.subtotal);
+    const gstDecimal = toDecimal(totals.totalGst);
+    const exactTotal = subDecimal.plus(gstDecimal);
+    totals.grandTotal = exactTotal.ceil();
+
     // --- 1. AUTHORIZATION ---
     const clerkUser = await currentUser();
     if (!clerkUser)

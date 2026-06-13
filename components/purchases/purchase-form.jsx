@@ -84,13 +84,16 @@ export default function PurchaseForm({
     setCart(newCart);
   };
 
-  const grandTotal = useMemo(() => {
+  const exactTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       return total.plus(
         toDecimal(item.quantity).times(toDecimal(item.unitCost)),
       );
     }, toDecimal(0));
   }, [cart]);
+
+  const roundedTotal = useMemo(() => exactTotal.ceil(), [exactTotal]);
+  const roundOffAmount = useMemo(() => roundedTotal.minus(exactTotal), [roundedTotal, exactTotal]);
 
   const selectedProductIds = useMemo(
     () => cart.map((item) => item.productId).filter(Boolean),
@@ -134,7 +137,7 @@ export default function PurchaseForm({
           purchaseDate,
           userId,
           items: formattedItems,
-          totalAmount: grandTotal,
+          totalAmount: roundedTotal,
         }),
       });
 
@@ -329,12 +332,18 @@ export default function PurchaseForm({
             <Save className="w-5 h-5 text-purple-300" /> Inward Summary
           </h2>
           <div className="border-t border-white/20 pt-2 mb-6">
+            {roundOffAmount.gt(0) && (
+              <div className="flex justify-between items-center text-xs text-white/60 pt-2 pb-2 border-b border-white/10">
+                <span>Round Off</span>
+                <span>+₹{roundOffAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex flex-col items-end gap-1 mt-4">
               <span className="text-sm font-bold text-white/80 uppercase">
                 Total Purchase Value
               </span>
               <span className="text-3xl md:text-4xl font-black text-white drop-shadow-md">
-                {`₹${formatNumber(grandTotal, 2)}`}
+                {`₹${formatNumber(roundedTotal, 2)}`}
               </span>
             </div>
           </div>
