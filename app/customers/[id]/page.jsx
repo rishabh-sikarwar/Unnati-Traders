@@ -5,8 +5,10 @@ import Link from "next/link";
 import { ArrowLeft, User, Receipt, HandCoins, Calendar } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { toDecimal } from "@/lib/money";
-import StatementPrintButton from "./statement-print-button"; // <-- Import the new button
+import StatementPrintButton from "./statement-print-button";
 import InvoicePreviewModal from "@/components/customers/invoice-preview-modal";
+import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, parseISO } from "date-fns";
+import StatementToolbar from "./statement-toolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -60,48 +62,81 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     if (c.address && !bestProfile.address) bestProfile.address = c.address;
   }
 
-  // Handle URL Filters
-  if (daysFilter !== "ALL") {
-    const cutoffText = parseInt(daysFilter);
-    const cutoffDate = new Date(Date.now() - cutoffText * 24 * 60 * 60 * 1000);
+  // Parse date-fns range parameters
+  const dateFilter = queries?.date || "all";
+  const customStart = queries?.start || "";
+  const customEnd = queries?.end || "";
+  let startDate = null;
+  let endDate = null;
 
-    allInvoices = allInvoices.filter(
-      (i) => new Date(i.createdAt) >= cutoffDate,
-    );
-    allPayments = allPayments.filter(
-      (p) => new Date(p.createdAt) >= cutoffDate,
-    );
-    allReturns = allReturns.filter((r) => new Date(r.createdAt) >= cutoffDate);
+  if (dateFilter === "this_month") {
+    startDate = startOfMonth(new Date());
+    endDate = endOfMonth(new Date());
+  } else if (dateFilter === "last_month") {
+    const lastMonthDate = subMonths(new Date(), 1);
+    startDate = startOfMonth(lastMonthDate);
+    endDate = endOfMonth(lastMonthDate);
+  } else if (dateFilter === "custom") {
+    startDate = queries.start ? startOfDay(parseISO(queries.start)) : null;
+    endDate = queries.end ? endOfDay(parseISO(queries.end)) : null;
   }
 
+  // Apply location filter
+  let filteredInvoices = allInvoices;
+  let filteredReturns = allReturns;
   if (shopFilter !== "ALL") {
-    // Only Sales (Invoices) and Returns are bound to Locations. Payments are global.
-    allInvoices = allInvoices.filter((i) => i.locationId === shopFilter);
+    filteredInvoices = allInvoices.filter((i) => i.locationId === shopFilter);
+    filteredReturns = allReturns.filter((r) => r.locationId === shopFilter);
   }
 
-  // 2. The Ledger Engine: Combine everything into one chronological timeline
-  let transactions = [];
+  // Separate transactions into previous and period
+  let previousInvoices = [];
+  let periodInvoices = [];
+  let previousPayments = [];
+  let periodPayments = [];
+  let previousReturns = [];
+  let periodReturns = [];
 
-  if (openingBalance.gt(0)) {
-    const oldestCreatedAt = matchingCustomers.reduce((oldest, c) => {
-      if (!oldest) return c.createdAt;
-      return new Date(c.createdAt) < new Date(oldest) ? c.createdAt : oldest;
-    }, null);
-
-    transactions.push({
-      id: `opening-${bestProfile.id}`,
-      date: oldestCreatedAt || new Date(),
-      type: "OPENING",
-      description: "Opening Balance (Previous Due)",
-      debit: openingBalance,
-      credit: toDecimal(0),
+  if (startDate) {
+    previousInvoices = filteredInvoices.filter((i) => new Date(i.createdAt) < startDate);
+    periodInvoices = filteredInvoices.filter((i) => {
+      const d = new Date(i.createdAt);
+      return d >= startDate && (!endDate || d <= endDate);
     });
+
+    previousPayments = allPayments.filter((p) => new Date(p.createdAt) < startDate);
+    periodPayments = allPayments.filter((p) => {
+      const d = new Date(p.createdAt);
+      return d >= startDate && (!endDate || d <= endDate);
+    });
+
+    previousReturns = filteredReturns.filter((r) => new Date(r.createdAt) < startDate);
+    periodReturns = filteredReturns.filter((r) => {
+      const d = new Date(r.createdAt);
+      return d >= startDate && (!endDate || d <= endDate);
+    });
+  } else {
+    periodInvoices = filteredInvoices;
+    periodPayments = allPayments;
+    periodReturns = filteredReturns;
   }
 
-  // A. Add all Invoices (Debits) and their Upfront Payments (Credits)
-  allInvoices.forEach((inv) => {
-    // The Bill (Debit)
-    transactions.push({
+  // Calculate Brought Forward Balance (Opening Balance)
+  const previousInvoicesSum = previousInvoices.reduce((sum, i) => sum.plus(toDecimal(i.grandTotal)), toDecimal(0));
+  const previousPaymentsSum = previousPayments.reduce((sum, p) => sum.plus(toDecimal(p.amount)), toDecimal(0));
+  const previousReturnsSum = previousReturns.reduce((sum, r) => sum.plus(toDecimal(r.refundAmount)), toDecimal(0));
+
+  const broughtForwardBalance = openingBalance
+    .plus(previousInvoicesSum)
+    .minus(previousPaymentsSum)
+    .minus(previousReturnsSum);
+
+  // Build Unified chronological timeline of period transactions
+  let periodTransactions = [];
+
+  // A. Invoices (Debits)
+  periodInvoices.forEach((inv) => {
+    periodTransactions.push({
       id: `inv-${inv.id}`,
       date: inv.createdAt,
       type: "BILL",
@@ -113,9 +148,9 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     });
   });
 
-  // B. Add all subsequent partial payments (Credits)
-  allPayments.forEach((pay) => {
-    transactions.push({
+  // B. Payments (Credits)
+  periodPayments.forEach((pay) => {
+    periodTransactions.push({
       id: `pay-${pay.id}`,
       date: pay.createdAt,
       type: "PAYMENT",
@@ -125,29 +160,49 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     });
   });
 
-  // C. Add Returns/Credit Notes (Credits)
-  if (allReturns.length > 0) {
-    allReturns.forEach((ret) => {
-      transactions.push({
-        id: `ret-${ret.id}`,
-        date: ret.createdAt,
-        type: "RETURN",
-        description: `Tyre Return Credit (Qty: ${ret.quantity})`,
-        debit: toDecimal(0),
-        credit: toDecimal(ret.refundAmount),
-      });
+  // C. Returns (Credits)
+  periodReturns.forEach((ret) => {
+    periodTransactions.push({
+      id: `ret-${ret.id}`,
+      date: ret.createdAt,
+      type: "RETURN",
+      description: `Tyre Return Credit (Qty: ${ret.quantity})`,
+      debit: toDecimal(0),
+      credit: toDecimal(ret.refundAmount),
     });
-  }
+  });
 
-  // 3. Sort Everything by Date (Oldest to Newest)
-  transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Sort period transactions chronologically
+  periodTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // 4. Calculate the Running Balance (Like a Bank Passbook)
-  let currentBalance = toDecimal(0);
+  // Prepend mock transaction at index 0 for Brought Forward balance
+  const oldestPeriodDate = periodTransactions.length > 0 ? periodTransactions[0].date : new Date();
+  const mockOpeningDate = startDate ? new Date(startDate) : new Date(oldestPeriodDate);
+
+  periodTransactions.unshift({
+    id: `brought-forward-${bestProfile.id}`,
+    date: mockOpeningDate,
+    type: "OPENING",
+    description: "Opening Balance / Brought Forward",
+    debit: broughtForwardBalance.gt(0) ? broughtForwardBalance : toDecimal(0),
+    credit: broughtForwardBalance.lt(0) ? broughtForwardBalance.abs() : toDecimal(0),
+  });
+
+  // Recalculate running balance and total Billed/Paid for period
+  let currentBalance = broughtForwardBalance;
   let totalBilled = toDecimal(0);
   let totalPaid = toDecimal(0);
 
-  const statement = transactions.map((t) => {
+  const statement = periodTransactions.map((t, idx) => {
+    if (idx === 0) {
+      return {
+        ...t,
+        debit: broughtForwardBalance.gt(0) ? broughtForwardBalance.toNumber() : 0,
+        credit: broughtForwardBalance.lt(0) ? broughtForwardBalance.abs().toNumber() : 0,
+        balance: currentBalance.toNumber(),
+      };
+    }
+
     currentBalance = currentBalance
       .plus(toDecimal(t.debit))
       .minus(toDecimal(t.credit));
@@ -155,8 +210,36 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     totalBilled = totalBilled.plus(toDecimal(t.debit));
     totalPaid = totalPaid.plus(toDecimal(t.credit));
 
-    return { ...t, balance: currentBalance };
+    return {
+      ...t,
+      debit: toDecimal(t.debit).toNumber(),
+      credit: toDecimal(t.credit).toNumber(),
+      balance: currentBalance.toNumber(),
+    };
   });
+
+  // Convert summaries to numbers to prevent serialization errors
+  const totalBilledNum = totalBilled.toNumber();
+  const totalPaidNum = totalPaid.toNumber();
+  const finalOutstandingNum = currentBalance.toNumber();
+
+  // Format the statement period for UI and printing
+  const getStatementPeriodLabel = () => {
+    if (dateFilter === "all") {
+      return "Statement Period: All Time";
+    }
+    const formatOpts = { day: "2-digit", month: "short", year: "numeric" };
+    const startStr = startDate ? new Date(startDate).toLocaleDateString("en-IN", formatOpts) : "";
+    const endStr = endDate ? new Date(endDate).toLocaleDateString("en-IN", formatOpts) : "Present";
+    if (startStr && endStr) {
+      return `Statement Period: ${startStr} to ${endStr}`;
+    }
+    if (startStr) {
+      return `Statement Period: From ${startStr}`;
+    }
+    return "Statement Period: All Time";
+  };
+  const periodLabel = getStatementPeriodLabel();
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-20 pt-28 md:pt-36 flex flex-col items-center">
@@ -174,6 +257,12 @@ export default async function CustomerStatementPage({ params, searchParams }) {
           <StatementPrintButton />
         </div>
 
+        <StatementToolbar
+          initialDate={dateFilter}
+          initialStart={customStart}
+          initialEnd={customEnd}
+        />
+
         {/* The Statement Paper */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200 print:shadow-none print:border-none">
           {/* Header Info */}
@@ -183,6 +272,9 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                 <User className="text-purple-400 print:hidden" />{" "}
                 {bestProfile.name}
               </h1>
+              <p className="text-xs text-purple-300 print:text-gray-500 font-bold mb-2">
+                {periodLabel}
+              </p>
               <p className="text-purple-200 print:text-gray-600 font-medium">
                 {bestProfile.phone || "No Phone Number"}
               </p>
@@ -201,9 +293,9 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                 Current Outstanding
               </p>
               <p
-                className={`text-3xl font-black ${currentBalance > 0 ? "text-orange-400 print:text-gray-900" : "text-green-400 print:text-gray-900"}`}
+                className={`text-3xl font-black ${finalOutstandingNum > 0 ? "text-orange-400 print:text-gray-900" : "text-green-400 print:text-gray-900"}`}
               >
-                {`₹${formatNumber(currentBalance, 2)}`}
+                {`₹${formatNumber(finalOutstandingNum, 2)}`}
               </p>
             </div>
           </div>
@@ -219,7 +311,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                   Total Billed (Debits)
                 </p>
                 <p className="font-black text-gray-900">
-                  {`₹${formatNumber(totalBilled, 2)}`}
+                  {`₹${formatNumber(totalBilledNum, 2)}`}
                 </p>
               </div>
             </div>
@@ -232,7 +324,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
                   Total Paid (Credits)
                 </p>
                 <p className="font-black text-gray-900">
-                  {`₹${formatNumber(totalPaid, 2)}`}
+                  {`₹${formatNumber(totalPaidNum, 2)}`}
                 </p>
               </div>
             </div>
