@@ -16,6 +16,50 @@ import {
 import { format, subDays, isAfter } from "date-fns";
 import { formatNumber } from "@/lib/format";
 
+const getPaymentBadgeStyles = (mode) => {
+  const normalized = String(mode).toUpperCase();
+  switch (normalized) {
+    case "CREDIT":
+      return "bg-rose-100 text-rose-800 border-rose-300 font-black";
+    case "CASH":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold";
+    case "UPI":
+    case "ONLINE":
+    case "CARD":
+      return "bg-blue-50 text-blue-700 border-blue-200 font-bold";
+    case "SPLIT":
+    case "MULTIPLE":
+      return "bg-amber-50 text-amber-700 border-amber-200 font-bold";
+    default:
+      return "bg-gray-50 text-gray-700 border-gray-200 font-bold";
+  }
+};
+
+const getOrderPaymentModes = (order) => {
+  if (order.paymentMode !== "MULTIPLE") {
+    return [order.paymentMode];
+  }
+
+  const modes = [];
+  if (order.splitCash > 0) {
+    modes.push("CASH");
+  }
+  if (order.splitUpi > 0) {
+    modes.push("UPI");
+  }
+  if (order.splitCard > 0) {
+    modes.push("CARD");
+  }
+  if (order.grandTotal - order.amountPaid > 0.01) {
+    modes.push("CREDIT");
+  }
+
+  if (modes.length === 0) {
+    modes.push("MULTIPLE");
+  }
+  return modes;
+};
+
 export default function OrdersTable({
   initialOrders,
   userRole,
@@ -426,8 +470,24 @@ export default function OrdersTable({
                       <span className="md:hidden text-xs font-bold text-gray-500 uppercase">
                         Grand Total:
                       </span>
-                      <div className="text-lg md:text-xl font-black text-green-600">
-                        {`₹${formatNumber(order.grandTotal, 2)}`}
+                      <div className="flex flex-col items-end">
+                        <div className="text-lg md:text-xl font-black text-green-600">
+                          {`₹${formatNumber(order.grandTotal, 2)}`}
+                        </div>
+                        {order.paymentMode && (
+                          <div className="flex flex-wrap gap-1 justify-end mt-1.5">
+                            {getOrderPaymentModes(order).map((mode) => (
+                              <span
+                                key={mode}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${getPaymentBadgeStyles(
+                                  mode
+                                )}`}
+                              >
+                                {mode.replace("_", " ")}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
