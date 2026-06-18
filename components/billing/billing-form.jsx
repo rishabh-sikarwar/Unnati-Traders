@@ -32,6 +32,7 @@ export default function BillingForm({
     b2b: true, // FIX: Defaulting to true (B2B Dealer)
     name: "",
     phone: "",
+    email: "",
     address: "",
     gstNumber: "",
     paymentMode: "Cash",
@@ -90,6 +91,7 @@ export default function BillingForm({
       id: selectedCustomer.id,
       name: selectedCustomer.name,
       phone: selectedCustomer.phone || "",
+      email: selectedCustomer.email || "",
       address: selectedCustomer.address || "",
       gstNumber: selectedCustomer.gstNumber || "",
     });
@@ -327,7 +329,7 @@ export default function BillingForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* SMART AUTOCOMPLETE FIELD */}
             <div className="relative" ref={dropdownRef}>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
@@ -399,8 +401,26 @@ export default function BillingForm({
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                Email Address (Optional)
+              </label>
+              <input
+                type="email"
+                value={customer.email}
+                onChange={(e) =>
+                  setCustomer({
+                    ...customer,
+                    email: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all"
+                placeholder="customer@example.com"
+              />
+            </div>
+
             {customer.b2b && (
-              <div className="sm:col-span-2 animate-in fade-in zoom-in duration-300">
+              <div className="sm:col-span-3 animate-in fade-in zoom-in duration-300">
                 <label className="block text-xs font-bold text-[#522874] uppercase mb-1">
                   GST Number (Optional)
                 </label>
@@ -418,7 +438,7 @@ export default function BillingForm({
               </div>
             )}
 
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-3">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                 Address / Notes
               </label>

@@ -56,6 +56,7 @@ export default async function BillingPage() {
       id: true,
       name: true,
       phone: true,
+      email: true,
       address: true,
       gstNumber: true,
     },

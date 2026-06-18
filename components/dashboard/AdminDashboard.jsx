@@ -17,6 +17,7 @@ import {
   Undo2,
   Truck,
   Plus, // IMPORT THE NEW ICON
+  GitMerge,
 } from "lucide-react";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard"; 
 
@@ -186,6 +187,12 @@ const AdminDashboard = () => {
               icon: Plus,
               href: "/stock",
               color: "text-rose-600",
+            },
+            {
+              title: "Merge Customers",
+              icon: GitMerge,
+              href: "/customers/merge",
+              color: "text-purple-600",
             },
           ].map((card, idx) => (
             <Link key={idx} href={card.href} onClick={() => setLoadingHref(card.href)}>

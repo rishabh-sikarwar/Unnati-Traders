@@ -89,6 +89,7 @@ export async function POST(req) {
                 where: { id: customerInfo.id },
                 data: {
                   phone: customerInfo.phone || null,
+                  email: customerInfo.email || null,
                   address: customerInfo.address || null,
                   gstNumber: customerInfo.gstNumber || null,
                 },
@@ -99,6 +100,7 @@ export async function POST(req) {
                   type: customerInfo.b2b ? "SUB_DEALER" : "RETAIL",
                   name: customerInfo.name || "Walk-in Customer",
                   phone: customerInfo.phone || null,
+                  email: customerInfo.email || null,
                   address: customerInfo.address || null,
                   gstNumber: customerInfo.gstNumber || null,
                 },
@@ -283,13 +285,23 @@ export async function POST(req) {
     // --- 4. ASYNCHRONOUS EMAIL NOTIFICATION ---
     const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://unnati-traders.vercel.app"}/billing/receipt/${result.id}`;
 
+    const toEmails = [
+      "binaybhadoria@gmail.com",
+      "neeluchouhan222@gmail.com",
+      "rishabhsikarwar200@gmail.com",
+    ];
+
+    if (dbCustomer && dbCustomer.email && dbCustomer.email.trim()) {
+      const trimmedEmail = dbCustomer.email.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (emailRegex.test(trimmedEmail)) {
+        toEmails.push(trimmedEmail);
+      }
+    }
+
     const mailOptions = {
       from: `"Unnati Traders ERP" <${process.env.EMAIL_USER}>`,
-      to: [
-        "binaybhadoria@gmail.com",
-        "neeluchouhan222@gmail.com",
-        "rishabhsikarwar200@gmail.com",
-      ],
+      to: toEmails,
       subject: `New Sale Alert: ${result.invoiceNumber} (₹${formatNumber(result.grandTotal, 2)})`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 600px; border: 1px solid #ddd; border-radius: 10px;">
