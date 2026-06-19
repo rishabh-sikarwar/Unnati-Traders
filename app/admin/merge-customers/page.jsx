@@ -42,10 +42,10 @@ export default async function CustomerMergePage() {
         <div className="flex justify-between items-center border-b border-gray-200 pb-6">
           <div>
             <Link
-              href="/dashboard"
+              href="/admin"
               className="inline-flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-purple-700 transition-colors mb-2"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to Admin Dashboard
+              <ArrowLeft className="w-4 h-4" /> Back to Admin Command Center
             </Link>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
               <GitMerge className="text-[#522874] h-8 w-8" />

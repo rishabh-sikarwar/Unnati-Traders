@@ -191,7 +191,7 @@ const AdminDashboard = () => {
             {
               title: "Merge Customers",
               icon: GitMerge,
-              href: "/customers/merge",
+              href: "/admin/merge-customers",
               color: "text-purple-600",
             },
           ].map((card, idx) => (
