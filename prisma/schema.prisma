@@ -89,6 +89,7 @@ model Customer {
   type       CustomerType
   name       String
   phone      String?
+  email      String?
   gstNumber  String?
   address    String?
   openingBalance Decimal   @default(0) @db.Decimal(18, 2)
