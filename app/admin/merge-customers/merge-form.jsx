@@ -116,111 +116,13 @@ export default function MergeForm({ customers }) {
   return (
     <div className="space-y-6">
       {/* Search columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-6 items-center">
         
-        {/* Column 1: Primary Profile (To Keep) */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm relative space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs font-black">
-              1
-            </span>
-            <h2 className="font-bold text-gray-800 text-base">
-              Target Profile (Account to Keep)
-            </h2>
-          </div>
-
-          <div className="relative" ref={primaryRef}>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
-              Search Customer Name / Phone
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={primarySelected ? primarySelected.name : primaryQuery}
-                onFocus={() => {
-                  setPrimaryOpen(true);
-                  if (primarySelected) {
-                    setPrimarySelected(null);
-                    setPrimaryQuery("");
-                  }
-                }}
-                onChange={(e) => {
-                  setPrimaryQuery(e.target.value);
-                  setPrimarySelected(null);
-                  setPrimaryOpen(true);
-                }}
-                className={`w-full pl-9 pr-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-purple-500 transition-all font-medium ${
-                  primarySelected
-                    ? "bg-purple-50/60 border-purple-300 font-bold text-purple-900"
-                    : "border-gray-300 text-gray-700"
-                }`}
-                placeholder="Type customer name..."
-              />
-            </div>
-
-            {primaryOpen && (
-              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
-                {filteredPrimary.length > 0 ? (
-                  filteredPrimary.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setPrimarySelected(c);
-                        setPrimaryOpen(false);
-                      }}
-                      className="px-4 py-2.5 hover:bg-purple-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-bold text-gray-800 text-sm">{c.name}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {c.phone} • <span className="uppercase font-semibold text-[#522874]">{c.type.replace("_", " ")}</span>
-                        </div>
-                      </div>
-                      <Building className="w-4 h-4 text-gray-400" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-xs text-gray-500 italic">
-                    No customers found matching "{primaryQuery}"
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Primary Selection Summary Card */}
-          {primarySelected ? (
-            <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-4 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-start">
-                <span className="text-xs text-purple-700 font-black tracking-wider uppercase bg-purple-100/60 px-2.5 py-0.5 rounded-full">
-                  Keep Active
-                </span>
-                <span className="text-xs text-gray-400 font-medium">ID: {primarySelected.id.slice(0, 8)}...</span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <p className="font-black text-gray-900">{primarySelected.name}</p>
-                <p className="text-gray-500 text-xs">Phone: {primarySelected.phone}</p>
-                {primarySelected.gstNumber && <p className="text-gray-500 text-xs uppercase font-semibold">GSTIN: {primarySelected.gstNumber}</p>}
-                {primarySelected.address && <p className="text-gray-500 text-xs truncate">Address: {primarySelected.address}</p>}
-              </div>
-              <div className="pt-2 border-t border-purple-100 flex justify-between items-center">
-                <span className="text-xs text-gray-500 font-bold uppercase">Opening Balance:</span>
-                <span className="font-bold text-purple-900 text-sm">₹{formatNumber(primarySelected.openingBalance, 2)}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs font-semibold">
-              Select customer profile that you want to keep.
-            </div>
-          )}
-        </div>
-
-        {/* Column 2: Duplicate Profile (To Merge & Delete) */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm relative space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+        {/* Column 1: Duplicate Profile (To Merge & Delete) */}
+        <div className="bg-rose-50/5 p-5 rounded-2xl border border-rose-200 shadow-md relative space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-rose-100">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-black">
-              2
+              1
             </span>
             <h2 className="font-bold text-gray-800 text-base">
               Duplicate Profile (To Merge & Delete)
@@ -310,6 +212,111 @@ export default function MergeForm({ customers }) {
           ) : (
             <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs font-semibold">
               Select customer profile that you want to delete.
+            </div>
+          )}
+        </div>
+
+        {/* Directional Arrow Middle Column */}
+        <div className="flex justify-center py-2 lg:py-0">
+          <div className="bg-purple-100 text-purple-700 p-3 rounded-full shadow-sm transition-transform duration-300 hover:scale-110">
+            <ArrowRight className="w-5 h-5 rotate-90 lg:rotate-0" />
+          </div>
+        </div>
+
+        {/* Column 3: Target Profile (Account to Keep) */}
+        <div className="bg-emerald-50/5 p-5 rounded-2xl border border-emerald-200 shadow-md relative space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-emerald-100">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black">
+              2
+            </span>
+            <h2 className="font-bold text-gray-800 text-base">
+              Target Profile (Account to Keep)
+            </h2>
+          </div>
+
+          <div className="relative" ref={primaryRef}>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
+              Search Customer Name / Phone
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={primarySelected ? primarySelected.name : primaryQuery}
+                onFocus={() => {
+                  setPrimaryOpen(true);
+                  if (primarySelected) {
+                    setPrimarySelected(null);
+                    setPrimaryQuery("");
+                  }
+                }}
+                onChange={(e) => {
+                  setPrimaryQuery(e.target.value);
+                  setPrimarySelected(null);
+                  setPrimaryOpen(true);
+                }}
+                className={`w-full pl-9 pr-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium ${
+                  primarySelected
+                    ? "bg-emerald-50/60 border-emerald-300 font-bold text-emerald-900"
+                    : "border-gray-300 text-gray-700"
+                }`}
+                placeholder="Type customer name..."
+              />
+            </div>
+
+            {primaryOpen && (
+              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+                {filteredPrimary.length > 0 ? (
+                  filteredPrimary.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setPrimarySelected(c);
+                        setPrimaryOpen(false);
+                      }}
+                      className="px-4 py-2.5 hover:bg-emerald-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-bold text-gray-800 text-sm">{c.name}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {c.phone} • <span className="uppercase font-semibold text-[#522874]">{c.type.replace("_", " ")}</span>
+                        </div>
+                      </div>
+                      <Building className="w-4 h-4 text-gray-400" />
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs text-gray-500 italic">
+                    No customers found matching "{primaryQuery}"
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Primary Selection Summary Card */}
+          {primarySelected ? (
+            <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-start">
+                <span className="text-xs text-emerald-700 font-black tracking-wider uppercase bg-emerald-100/60 px-2.5 py-0.5 rounded-full">
+                  Keep Active
+                </span>
+                <span className="text-xs text-gray-400 font-medium">ID: {primarySelected.id.slice(0, 8)}...</span>
+              </div>
+              <div className="space-y-1 text-sm">
+                <p className="font-black text-gray-900">{primarySelected.name}</p>
+                <p className="text-gray-500 text-xs">Phone: {primarySelected.phone}</p>
+                {primarySelected.gstNumber && <p className="text-gray-500 text-xs uppercase font-semibold">GSTIN: {primarySelected.gstNumber}</p>}
+                {primarySelected.address && <p className="text-gray-500 text-xs truncate">Address: {primarySelected.address}</p>}
+              </div>
+              <div className="pt-2 border-t border-emerald-100 flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-bold uppercase">Opening Balance:</span>
+                <span className="font-bold text-emerald-900 text-sm">₹{formatNumber(primarySelected.openingBalance, 2)}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs font-semibold">
+              Select customer profile that you want to keep.
             </div>
           )}
         </div>

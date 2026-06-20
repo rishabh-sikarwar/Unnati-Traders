@@ -89,7 +89,7 @@ const Header = () => {
   }, [user, isLoaded]);
 
   // Both Admin and Shopkeeper get the Staff Links
-  const isInternalUser = dbRole === "ADMIN" || dbRole === "SHOPKEEPER";
+  const isInternalUser = dbRole?.toUpperCase() === "ADMIN" || dbRole?.toUpperCase() === "SHOPKEEPER";
 
   const publicLinks = [
     { name: "Tyres", icon: LayoutDashboard, href: "/tyres" },
@@ -180,7 +180,7 @@ const Header = () => {
             <div className="flex items-center gap-2 sm:gap-3">
               <SignedIn>
                 {/* UPGRADED TOP NAV FOR STAFF */}
-                {!isRoleLoading && isInternalUser && (
+                {isInternalUser && (
                   <nav className="hidden lg:flex items-center gap-0.5 bg-black/25 backdrop-blur-sm px-1.5 py-1.5 rounded-xl border border-white/10 shadow-inner animate-in fade-in duration-300">
                     {staffLinks.map((item) => (
                       <Link
@@ -233,7 +233,7 @@ const Header = () => {
 
         {/* MOBILE STAFF BAR (Scrollable horizontally) */}
         <SignedIn>
-          {!isRoleLoading && isInternalUser && (
+          {isInternalUser && (
             <div className="hidden md:flex lg:hidden border-t border-white/10 bg-black/20 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="max-w-[1400px] mx-auto px-4 flex items-center gap-1 py-1.5 w-full overflow-x-auto scrollbar-none">
                 {staffLinks.map((item) => (
@@ -296,7 +296,7 @@ const Header = () => {
           </SignedOut>
 
           <SignedIn>
-            {!isRoleLoading && isInternalUser && (
+            {isInternalUser && (
               <section className="mb-5">
                 <div className="flex items-center gap-2 px-3 mb-2">
                   <LayoutGrid size={12} className="text-[#522874]" />

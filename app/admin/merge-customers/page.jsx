@@ -2,12 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import MergeForm from "./merge-form";
+import CustomerDirectory from "./customer-directory";
 import { ArrowLeft, GitMerge } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomerMergePage() {
+export default async function CustomerMergePage({ searchParams }) {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
@@ -19,14 +20,48 @@ export default async function CustomerMergePage() {
     redirect("/");
   }
 
-  // Fetch all active customers to be merged
-  const customers = await prisma.customer.findMany({
-    where: { isArchived: false },
-    orderBy: { name: "asc" },
-  });
+  // Parse search parameters safely
+  const resolvedSearchParams = await searchParams;
+  const page = Number(resolvedSearchParams.page) || 1;
+  const query = resolvedSearchParams.query || "";
+  const type = resolvedSearchParams.type || "ALL";
 
-  // Serialize to prevent Prisma Decimal serialization issues
-  const serializedCustomers = customers.map((c) => ({
+  const take = 20;
+  const skip = (page - 1) * take;
+
+  // Build prisma where filter for the table list
+  const tableWhere = {
+    isArchived: false,
+  };
+
+  if (query) {
+    tableWhere.OR = [
+      { name: { contains: query, mode: "insensitive" } },
+      { phone: { contains: query, mode: "insensitive" } },
+    ];
+  }
+
+  if (type !== "ALL") {
+    tableWhere.type = type;
+  }
+
+  // Fetch data in a single database transaction
+  const [tableCustomers, totalCount, allActiveCustomers] = await prisma.$transaction([
+    prisma.customer.findMany({
+      where: tableWhere,
+      skip,
+      take,
+      orderBy: { name: "asc" },
+    }),
+    prisma.customer.count({ where: tableWhere }),
+    prisma.customer.findMany({
+      where: { isArchived: false },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  // Serialize all active customers for the MergeForm dropdowns (all active profiles)
+  const serializedAllCustomers = allActiveCustomers.map((c) => ({
     id: c.id,
     name: c.name,
     phone: c.phone || "No Phone",
@@ -36,9 +71,21 @@ export default async function CustomerMergePage() {
     address: c.address || "",
   }));
 
+  // Serialize table customers (paginated & filtered list)
+  const serializedTableCustomers = tableCustomers.map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone || "—",
+    email: c.email || "—",
+    type: c.type,
+    openingBalance: Number(c.openingBalance),
+    gstNumber: c.gstNumber || "—",
+    address: c.address || "—",
+  }));
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-12 pt-28 md:pt-32">
-      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
         <div className="flex justify-between items-center border-b border-gray-200 pb-6">
           <div>
             <Link
@@ -57,7 +104,23 @@ export default async function CustomerMergePage() {
           </div>
         </div>
 
-        <MergeForm customers={serializedCustomers} />
+        <MergeForm customers={serializedAllCustomers} />
+
+        <hr className="my-8 border-gray-200" />
+
+        <div className="space-y-4">
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            Master Customer Directory
+          </h2>
+          <CustomerDirectory
+            customers={serializedTableCustomers}
+            page={page}
+            query={query}
+            type={type}
+            totalCount={totalCount}
+            take={take}
+          />
+        </div>
       </div>
     </div>
   );
