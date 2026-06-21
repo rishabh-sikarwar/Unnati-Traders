@@ -22,6 +22,9 @@ import {
   Package,
   Filter,
   Loader2,
+  Calendar,
+  Store,
+  ChevronDown,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import toast from "react-hot-toast";
@@ -46,6 +49,33 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
   const [locationId, setLocationId] = useState(
     initialData?.defaultLocationId || "ALL",
   );
+
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+
+  const dateRanges = [
+    { value: "today", label: "Today" },
+    { value: "yesterday", label: "Yesterday" },
+    { value: "7", label: "Last 7 Days" },
+    { value: "month", label: "This Month" },
+    { value: "lastmonth", label: "Last Month" },
+    { value: "90", label: "Last 3 Months" },
+    { value: "365", label: "This Year" },
+  ];
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest(".date-dropdown-container")) {
+        setDateDropdownOpen(false);
+      }
+      if (!e.target.closest(".location-dropdown-container")) {
+        setLocationDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const fetchFilteredData = async () => {
     setLoading(true);
@@ -72,82 +102,169 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
   const salesData = data?.salesData || [];
   const categoryData = data?.categoryData || [];
 
+  const safeCategoryData = categoryData.map(item => ({
+    ...item,
+    value: Number(item.value) || 0
+  }));
+  
+  const safeSalesData = salesData.map(item => ({
+    ...item,
+    sales: Number(item.sales) || 0,
+    purchases: Number(item.purchases) || 0
+  }));
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* FILTER TOOLBAR */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4">
         <div className="flex items-center gap-2 text-gray-500 font-bold text-sm uppercase tracking-widest shrink-0">
           <Filter className="w-4 h-4 text-[#522874]" /> Filters:
         </div>
 
-        <div className="flex flex-wrap gap-3 w-full">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer flex-1 sm:flex-none"
-          >
-            <option value="month">This Month</option>
-            <option value="7">Last 7 Days</option>
-            <option value="90">Last 3 Months</option>
-            <option value="365">This Year</option>
-          </select>
-
-          {locations.length > 0 && (
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer flex-1 sm:flex-none"
+        <div className="flex flex-wrap gap-3 w-full items-center">
+          {/* Date Filter Dropdown */}
+          <div className="relative date-dropdown-container flex-1 sm:flex-none">
+            <button
+              onClick={() => {
+                setDateDropdownOpen(!dateDropdownOpen);
+                setLocationDropdownOpen(false);
+              }}
+              className="w-full sm:w-auto flex items-center justify-between gap-2.5 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer transition-all"
             >
-              <option value="ALL">All Shops & Warehouses</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
+              <span className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#522874]" />
+                {dateRanges.find((r) => r.value === dateRange)?.label || "Select Date"}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${dateDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {dateDropdownOpen && (
+              <div className="absolute left-0 mt-1.5 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                {dateRanges.map((r) => (
+                  <button
+                    key={r.value}
+                    onClick={() => {
+                      setDateRange(r.value);
+                      setDateDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center justify-between ${
+                      dateRange === r.value
+                        ? "bg-purple-50 text-[#522874] font-bold"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {r.label}
+                    {dateRange === r.value && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#522874]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Location Filter Dropdown */}
+          {locations.length > 0 && (
+            <div className="relative location-dropdown-container flex-1 sm:flex-none">
+              <button
+                onClick={() => {
+                  setLocationDropdownOpen(!locationDropdownOpen);
+                  setDateDropdownOpen(false);
+                }}
+                className="w-full sm:w-auto flex items-center justify-between gap-2.5 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <Store className="w-4 h-4 text-[#522874]" />
+                  {locationId === "ALL" 
+                    ? "All Shops & Warehouses" 
+                    : locations.find((l) => l.id === locationId)?.name || "Select Location"}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${locationDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {locationDropdownOpen && (
+                <div className="absolute left-0 mt-1.5 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-1.5 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    onClick={() => {
+                      setLocationId("ALL");
+                      setLocationDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center justify-between ${
+                      locationId === "ALL"
+                        ? "bg-purple-50 text-[#522874] font-bold"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    All Shops & Warehouses
+                    {locationId === "ALL" && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#522874]" />
+                    )}
+                  </button>
+                  {locations.map((loc) => (
+                    <button
+                      key={loc.id}
+                      onClick={() => {
+                        setLocationId(loc.id);
+                        setLocationDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center justify-between ${
+                        locationId === loc.id
+                          ? "bg-purple-50 text-[#522874] font-bold"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {loc.name}
+                      {locationId === loc.id && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#522874]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {loading && (
-            <Loader2 className="w-5 h-5 text-[#522874] animate-spin ml-2 self-center" />
+            <Loader2 className="w-5 h-5 text-[#522874] animate-spin ml-2 shrink-0" />
           )}
         </div>
       </div>
 
       {/* METRICS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-4 gap-6 transition-opacity duration-300 ${loading ? "opacity-65 pointer-events-none" : "opacity-100"}`}>
         {[
           {
             label: "Total Revenue",
             value: `₹${formatNumber(summary.totalSales || 0, 2)}`,
             icon: DollarSign,
             color: "text-green-600",
-            bg: "bg-green-100",
+            bg: "bg-gradient-to-br from-green-50 to-green-100 border border-green-200/50",
           },
           {
             label: "Total Purchases",
             value: `₹${formatNumber(summary.totalPurchases || 0, 2)}`,
             icon: TrendingUp,
             color: "text-purple-600",
-            bg: "bg-purple-100",
+            bg: "bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200/50",
           },
           {
             label: "Total Orders",
             value: summary.totalOrders || 0,
             icon: ShoppingCart,
             color: "text-blue-600",
-            bg: "bg-blue-100",
+            bg: "bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200/50",
           },
           {
             label: "Total Stock",
             value: summary.totalStock || 0,
             icon: Package,
             color: "text-orange-600",
-            bg: "bg-orange-100",
+            bg: "bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200/50",
           },
         ].map((metric, idx) => (
           <Card
             key={idx}
-            className="border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+            className="border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
           >
             <CardContent className="p-6 flex justify-between items-center">
               <div>
@@ -167,7 +284,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
       </div>
 
       {/* CHARTS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 transition-opacity duration-300 ${loading ? "opacity-65 pointer-events-none" : "opacity-100"}`}>
         {/* BAR CHART: REVENUE VS PURCHASES */}
         <Card className="lg:col-span-2 shadow-sm border border-gray-100">
           <CardHeader className="border-b border-gray-50 pb-4">
@@ -178,7 +295,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
           <CardContent className="pt-6">
             <ResponsiveContainer width="100%" height={320}>
               <BarChart
-                data={salesData}
+                data={safeSalesData}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <CartesianGrid
@@ -240,7 +357,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            {categoryData.length === 0 ? (
+            {safeCategoryData.length === 0 ? (
               <div className="h-[320px] flex items-center justify-center text-gray-400 font-medium">
                 No sales data available yet.
               </div>
@@ -248,7 +365,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie
-                    data={categoryData}
+                    data={safeCategoryData}
                     cx="50%"
                     cy="45%"
                     innerRadius={70}
@@ -258,7 +375,7 @@ export default function AnalyticsDashboard({ initialData, locations = [] }) {
                     paddingAngle={5}
                     stroke="none"
                   >
-                    {categoryData.map((entry, index) => (
+                    {safeCategoryData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}

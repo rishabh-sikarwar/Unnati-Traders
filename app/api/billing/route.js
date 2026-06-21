@@ -288,7 +288,6 @@ export async function POST(req) {
     const toEmails = [
       "binaybhadoria@gmail.com",
       "neeluchouhan222@gmail.com",
-      "rishabhsikarwar200@gmail.com",
     ];
 
     if (dbCustomer && dbCustomer.email && dbCustomer.email.trim()) {

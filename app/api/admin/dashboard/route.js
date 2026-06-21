@@ -39,10 +39,18 @@ export async function GET(req) {
     // Calculate the summary window.
     let cutoffDate;
     let summaryEndDate;
+    const now = new Date();
 
-    if (range === "month") {
-      const now = new Date();
-      cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (range === "today") {
+      cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      summaryEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (range === "yesterday") {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      cutoffDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+      summaryEndDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+    } else if (range === "month") {
+      cutoffDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       summaryEndDate = new Date(
         now.getFullYear(),
         now.getMonth() + 1,
@@ -52,9 +60,20 @@ export async function GET(req) {
         59,
         999,
       );
+    } else if (range === "lastmonth") {
+      cutoffDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      summaryEndDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
     } else {
-      const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
-      cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const days = parseInt(range) || (Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30);
+      cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
       summaryEndDate = new Date();
     }
 
