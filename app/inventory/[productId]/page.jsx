@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Package, CalendarDays, Filter, RefreshCcw } from "lucide-react";
+import { ChevronLeft, Package } from "lucide-react";
 import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
+import { ItemLedgerFilters } from "@/components/inventory/ItemLedgerFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
   const dateFilter = awaitedParams.date || "this_month";
   const customStart = awaitedParams.start;
   const customEnd = awaitedParams.end;
+  const locationFilter = awaitedParams.location || "ALL";
 
   const now = new Date();
   let startDate, endDate, targetMonth, targetYear;
@@ -71,8 +73,46 @@ export default async function ItemLedgerPage({ params, searchParams }) {
   }
 
   // 3. FETCH DATA
-  const [product, invoices, purchases, transferLogs, snapshots, stockAdjustmentLogs] =
+  const invoiceWhere = { createdAt: { gte: startDate, lt: endDate } };
+  if (locationFilter !== "ALL") invoiceWhere.locationId = locationFilter;
+
+  const purchaseWhere = { purchaseDate: { gte: startDate, lt: endDate } };
+  if (locationFilter !== "ALL") purchaseWhere.locationId = locationFilter;
+
+  const transferWhere = { productId, createdAt: { gte: startDate, lt: endDate } };
+  if (locationFilter !== "ALL") {
+    transferWhere.OR = [
+      { fromLocationId: locationFilter },
+      { toLocationId: locationFilter }
+    ];
+  }
+
+  const adjustmentWhere = { productId, createdAt: { gte: startDate, lt: endDate } };
+  if (locationFilter !== "ALL") adjustmentWhere.locationId = locationFilter;
+
+  const futureInvoiceWhere = { createdAt: { gte: endDate } };
+  if (locationFilter !== "ALL") futureInvoiceWhere.locationId = locationFilter;
+
+  const futurePurchaseWhere = { purchaseDate: { gte: endDate } };
+  if (locationFilter !== "ALL") futurePurchaseWhere.locationId = locationFilter;
+
+  const futureTransferWhere = { productId, createdAt: { gte: endDate } };
+  if (locationFilter !== "ALL") {
+    futureTransferWhere.OR = [
+      { fromLocationId: locationFilter },
+      { toLocationId: locationFilter }
+    ];
+  }
+
+  const futureAdjustmentWhere = { productId, createdAt: { gte: endDate } };
+  if (locationFilter !== "ALL") futureAdjustmentWhere.locationId = locationFilter;
+
+  const [
+    locations, product, invoices, purchases, transferLogs, snapshots, stockAdjustmentLogs,
+    futureInvoices, futurePurchases, futureTransferLogs, futureStockAdjustmentLogs
+  ] =
     await Promise.all([
+      prisma.location.findMany({ orderBy: { name: "asc" } }),
       prisma.product.findUnique({
         where: { id: productId },
         include: {
@@ -80,34 +120,52 @@ export default async function ItemLedgerPage({ params, searchParams }) {
         },
       }),
       prisma.invoice.findMany({
-        where: { createdAt: { gte: startDate, lt: endDate } },
+        where: invoiceWhere,
         include: { location: true, user: true, items: { where: { productId } } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.purchase.findMany({
-        where: { purchaseDate: { gte: startDate, lt: endDate } },
+        where: purchaseWhere,
         include: { location: true, user: true, items: { where: { productId } } },
         orderBy: { purchaseDate: "desc" },
       }),
       prisma.transferLog.findMany({
-        where: { productId, createdAt: { gte: startDate, lt: endDate } },
+        where: transferWhere,
         include: { fromLocation: true, toLocation: true, user: true },
         orderBy: { createdAt: "desc" },
       }),
       prisma.stockSnapshot.findMany({
-        where: { productId, month: targetMonth, year: targetYear },
+        where: { productId, month: targetMonth, year: targetYear, ...(locationFilter !== "ALL" && { locationId: locationFilter }) }, 
       }),
       prisma.stockAdjustmentLog.findMany({
-        where: { productId, createdAt: { gte: startDate, lt: endDate } },
+        where: adjustmentWhere,
         include: { location: true, user: true },
         orderBy: { createdAt: "desc" },
+      }),
+      prisma.invoice.findMany({
+        where: futureInvoiceWhere,
+        include: { items: { where: { productId } } },
+      }),
+      prisma.purchase.findMany({
+        where: futurePurchaseWhere,
+        include: { items: { where: { productId } } },
+      }),
+      prisma.transferLog.findMany({
+        where: futureTransferWhere,
+      }),
+      prisma.stockAdjustmentLog.findMany({
+        where: futureAdjustmentWhere,
       }),
     ]);
 
   if (!product) notFound();
 
   // 4. PROCESS TIMELINE & METRICS
-  const currentLiveStock = sumQuantity(product.inventories);
+  const currentLiveStock = sumQuantity(
+    locationFilter === "ALL"
+      ? product.inventories
+      : product.inventories.filter((inv) => inv.locationId === locationFilter)
+  );
 
   const monthlySales = invoices.flatMap((invoice) =>
     invoice.items.map((item) => ({
@@ -135,14 +193,31 @@ export default async function ItemLedgerPage({ params, searchParams }) {
 
   let totalTransfers = 0;
   const monthlyTransfers = transferLogs.map((transfer) => {
-    totalTransfers += transfer.quantity;
+    let type = "TRANSFER";
+    let qtyIn = transfer.quantity;
+    let qtyOut = transfer.quantity;
+
+    if (locationFilter !== "ALL") {
+      if (transfer.toLocationId === locationFilter) {
+        type = "INWARD TRANSFER";
+        qtyOut = 0;
+        totalTransfers += transfer.quantity;
+      } else if (transfer.fromLocationId === locationFilter) {
+        type = "OUTWARD TRANSFER";
+        qtyIn = 0;
+        totalTransfers += transfer.quantity;
+      }
+    } else {
+      totalTransfers += transfer.quantity;
+    }
+
     return {
       date: transfer.createdAt,
-      type: "TRANSFER",
+      type,
       reference: `XFER-${transfer.id.slice(0, 8).toUpperCase()}`,
       location: `${transfer.fromLocation?.name || "Unknown"} → ${transfer.toLocation?.name || "Unknown"}`,
-      qtyIn: transfer.quantity,
-      qtyOut: transfer.quantity,
+      qtyIn,
+      qtyOut,
       user: getUserLabel(transfer.user),
     };
   });
@@ -163,6 +238,34 @@ export default async function ItemLedgerPage({ params, searchParams }) {
 
   const salesOut = sumQuantity(monthlySales.map((item) => ({ quantity: item.qtyOut })));
   const purchasesIn = sumQuantity(monthlyPurchases.map((item) => ({ quantity: item.qtyIn })));
+  const transfersIn = sumQuantity(monthlyTransfers.map((item) => ({ quantity: item.qtyIn })));
+  const transfersOut = sumQuantity(monthlyTransfers.map((item) => ({ quantity: item.qtyOut })));
+  const manualIn = sumQuantity(manualAdjustments.map((item) => ({ quantity: item.qtyIn })));
+  const manualOut = sumQuantity(manualAdjustments.map((item) => ({ quantity: item.qtyOut })));
+
+  const totalIn = purchasesIn + transfersIn + manualIn;
+  const totalOut = salesOut + transfersOut + manualOut;
+  
+  const futureSalesOut = sumQuantity(futureInvoices.flatMap((invoice) => invoice.items.map(i => ({ quantity: i.quantity }))));
+  const futurePurchasesIn = sumQuantity(futurePurchases.flatMap((purchase) => purchase.items.map(i => ({ quantity: i.quantity }))));
+  
+  const futureTransfersIn = sumQuantity(futureTransferLogs.map(t => {
+    if (locationFilter !== "ALL" && t.toLocationId === locationFilter) return { quantity: t.quantity };
+    if (locationFilter === "ALL") return { quantity: t.quantity };
+    return { quantity: 0 };
+  }));
+  
+  const futureTransfersOut = sumQuantity(futureTransferLogs.map(t => {
+    if (locationFilter !== "ALL" && t.fromLocationId === locationFilter) return { quantity: t.quantity };
+    if (locationFilter === "ALL") return { quantity: t.quantity };
+    return { quantity: 0 };
+  }));
+  
+  const futureManualIn = sumQuantity(futureStockAdjustmentLogs.map(log => ({ quantity: log.quantityChange > 0 ? log.quantityChange : 0 })));
+  const futureManualOut = sumQuantity(futureStockAdjustmentLogs.map(log => ({ quantity: log.quantityChange < 0 ? Math.abs(log.quantityChange) : 0 })));
+
+  const futureTotalIn = futurePurchasesIn + futureTransfersIn + futureManualIn;
+  const futureTotalOut = futureSalesOut + futureTransfersOut + futureManualOut;
   
   const openingStockFromSnapshots = sumQuantity(snapshots);
   const hasSnapshot = snapshots.length > 0;
@@ -174,10 +277,16 @@ export default async function ItemLedgerPage({ params, searchParams }) {
   
   if (isCurrentMonth) {
     closingStock = currentLiveStock;
-    openingStock = hasSnapshot ? openingStockFromSnapshots : (currentLiveStock + salesOut - purchasesIn);
+    openingStock = hasSnapshot ? openingStockFromSnapshots : (currentLiveStock + totalOut - totalIn);
   } else {
-    openingStock = hasSnapshot ? openingStockFromSnapshots : 0;
-    closingStock = openingStock + purchasesIn - salesOut;
+    if (hasSnapshot) {
+      openingStock = openingStockFromSnapshots;
+      closingStock = openingStock + totalIn - totalOut;
+    } else {
+      // Time-travel fallback: Reverse the future transactions from the live stock
+      closingStock = currentLiveStock + futureTotalOut - futureTotalIn;
+      openingStock = closingStock + totalOut - totalIn;
+    }
   }
 
   const statCards = [
@@ -223,42 +332,7 @@ export default async function ItemLedgerPage({ params, searchParams }) {
         </section>
 
         {/* --- DATE FILTER TOOLBAR --- */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <form method="get" className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="w-full sm:w-auto text-xs font-bold uppercase text-gray-500 tracking-wider">
-              Date Filter
-            </div>
-            <div className="relative flex-1 w-full sm:w-auto">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <select
-                name="date"
-                defaultValue={dateFilter}
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#522874] outline-none bg-white cursor-pointer text-sm font-bold text-gray-700 shadow-sm"
-              >
-                <option value="this_month">This Month</option>
-                <option value="last_month">Last Month</option>
-                <option value="custom">Custom Range</option>
-              </select>
-            </div>
-            
-            {dateFilter === "custom" && (
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <input type="date" name="start" defaultValue={customStart || ""} className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-medium outline-none shadow-sm flex-1" />
-                <span className="text-gray-400 font-medium">to</span>
-                <input type="date" name="end" defaultValue={customEnd || ""} className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-medium outline-none shadow-sm flex-1" />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button type="submit" className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-[#522874] text-white font-bold hover:bg-[#3d1d56] transition-all shadow-sm text-sm">
-                Apply
-              </button>
-              <Link href={`/inventory/${productId}`} className="flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 transition-all shadow-sm text-sm bg-white gap-2">
-                <RefreshCcw size={16} /> Reset
-              </Link>
-            </div>
-          </form>
-        </section>
+        <ItemLedgerFilters locations={locations} />
 
         {/* --- 5 STAT CARDS --- */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
