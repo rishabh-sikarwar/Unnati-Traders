@@ -21,7 +21,15 @@ function getFiscalYearLabel(date = new Date()) {
 
 export async function POST(req) {
   try {
-    let { customerInfo, items, locationId, userId, totals } = await req.json();
+    const payload = await req.json();
+    console.log("Received Billing Payload:", JSON.stringify(payload, null, 2));
+
+    let { customerInfo, items, locationId, userId, totals } = payload;
+
+    if (!customerInfo || !items || !totals) {
+      console.error("Missing required fields in payload");
+      return NextResponse.json({ error: "Missing required fields (customerInfo, items, or totals)" }, { status: 400 });
+    }
 
     // Calculate backend exactTotal (subtotal + taxes) and round up to next integer for grandTotal
     const subDecimal = toDecimal(totals.subtotal);
@@ -60,6 +68,7 @@ export async function POST(req) {
 
     // --- 3. RETRY LOOP FOR SAFE INVOICE GENERATION ---
     let result = null;
+    let finalCustomer = null;
     const maxAttempts = 5;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -106,6 +115,8 @@ export async function POST(req) {
                 },
               });
             }
+            
+            finalCustomer = dbCustomer;
 
             // C. Smart Payment Logic (Splits)
             const isCredit = customerInfo.paymentMode === "Credit";
@@ -290,8 +301,8 @@ export async function POST(req) {
       "neeluchouhan222@gmail.com",
     ];
 
-    if (dbCustomer && dbCustomer.email && dbCustomer.email.trim()) {
-      const trimmedEmail = dbCustomer.email.trim();
+    if (finalCustomer && finalCustomer.email && finalCustomer.email.trim()) {
+      const trimmedEmail = finalCustomer.email.trim();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (emailRegex.test(trimmedEmail)) {
         toEmails.push(trimmedEmail);
@@ -332,9 +343,20 @@ export async function POST(req) {
       grandTotal: result.grandTotal,
     });
   } catch (error) {
-    console.error("Billing Error:", error);
+    console.error("Billing API Exception Details:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      // If it's a Prisma error, it might have a code or meta
+      code: error.code,
+      meta: error.meta,
+    });
+    
     return NextResponse.json(
-      { error: error.message || "Failed to process bill" },
+      { 
+        error: error.message || "Failed to process bill",
+        details: error.name
+      },
       { status: 400 },
     );
   }
