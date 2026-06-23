@@ -590,7 +590,7 @@ export default function CustomerLedger({
                   <input
                     required
                     type="number"
-                    min="1"
+                    min="0.01"
                     step="0.01"
                     max={moneyToString(paymentModal.customer.outstandingDues)}
                     value={payAmount}

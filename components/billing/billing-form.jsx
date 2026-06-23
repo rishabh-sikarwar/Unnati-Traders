@@ -26,6 +26,7 @@ export default function BillingForm({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [customer, setCustomer] = useState({
     id: null,
@@ -280,6 +281,7 @@ export default function BillingForm({
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Invoice Generated!", { id: loadingToast });
+      setIsRedirecting(true);
       router.push(`/billing/receipt/${data.invoiceId}`);
     } catch (error) {
       toast.error(error.message);
@@ -544,12 +546,14 @@ export default function BillingForm({
                         required
                         type="number"
                         min="1"
-                        step="0.01"
+                        step="1"
                         max={maxStock || 1}
                         value={item.quantity}
-                        onChange={(e) =>
-                          updateItem(item.rowId, "quantity", e.target.value)
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const parsed = parseInt(val, 10);
+                          updateItem(item.rowId, "quantity", isNaN(parsed) ? "" : parsed);
+                        }}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none h-[42px] transition-all"
                       />
                     </div>
@@ -894,11 +898,11 @@ export default function BillingForm({
 
           <button
             type="submit"
-            disabled={loading || cart.length === 0}
+            disabled={loading || isRedirecting || cart.length === 0}
             className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
-            {loading ? "Generating Bill..." : "GENERATE BILL"}
+            {loading || isRedirecting ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
+            {isRedirecting ? "Redirecting to Receipt..." : loading ? "Generating Bill..." : "GENERATE BILL"}
           </button>
         </div>
       </div>
