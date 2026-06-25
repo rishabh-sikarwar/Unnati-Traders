@@ -30,7 +30,14 @@ export default async function CustomerStatementPage({ params, searchParams }) {
     where: { isArchived: false },
     include: {
       invoices: { orderBy: { createdAt: "asc" } },
-      payments: { orderBy: { createdAt: "asc" } },
+      payments: {
+        where: {
+          paymentMode: {
+            not: "RETURN_CREDIT",
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       returns: { orderBy: { createdAt: "asc" } },
     },
   });
