@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -67,6 +67,7 @@ export default function OrdersTable({
   currentFilters,
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   // Local Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,11 +98,13 @@ export default function OrdersTable({
 
   // Update URL to trigger Server fetch
   const applyFilters = (newDate, newShop, newType, newStart, newEnd) => {
-    let url = `/orders?date=${newDate}&shopId=${newShop}&type=${newType}`;
-    if (newDate === "custom" && newStart && newEnd) {
-      url += `&start=${newStart}&end=${newEnd}`;
-    }
-    router.push(url);
+    startTransition(() => {
+      let url = `/orders?date=${newDate}&shopId=${newShop}&type=${newType}`;
+      if (newDate === "custom" && newStart && newEnd) {
+        url += `&start=${newStart}&end=${newEnd}`;
+      }
+      router.push(url);
+    });
   };
 
   // Local Search Filtering
@@ -208,8 +211,13 @@ export default function OrdersTable({
             placeholder="Search within these results..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#522874] transition-all font-medium text-gray-700"
+            className="w-full pl-11 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#522874] transition-all font-medium text-gray-700"
           />
+          {isPending && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+              <Loader2 className="w-5 h-5 text-[#522874] animate-spin" />
+            </div>
+          )}
         </div>
 
         {/* Global Server Filters */}
@@ -342,8 +350,16 @@ export default function OrdersTable({
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+        {isPending && (
+          <div className="absolute inset-0 bg-white/40 backdrop-blur-[0.5px] z-10 flex items-center justify-center transition-all duration-300 animate-in fade-in">
+            <div className="bg-white border border-gray-200 px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 font-bold text-sm text-[#522874]">
+              <Loader2 className="w-4 h-4 animate-spin text-[#522874]" /> Loading sales register...
+            </div>
+          </div>
+        )}
+        <div className={`transition-all duration-200 ${isPending ? "opacity-60 pointer-events-none blur-[0.5px]" : ""}`}>
+          <table className="w-full text-left border-collapse">
           <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -532,6 +548,7 @@ export default function OrdersTable({
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

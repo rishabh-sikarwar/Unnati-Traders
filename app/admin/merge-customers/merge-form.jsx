@@ -208,6 +208,12 @@ export default function MergeForm({ customers }) {
                 <span className="text-xs text-gray-500 font-bold uppercase">Opening Balance:</span>
                 <span className="font-bold text-rose-900 text-sm">₹{formatNumber(duplicateSelected.openingBalance, 2)}</span>
               </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-bold uppercase">Current Outstanding:</span>
+                <span className={`font-black text-sm ${duplicateSelected.currentBalance > 0 ? "text-red-600" : duplicateSelected.currentBalance < 0 ? "text-green-600" : "text-gray-700"}`}>
+                  ₹{formatNumber(duplicateSelected.currentBalance, 2)}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs font-semibold">
@@ -313,6 +319,12 @@ export default function MergeForm({ customers }) {
                 <span className="text-xs text-gray-500 font-bold uppercase">Opening Balance:</span>
                 <span className="font-bold text-emerald-900 text-sm">₹{formatNumber(primarySelected.openingBalance, 2)}</span>
               </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500 font-bold uppercase">Current Outstanding:</span>
+                <span className={`font-black text-sm ${primarySelected.currentBalance > 0 ? "text-red-600" : primarySelected.currentBalance < 0 ? "text-green-600" : "text-gray-700"}`}>
+                  ₹{formatNumber(primarySelected.currentBalance, 2)}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400 text-xs font-semibold">
@@ -336,6 +348,7 @@ export default function MergeForm({ customers }) {
               <ul className="text-xs text-amber-700 font-semibold space-y-1 mt-3 list-disc list-inside">
                 <li>Duplicate account will be permanently deleted from database.</li>
                 <li>Opening balances will be summed: <span className="font-extrabold">₹{formatNumber(primarySelected.openingBalance, 2)} + ₹{formatNumber(duplicateSelected.openingBalance, 2)} = ₹{formatNumber(primarySelected.openingBalance + duplicateSelected.openingBalance, 2)}</span>.</li>
+                <li>Current Outstanding will be summed: <span className="font-extrabold">₹{formatNumber(primarySelected.currentBalance, 2)} + ₹{formatNumber(duplicateSelected.currentBalance, 2)} = ₹{formatNumber(primarySelected.currentBalance + duplicateSelected.currentBalance, 2)}</span>.</li>
                 <li>All transaction registers (invoices, receipts, payments, ledger logs) will re-link to the target profile.</li>
               </ul>
             </div>

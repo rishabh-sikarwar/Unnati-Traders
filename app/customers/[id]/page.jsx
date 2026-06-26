@@ -2,11 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User, Receipt, HandCoins, Calendar } from "lucide-react";
+import { ArrowLeft, User, Receipt, HandCoins } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { toDecimal } from "@/lib/money";
 import StatementPrintButton from "./statement-print-button";
-import InvoicePreviewModal from "@/components/customers/invoice-preview-modal";
+import StatementTable from "@/components/customers/statement-table";
 import { startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, parseISO } from "date-fns";
 import StatementToolbar from "./statement-toolbar";
 
@@ -21,6 +21,11 @@ export default async function CustomerStatementPage({ params, searchParams }) {
 
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+  });
+  const isAdmin = dbUser?.role === "ADMIN";
 
   // We are treating the `params.id` URL slug as the Name string since we pass the Name instead of ID now.
   const decodedName = decodeURIComponent(id).toLowerCase().trim();
@@ -159,8 +164,12 @@ export default async function CustomerStatementPage({ params, searchParams }) {
   periodPayments.forEach((pay) => {
     periodTransactions.push({
       id: `pay-${pay.id}`,
+      rawId: pay.id,
       date: pay.createdAt,
       type: "PAYMENT",
+      paymentMode: pay.paymentMode,
+      remarks: pay.remarks || "",
+      invoiceId: pay.invoiceId || null,
       description: `Payment Received (${pay.paymentMode}) ${pay.remarks ? `- ${pay.remarks}` : ""}`,
       debit: toDecimal(0),
       credit: toDecimal(pay.amount),
@@ -338,80 +347,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
           </div>
 
           {/* The Ledger Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-gray-100/50 print:bg-gray-100 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 print:text-gray-800">
-                  <th className="py-4 px-6 font-bold">Date</th>
-                  <th className="py-4 px-6 font-bold">
-                    Transaction Description
-                  </th>
-                  <th className="py-4 px-6 font-bold text-right text-red-600 print:text-gray-800">
-                    Debit (-)
-                  </th>
-                  <th className="py-4 px-6 font-bold text-right text-green-600 print:text-gray-800">
-                    Credit (+)
-                  </th>
-                  <th className="py-4 px-6 font-bold text-right text-[#522874] print:text-gray-800">
-                    Balance
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {statement.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="py-12 text-center text-gray-400 font-medium"
-                    >
-                      No transactions recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  statement.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="border-b border-gray-100 hover:bg-purple-50/30 print:hover:bg-transparent transition-colors"
-                    >
-                      <td className="py-4 px-6 text-sm text-gray-600 font-medium whitespace-nowrap">
-                        <Calendar className="w-3 h-3 inline mr-1.5 opacity-50 print:hidden" />
-                        {new Date(row.date).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="py-4 px-6 text-sm">
-                        {row.type === "BILL" ? (
-                          <InvoicePreviewModal
-                            invoiceId={row.invoiceId}
-                            invoiceNumber={row.invoiceNumber}
-                          />
-                        ) : (
-                          <span
-                            className={`font-bold ${row.type === "BILL" || row.type === "OPENING" ? "text-gray-900" : "text-green-700 print:text-gray-600"}`}
-                          >
-                            {row.description}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-right text-sm font-bold text-red-500 print:text-gray-900">
-                        {row.debit > 0 ? `₹${formatNumber(row.debit, 2)}` : "-"}
-                      </td>
-                      <td className="py-4 px-6 text-right text-sm font-bold text-green-600 print:text-gray-900">
-                        {row.credit > 0
-                          ? `₹${formatNumber(row.credit, 2)}`
-                          : "-"}
-                      </td>
-                      <td className="py-4 px-6 text-right text-sm font-black text-[#522874] print:text-gray-900">
-                        {`₹${formatNumber(row.balance, 2)}`}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <StatementTable statement={statement} isAdmin={isAdmin} />
 
           <div className="hidden print:block mt-10 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center uppercase tracking-widest">
             Statement of Account generated from Unnati Traders ERP

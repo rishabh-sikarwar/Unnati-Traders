@@ -80,69 +80,7 @@ const AdminDashboard = () => {
           </Button>
         </div>
 
-        {/* PRIMARY ACTION CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/inventory" onClick={() => setLoadingHref("/inventory")}>
-            <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
-              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
-                <div>
-                  <p className="text-xs font-bold text-purple-500 uppercase tracking-widest mb-1">
-                    Check Stock
-                  </p>
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-[#522874]">
-                    Inventory Hub
-                  </h3>
-                </div>
-                {loadingHref === "/inventory" ? (
-                  <Loader2 className="text-[#522874] w-10 h-10 animate-spin shrink-0 ml-4" />
-                ) : (
-                  <Package className="text-[#522874] w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/purchases" onClick={() => setLoadingHref("/purchases")}>
-            <Card className="cursor-pointer group hover:shadow-lg hover:border-blue-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
-              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
-                <div>
-                  <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
-                    Incoming
-                  </p>
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-blue-700">
-                    Inward Stock
-                  </h3>
-                </div>
-                {loadingHref === "/purchases" ? (
-                  <Loader2 className="text-blue-600 w-10 h-10 animate-spin shrink-0 ml-4" />
-                ) : (
-                  <PackagePlus className="text-blue-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/billing" onClick={() => setLoadingHref("/billing")}>
-            <Card className="cursor-pointer group hover:shadow-lg hover:border-green-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
-              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
-                <div>
-                  <p className="text-xs font-bold text-green-500 uppercase tracking-widest mb-1">
-                    Outgoing
-                  </p>
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-green-700">
-                    New Sale Bill
-                  </h3>
-                </div>
-                {loadingHref === "/billing" ? (
-                  <Loader2 className="text-green-600 w-10 h-10 animate-spin shrink-0 ml-4" />
-                ) : (
-                  <ShoppingCart className="text-green-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
+        
         {/* SECONDARY SETTINGS (Now a 4-column grid) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
@@ -210,6 +148,69 @@ const AdminDashboard = () => {
               </Card>
             </Link>
           ))}
+        </div>
+
+        {/* PRIMARY ACTION CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/inventory" onClick={() => setLoadingHref("/inventory")}>
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-purple-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
+              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
+                <div>
+                  <p className="text-xs font-bold text-purple-500 uppercase tracking-widest mb-1">
+                    Check Stock
+                  </p>
+                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-[#522874]">
+                    Inventory Hub
+                  </h3>
+                </div>
+                {loadingHref === "/inventory" ? (
+                  <Loader2 className="text-[#522874] w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <Package className="text-[#522874] w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/purchases" onClick={() => setLoadingHref("/purchases")}>
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-blue-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
+              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
+                <div>
+                  <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
+                    Incoming
+                  </p>
+                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-blue-700">
+                    Inward Stock
+                  </h3>
+                </div>
+                {loadingHref === "/purchases" ? (
+                  <Loader2 className="text-blue-600 w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <PackagePlus className="text-blue-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/billing" onClick={() => setLoadingHref("/billing")}>
+            <Card className="cursor-pointer group hover:shadow-lg hover:border-green-400 border-2 transition-all duration-300 hover:-translate-y-1 bg-white h-full">
+              <CardContent className="p-6 md:p-8 flex justify-between items-center h-full">
+                <div>
+                  <p className="text-xs font-bold text-green-500 uppercase tracking-widest mb-1">
+                    Outgoing
+                  </p>
+                  <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-green-700">
+                    New Sale Bill
+                  </h3>
+                </div>
+                {loadingHref === "/billing" ? (
+                  <Loader2 className="text-green-600 w-10 h-10 animate-spin shrink-0 ml-4" />
+                ) : (
+                  <ShoppingCart className="text-green-600 w-10 h-10 group-hover:scale-110 transition-transform shrink-0 ml-4" />
+                )}
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* PLUG IN THE CLEAN SEPARATED ANALYTICS COMPONENT */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -26,6 +26,7 @@ export default function CustomerLedger({
   currentFilters,
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   // URL Filter States
   const [searchQuery, setSearchQuery] = useState(
@@ -73,20 +74,22 @@ export default function CustomerLedger({
 
   // --- TRIGGER SERVER RE-FETCH ---
   const applyFilters = (search, date, shop, dues, start, end) => {
-    const params = new URLSearchParams();
+    startTransition(() => {
+      const params = new URLSearchParams();
 
-    if (search) params.set("search", search);
-    if (date !== "all") params.set("date", date);
-    if (shop !== "ALL") params.set("shopId", shop);
-    if (dues) params.set("duesOnly", "true");
-    if (date === "custom" && start && end) {
-      params.set("start", start);
-      params.set("end", end);
-    }
+      if (search) params.set("search", search);
+      if (date !== "all") params.set("date", date);
+      if (shop !== "ALL") params.set("shopId", shop);
+      if (dues) params.set("duesOnly", "true");
+      if (date === "custom" && start && end) {
+        params.set("start", start);
+        params.set("end", end);
+      }
 
-    const queryString = params.toString();
-    router.replace(queryString ? `/customers?${queryString}` : "/customers", {
-      scroll: false,
+      const queryString = params.toString();
+      router.replace(queryString ? `/customers?${queryString}` : "/customers", {
+        scroll: false,
+      });
     });
   };
 
@@ -229,8 +232,13 @@ export default function CustomerLedger({
                 customEnd,
               );
             }}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
+            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none transition-all font-medium text-gray-700"
           />
+          {isPending && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+              <Loader2 className="w-5 h-5 text-[#522874] animate-spin" />
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
@@ -349,9 +357,17 @@ export default function CustomerLedger({
       </div>
 
       {/* DATA TABLE */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+        {isPending && (
+          <div className="absolute inset-0 bg-white/40 backdrop-blur-[0.5px] z-10 flex items-center justify-center transition-all duration-300 animate-in fade-in">
+            <div className="bg-white border border-gray-200 px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 font-bold text-sm text-[#522874]">
+              <Loader2 className="w-4 h-4 animate-spin text-[#522874]" /> Loading updated ledger...
+            </div>
+          </div>
+        )}
+        <div className={`transition-all duration-200 ${isPending ? "opacity-60 pointer-events-none blur-[0.5px]" : ""}`}>
+          <table className="w-full text-left border-collapse">
+            <thead className="hidden md:table-header-group bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
                 Customer Info
@@ -494,6 +510,7 @@ export default function CustomerLedger({
           </tbody>
         </table>
       </div>
+    </div>
 
       {/* --- CUSTOM ARCHIVE CONFIRMATION MODAL --- */}
       {archiveModal.isOpen && (

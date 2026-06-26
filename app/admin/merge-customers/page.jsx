@@ -5,6 +5,7 @@ import MergeForm from "./merge-form";
 import CustomerDirectory from "./customer-directory";
 import { ArrowLeft, GitMerge } from "lucide-react";
 import Link from "next/link";
+import { toDecimal } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -56,20 +57,31 @@ export default async function CustomerMergePage({ searchParams }) {
     prisma.customer.count({ where: tableWhere }),
     prisma.customer.findMany({
       where: { isArchived: false },
+      include: {
+        invoices: { select: { grandTotal: true } },
+        payments: { select: { amount: true } },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
 
   // Serialize all active customers for the MergeForm dropdowns (all active profiles)
-  const serializedAllCustomers = allActiveCustomers.map((c) => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone || "No Phone",
-    type: c.type,
-    openingBalance: Number(c.openingBalance),
-    gstNumber: c.gstNumber || "",
-    address: c.address || "",
-  }));
+  const serializedAllCustomers = allActiveCustomers.map((c) => {
+    const totalBilled = c.invoices.reduce((sum, inv) => sum.plus(toDecimal(inv.grandTotal)), toDecimal(0));
+    const totalPaid = c.payments.reduce((sum, pay) => sum.plus(toDecimal(pay.amount)), toDecimal(0));
+    const currentBalance = totalBilled.plus(toDecimal(c.openingBalance || 0)).minus(totalPaid);
+
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone || "No Phone",
+      type: c.type,
+      openingBalance: Number(c.openingBalance),
+      currentBalance: Number(currentBalance),
+      gstNumber: c.gstNumber || "",
+      address: c.address || "",
+    };
+  });
 
   // Serialize table customers (paginated & filtered list)
   const serializedTableCustomers = tableCustomers.map((c) => ({

@@ -38,7 +38,7 @@ export async function POST(req) {
 
     // 3. Prisma Transaction to safely merge customer records
     const result = await prisma.$transaction(async (tx) => {
-      // A. Fetch both profiles to make sure they exist
+      // A. Fetch both profiles to verify existence
       const primaryCustomer = await tx.customer.findUnique({
         where: { id: primaryCustomerId },
       });
@@ -50,12 +50,16 @@ export async function POST(req) {
         throw new Error("One or both customer accounts could not be found.");
       }
 
-      // B. Merge opening balances
+      // B. Balance Summation: Sum opening balances of both profiles
       const primaryBal = toDecimal(primaryCustomer.openingBalance || 0);
       const duplicateBal = toDecimal(duplicateCustomer.openingBalance || 0);
       const combinedBalance = primaryBal.plus(duplicateBal);
 
-      // C. Update primary customer opening balance
+      // C. Update Primary Customer record with consolidated opening balance
+      // Note: Outstanding dues are dynamically calculated in this ERP system:
+      // (openingBalance + Invoices.grandTotal - PaymentLogs.amount).
+      // Therefore, summing the opening balances here and re-linking relational registers (invoices, payments, returns)
+      // dynamically and correctly merges the overall outstanding balance without requiring separate cached balance field updates.
       await tx.customer.update({
         where: { id: primaryCustomerId },
         data: {
@@ -63,25 +67,25 @@ export async function POST(req) {
         },
       });
 
-      // D. Update Invoice records referencing duplicate customer
+      // D. Relational Re-linking: Update customer ID for Invoices
       await tx.invoice.updateMany({
         where: { customerId: duplicateCustomerId },
         data: { customerId: primaryCustomerId },
       });
 
-      // E. Update PaymentLog records referencing duplicate customer
+      // E. Relational Re-linking: Update customer ID for PaymentLogs (Payment History)
       await tx.paymentLog.updateMany({
         where: { customerId: duplicateCustomerId },
         data: { customerId: primaryCustomerId },
       });
 
-      // F. Update ReturnLog records referencing duplicate customer
+      // F. Relational Re-linking: Update customer ID for ReturnLogs (Tyre Returns)
       await tx.returnLog.updateMany({
         where: { customerId: duplicateCustomerId },
         data: { customerId: primaryCustomerId },
       });
 
-      // G. Delete the duplicate customer record
+      // G. Deletion: Delete duplicate Customer profile
       await tx.customer.delete({
         where: { id: duplicateCustomerId },
       });
