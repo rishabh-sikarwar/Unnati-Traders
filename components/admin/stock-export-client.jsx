@@ -94,14 +94,9 @@ export default function StockExportClient({ products, locations }) {
     try {
       const stockSheetData = filteredRows.map((row) => ({
         "Shop / Location": row.locationName,
-        SKU: row.sku,
         "Tyre Model": row.modelName,
         Size: row.size,
-        Category: row.category.replace(/_/g, " "),
         "Available Qty": row.quantity,
-        "Low Stock Threshold": row.lowStockThreshold,
-        Status:
-          row.quantity <= row.lowStockThreshold ? "Low Stock" : "In Stock",
       }));
 
       const summarySheetData = [
@@ -124,7 +119,7 @@ export default function StockExportClient({ products, locations }) {
       const stockWorksheet = XLSX.utils.json_to_sheet(stockSheetData);
       const workbook = XLSX.utils.book_new();
 
-      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Summary");
+      //XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Summary");
       XLSX.utils.book_append_sheet(workbook, stockWorksheet, "Filtered Stock");
 
       const safeLabel =
