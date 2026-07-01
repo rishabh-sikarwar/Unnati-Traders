@@ -8,8 +8,8 @@ export async function PATCH(req, { params }) {
     const { id } = await params;
     const { amount, reason } = await req.json();
 
-    if (!amount || Number(amount) <= 0) {
-      return NextResponse.json({ error: "Invalid amount. Must be greater than 0." }, { status: 400 });
+    if (amount === undefined || amount === null || amount === "" || isNaN(Number(amount)) || Number(amount) < 0) {
+      return NextResponse.json({ error: "Invalid amount. Must be 0 or greater." }, { status: 400 });
     }
 
     // 1. Authorization Check
@@ -22,8 +22,8 @@ export async function PATCH(req, { params }) {
       where: { id: clerkUser.id },
     });
 
-    if (!dbUser || dbUser.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden. Admin access required." }, { status: 403 });
+    if (!dbUser || (dbUser.role !== "ADMIN" && dbUser.role !== "SHOPKEEPER")) {
+      return NextResponse.json({ error: "Forbidden. Admin or Shopkeeper access required." }, { status: 403 });
     }
 
     // 2. Retrieve existing payment log
@@ -35,7 +35,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Payment record not found." }, { status: 404 });
     }
 
-    // 3. Prevent modifying Return Credits and Invoice payments
+    // 3. Prevent modifying Return Credits
     if (paymentLog.paymentMode === "RETURN_CREDIT") {
       return NextResponse.json(
         { error: "Return credits cannot be modified directly. Please reverse them in Sales Return History." },
@@ -43,11 +43,10 @@ export async function PATCH(req, { params }) {
       );
     }
 
-    if (paymentLog.invoiceId) {
-      return NextResponse.json(
-        { error: "Automatic invoice payments cannot be modified directly." },
-        { status: 400 }
-      );
+    // Determine if it is auto-migrated (linked to an invoice or contains "Auto-migrated" in remarks)
+    const isAutoMigrated = !!(paymentLog.invoiceId || (paymentLog.remarks && paymentLog.remarks.includes("Auto-migrated")));
+    if (isAutoMigrated && dbUser.role !== "ADMIN") {
+      return NextResponse.json({ error: "Only Admins can edit auto-migrated invoice payments." }, { status: 403 });
     }
 
     const oldAmount = Number(paymentLog.amount);

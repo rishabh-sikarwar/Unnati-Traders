@@ -5,13 +5,13 @@ import toast from "react-hot-toast";
 import { Loader2, X, Edit3, IndianRupee, MessageSquare } from "lucide-react";
 
 export default function EditPaymentModal({ payment, onClose, onSuccess }) {
-  const [amount, setAmount] = useState(payment.credit || "");
+  const [amount, setAmount] = useState(payment.credit !== undefined && payment.credit !== null ? String(payment.credit) : "");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) {
+    if (amount === "" || isNaN(Number(amount)) || Number(amount) < 0) {
       return toast.error("Please enter a valid amount.");
     }
 
@@ -91,7 +91,7 @@ export default function EditPaymentModal({ payment, onClose, onSuccess }) {
               <input
                 required
                 type="number"
-                min="0.01"
+                min="0"
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}

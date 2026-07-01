@@ -7,7 +7,7 @@ import { formatNumber } from "@/lib/format";
 import InvoicePreviewModal from "@/components/customers/invoice-preview-modal";
 import EditPaymentModal from "./edit-payment-modal";
 
-export default function StatementTable({ statement, isAdmin }) {
+export default function StatementTable({ statement, isAdmin, userRole }) {
   const router = useRouter();
   const [editingPayment, setEditingPayment] = useState(null);
 
@@ -82,17 +82,26 @@ export default function StatementTable({ statement, isAdmin }) {
                         {row.description}
                       </span>
 
-                      {/* Display Edit button only for manual payments (NOT Return Credits, NOT Bills, NOT Invoice-linked payments) and ONLY for Admin */}
-                      {row.type === "PAYMENT" && row.paymentMode !== "RETURN_CREDIT" && !row.invoiceId && isAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingPayment(row)}
-                          className="inline-flex items-center justify-center p-1 text-gray-400 hover:text-[#522874] hover:bg-purple-50 rounded transition-all ml-1.5 print:hidden active:scale-90 cursor-pointer"
-                          title="Edit Payment Amount"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      {/* Display Edit button only for manual payments, and auto-migrated payments for ADMIN only */}
+                      {(() => {
+                        const isPayment = row.type === "PAYMENT" && row.paymentMode !== "RETURN_CREDIT";
+                        const isAutoMigrated = isPayment && (row.invoiceId || (row.remarks && row.remarks.includes("Auto-migrated")));
+                        const isManual = isPayment && !isAutoMigrated;
+                        const showPencil = (userRole === "ADMIN" || userRole === "SHOPKEEPER") && (isManual || (isAutoMigrated && userRole === "ADMIN"));
+
+                        if (!showPencil) return null;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setEditingPayment(row)}
+                            className="inline-flex items-center justify-center p-1 text-gray-400 hover:text-[#522874] hover:bg-purple-50 rounded transition-all ml-1.5 print:hidden active:scale-90 cursor-pointer"
+                            title="Edit Payment Amount"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </td>

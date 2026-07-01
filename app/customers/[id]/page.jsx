@@ -347,7 +347,7 @@ export default async function CustomerStatementPage({ params, searchParams }) {
           </div>
 
           {/* The Ledger Table */}
-          <StatementTable statement={statement} isAdmin={isAdmin} />
+          <StatementTable statement={statement} isAdmin={isAdmin} userRole={dbUser?.role} />
 
           <div className="hidden print:block mt-10 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center uppercase tracking-widest">
             Statement of Account generated from Unnati Traders ERP
