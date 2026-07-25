@@ -459,11 +459,13 @@ export default function CustomerLedger({
                 <td className="block md:table-cell md:p-4 border-t md:border-none pt-4 md:pt-0">
                   <div className="flex flex-col sm:flex-row md:justify-end gap-2">
                     <button
-                      onClick={() =>
-                        router.push(
-                          `/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&date=${dateFilter}`,
-                        )
-                      }
+                      onClick={() => {
+                        let statementUrl = `/customers/${encodeURIComponent(c.name)}?shopId=${shopFilter}&date=${dateFilter}`;
+                        if (dateFilter === "custom" && customStart && customEnd) {
+                          statementUrl += `&start=${customStart}&end=${customEnd}`;
+                        }
+                        router.push(statementUrl);
+                      }}
                       className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
                     >
                       <FileText className="w-4 h-4" /> Statement

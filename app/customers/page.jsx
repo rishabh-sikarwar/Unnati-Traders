@@ -65,9 +65,28 @@ export default async function CustomersPage({ searchParams }) {
     cutoffEnd = endOfDay(new Date(customEnd));
   }
 
+  // Build Date Condition for Database Query (Prisma)
+  const dateFilterCondition =
+    cutoffStart || cutoffEnd
+      ? {
+          ...(cutoffStart ? { gte: cutoffStart } : {}),
+          ...(cutoffEnd ? { lte: cutoffEnd } : {}),
+        }
+      : null;
+
   // --- 2. FETCH MINIMAL DATA FROM DB ---
   const customers = await prisma.customer.findMany({
-    where: { isArchived: false },
+    where: {
+      isArchived: false,
+      ...(dateFilterCondition
+        ? {
+            OR: [
+              { invoices: { some: { createdAt: dateFilterCondition } } },
+              { payments: { some: { createdAt: dateFilterCondition } } },
+            ],
+          }
+        : {}),
+    },
     include: {
       invoices: {
         select: { grandTotal: true, createdAt: true, locationId: true },
@@ -160,12 +179,11 @@ export default async function CustomersPage({ searchParams }) {
     if (duesOnly && !outstandingDues.gt(0)) continue;
     if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
 
-    // If a date filter is applied, only show customers who had activity OR owe money
+    // If a date filter is applied (not "all"), only show customers who had activity (billed or paid) within the selected date window
     const hasActivity =
       dateFilter === "all" ||
       group.displayBilled.gt(0) ||
-      group.displayPaid.gt(0) ||
-      outstandingDues.gt(0);
+      group.displayPaid.gt(0);
     if (!hasActivity) continue;
 
     processedCustomers.push(group);

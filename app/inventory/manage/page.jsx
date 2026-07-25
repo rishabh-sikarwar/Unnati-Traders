@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import ManageStockForm from "@/components/inventory/manage-stock-form";
 import { ArrowLeft, PlusSquare, History } from "lucide-react";
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,20 @@ function formatDateTime(value) {
 }
 
 export default async function ManageStockPage() {
+  // 1. Authenticate user
+  const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
+  // 2. Fetch role from database
+  const dbUser = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+    select: { role: true },
+  });
+
+  if (!dbUser || dbUser.role !== "ADMIN") {
+    redirect("/stock");
+  }
+
   // Include inventories so the client form knows the current stock levels!
   const products = await prisma.product.findMany({
     include: { inventories: true },

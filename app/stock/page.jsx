@@ -461,12 +461,15 @@ export default function StockPage() {
                 : "View catalogue and stock for your shop."}
             </p>
           </div>
-          <Link
-            href="/inventory/manage"
-            className="flex items-center gap-2 bg-[#522874] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95 w-full md:w-auto justify-center"
-          >
-            <ArrowRightLeft size={18} /> Manage Physical Stock
-          </Link>
+          {/* Restrict Manage Physical Stock action button to Admins only */}
+          {currentUser?.role === "ADMIN" && (
+            <Link
+              href="/inventory/manage"
+              className="flex items-center gap-2 bg-[#522874] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95 w-full md:w-auto justify-center"
+            >
+              <ArrowRightLeft size={18} /> Manage Physical Stock
+            </Link>
+          )}
         </div>
 
         {/* --- ADD NEW TYRE FORM --- */}

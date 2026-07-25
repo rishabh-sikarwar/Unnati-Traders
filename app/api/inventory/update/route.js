@@ -9,6 +9,19 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Role-based Access Control: Check user's role directly from the database
+    const dbUser = await prisma.user.findUnique({
+      where: { id: clerkUser.id },
+      select: { role: true },
+    });
+
+    if (!dbUser || dbUser.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Forbidden: Admin privileges required to manage physical stock." },
+        { status: 403 }
+      );
+    }
+
     const { productId, locationId, quantity, type } = await req.json();
     const qtyNum = Number(quantity);
 
