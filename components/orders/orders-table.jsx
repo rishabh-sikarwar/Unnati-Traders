@@ -12,9 +12,82 @@ import {
   Filter,
   Trash2,
   AlertTriangle,
+  ReceiptText,
+  Wallet,
+  Smartphone,
+  CreditCard,
+  CircleDollarSign,
 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 import { formatNumber } from "@/lib/format";
+
+export function computeOrdersAnalytics(orders = []) {
+  let totalInvoices = orders.length;
+  let grossSales = 0;
+  let cashCollection = 0;
+  let upiCollection = 0;
+  let cardCollection = 0;
+  let creditSales = 0;
+  let totalItemsSold = 0;
+
+  orders.forEach((order) => {
+    const grandTotal = Number(order.grandTotal) || 0;
+    grossSales += grandTotal;
+    totalItemsSold += (order.totalItemsCount || 0);
+
+    let orderCash = 0;
+    let orderUpi = 0;
+    let orderCard = 0;
+
+    // 1. Priority: Check PaymentLog table entries linked to this invoice
+    if (Array.isArray(order.payments) && order.payments.length > 0) {
+      order.payments.forEach((p) => {
+        const amt = Number(p.amount) || 0;
+        const mode = String(p.paymentMode || "").toUpperCase();
+        if (mode === "CASH") orderCash += amt;
+        else if (mode === "UPI" || mode === "ONLINE") orderUpi += amt;
+        else if (mode === "CARD") orderCard += amt;
+      });
+    } else {
+      // 2. Fallback: Parse Invoice split/mode fields
+      const pMode = String(order.paymentMode || "").toUpperCase();
+      if (pMode === "MULTIPLE" || pMode === "SPLIT") {
+        orderCash = Number(order.splitCash) || 0;
+        orderUpi = Number(order.splitUpi) || 0;
+        orderCard = Number(order.splitCard) || 0;
+      } else if (pMode === "CASH") {
+        orderCash = Number(order.amountPaid) || grandTotal;
+      } else if (pMode === "UPI" || pMode === "ONLINE") {
+        orderUpi = Number(order.amountPaid) || grandTotal;
+      } else if (pMode === "CARD") {
+        orderCard = Number(order.amountPaid) || grandTotal;
+      }
+    }
+
+    // Accumulate payment mode collections
+    cashCollection += orderCash;
+    upiCollection += orderUpi;
+    cardCollection += orderCard;
+
+    // Credit calculation: total invoice value minus upfront payments collected
+    const totalPaidOnInvoice = orderCash + orderUpi + orderCard;
+    const unpaidBalance = Math.max(0, grandTotal - totalPaidOnInvoice);
+    creditSales += unpaidBalance;
+  });
+
+  const avgInvoiceValue = totalInvoices > 0 ? grossSales / totalInvoices : 0;
+
+  return {
+    totalInvoices,
+    grossSales,
+    cashCollection,
+    upiCollection,
+    cardCollection,
+    creditSales,
+    avgInvoiceValue,
+    totalItemsSold,
+  };
+}
 
 const getPaymentBadgeStyles = (mode) => {
   const normalized = String(mode).toUpperCase();
@@ -119,6 +192,10 @@ export default function OrdersTable({
       );
     });
   }, [initialOrders, searchQuery]);
+
+  const stats = useMemo(() => {
+    return computeOrdersAnalytics(filteredOrders);
+  }, [filteredOrders]);
 
   async function executeCancel() {
     setIsCanceling(true);
@@ -331,21 +408,136 @@ export default function OrdersTable({
         </div>
       </div>
 
-      {/* METRICS BANNER */}
-      <div className="flex justify-between items-center bg-purple-50 p-4 rounded-xl border border-purple-100">
-        <span className="text-sm font-bold text-[#522874] uppercase tracking-widest">
-          Selected Timeline Stats
-        </span>
-        <div className="text-right">
-          <span className="text-xs text-gray-500 font-bold uppercase mr-3">
-            Invoices: {filteredOrders.length}
-          </span>
-          <span className="text-xl font-black text-[#522874]">
-            {`₹${formatNumber(
-              filteredOrders.reduce((sum, order) => sum + Number(order.grandTotal), 0),
-              2,
-            )}`}
-          </span>
+      {/* ANALYTICS SUMMARY KPI GRID */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-1">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#522874] animate-pulse" />
+            <h2 className="text-xs font-bold text-[#522874] uppercase tracking-wider">
+              Selected Timeline Analytics
+            </h2>
+          </div>
+          <div className="text-xs font-semibold text-gray-500 flex items-center gap-3">
+            {stats.totalItemsSold > 0 && (
+              <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
+                {formatNumber(stats.totalItemsSold, 0)} Items Sold
+              </span>
+            )}
+            <span>
+              Avg Invoice: <strong className="text-gray-900">₹{formatNumber(stats.avgInvoiceValue, 0)}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* 6 KPI Cards Responsive Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {/* 1. TOTAL INVOICES */}
+          <div className="bg-indigo-50/50 border border-indigo-100 hover:border-indigo-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">
+                Total Invoices
+              </span>
+              <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
+                <FileText className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-indigo-950">
+              {stats.totalInvoices}
+            </div>
+            <div className="text-[11px] text-indigo-600 font-medium mt-1">
+              Avg ₹{formatNumber(stats.avgInvoiceValue, 0)}/inv
+            </div>
+          </div>
+
+          {/* 2. GROSS SALES */}
+          <div className="bg-purple-50/60 border border-purple-200 hover:border-purple-300 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-[#522874] uppercase tracking-wider">
+                Gross Sales
+              </span>
+              <div className="p-1.5 bg-purple-100 text-[#522874] rounded-lg">
+                <ReceiptText className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[#522874]">
+              ₹{formatNumber(stats.grossSales, 2)}
+            </div>
+            <div className="text-[11px] text-purple-700 font-medium mt-1">
+              Total Revenue
+            </div>
+          </div>
+
+          {/* 3. CASH COLLECTION */}
+          <div className="bg-emerald-50/50 border border-emerald-100 hover:border-emerald-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                Cash Collection
+              </span>
+              <div className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg">
+                <Wallet className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-950">
+              ₹{formatNumber(stats.cashCollection, 2)}
+            </div>
+            <div className="text-[11px] text-emerald-700 font-medium mt-1">
+              {stats.grossSales > 0 ? ((stats.cashCollection / stats.grossSales) * 100).toFixed(1) : "0.0"}% of sales
+            </div>
+          </div>
+
+          {/* 4. UPI COLLECTION */}
+          <div className="bg-blue-50/50 border border-blue-100 hover:border-blue-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">
+                UPI Collection
+              </span>
+              <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                <Smartphone className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-blue-950">
+              ₹{formatNumber(stats.upiCollection, 2)}
+            </div>
+            <div className="text-[11px] text-blue-700 font-medium mt-1">
+              {stats.grossSales > 0 ? ((stats.upiCollection / stats.grossSales) * 100).toFixed(1) : "0.0"}% of sales
+            </div>
+          </div>
+
+          {/* 5. CARD COLLECTION */}
+          <div className="bg-amber-50/50 border border-amber-100 hover:border-amber-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
+                Card Collection
+              </span>
+              <div className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
+                <CreditCard className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-amber-950">
+              ₹{formatNumber(stats.cardCollection, 2)}
+            </div>
+            <div className="text-[11px] text-amber-700 font-medium mt-1">
+              {stats.grossSales > 0 ? ((stats.cardCollection / stats.grossSales) * 100).toFixed(1) : "0.0"}% of sales
+            </div>
+          </div>
+
+          {/* 6. CREDIT SALES */}
+          <div className="bg-rose-50/50 border border-rose-100 hover:border-rose-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">
+                Credit Sales
+              </span>
+              <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+                <CircleDollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-rose-950">
+              ₹{formatNumber(stats.creditSales, 2)}
+            </div>
+            <div className="text-[11px] text-rose-700 font-medium mt-1">
+              {stats.grossSales > 0 ? ((stats.creditSales / stats.grossSales) * 100).toFixed(1) : "0.0"}% of sales
+            </div>
+          </div>
         </div>
       </div>
 

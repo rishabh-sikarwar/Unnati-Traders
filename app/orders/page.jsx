@@ -84,6 +84,8 @@ export default async function OrdersPage({ searchParams }) {
     include: {
       customer: true,
       location: true,
+      payments: true,
+      items: { select: { quantity: true } },
       _count: { select: { items: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -103,6 +105,13 @@ export default async function OrdersPage({ searchParams }) {
       ...inv.customer,
       openingBalance: Number(inv.customer.openingBalance),
     } : null,
+    payments: (inv.payments || []).map((p) => ({
+      ...p,
+      amount: Number(p.amount),
+    })),
+    totalItemsCount: inv.items
+      ? inv.items.reduce((sum, item) => sum + (item.quantity || 0), 0)
+      : 0,
   }));
 
   return (
