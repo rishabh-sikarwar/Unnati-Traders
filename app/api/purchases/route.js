@@ -73,6 +73,11 @@ export async function POST(req) {
               quantity: item.quantity,
             },
           });
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { isArchived: false },
+          });
         }
 
         return purchase;

@@ -7,7 +7,6 @@ export async function GET() {
   try {
     // Fetch all unique products and include their inventory arrays to calculate total stock later
     const products = await prisma.product.findMany({
-      where: { isArchived: false },
       include: { inventories: true },
       orderBy: { createdAt: "desc" },
     });

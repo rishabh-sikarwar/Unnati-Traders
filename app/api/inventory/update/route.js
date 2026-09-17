@@ -48,7 +48,7 @@ export async function POST(req) {
     const change = type === "add" ? qtyNum : -qtyNum;
 
     // 3. Execute transaction safely
-    const [updated] = await prisma.$transaction([
+    const txActions = [
       prisma.inventory.upsert({
         where: {
           productId_locationId: {
@@ -76,7 +76,18 @@ export async function POST(req) {
           userId: clerkUser.id,
         },
       }),
-    ]);
+    ];
+
+    if (type === "add") {
+      txActions.push(
+        prisma.product.update({
+          where: { id: productId },
+          data: { isArchived: false },
+        })
+      );
+    }
+
+    const [updated] = await prisma.$transaction(txActions);
 
     return NextResponse.json(updated);
   } catch (error) {

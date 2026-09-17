@@ -16,6 +16,7 @@ import {
   Edit,
   X,
   Save,
+  RotateCcw,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 
@@ -221,6 +222,23 @@ export default function StockPage() {
       toast.error(error.message, { id: loadingToast });
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  // --- RESTORE TYRE ---
+  async function executeRestore(productId) {
+    const loadingToast = toast.loading("Restoring tyre...");
+    try {
+      const res = await fetch(`/api/products/${productId}/restore`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to restore tyre");
+
+      toast.success("Tyre restored successfully", { id: loadingToast });
+      loadCatalogue();
+    } catch (error) {
+      toast.error(error.message, { id: loadingToast });
     }
   }
 
@@ -667,11 +685,16 @@ export default function StockPage() {
                     {/* Details */}
                     <td className="block md:table-cell md:p-4 mb-2 md:mb-0">
                       <div className="flex flex-col">
-                        <span className="font-bold text-gray-900 text-lg md:text-base">
+                        <span className="font-bold text-gray-900 text-lg md:text-base flex items-center gap-2">
                           {product.modelName}{" "}
                           <span className="text-[#522874] font-semibold">
                             ({product.size})
                           </span>
+                          {product.isArchived && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-red-100 text-red-700 rounded-full">
+                              Archived
+                            </span>
+                          )}
                         </span>
                         <code className="text-xs text-gray-400 font-mono mt-0.5">
                           SKU: {product.sku}
@@ -740,22 +763,34 @@ export default function StockPage() {
                         >
                           <Edit className="w-4 h-4 md:w-3.5 md:h-3.5" /> Edit
                         </button>
-                        {canRemoveTyres && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteModal({
-                                isOpen: true,
-                                productId: product.id,
-                                modelName: product.modelName,
-                              });
-                            }}
-                            className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
-                            Remove
-                          </button>
-                        )}
+                        {canRemoveTyres &&
+                          (product.isArchived ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeRestore(product.id);
+                              }}
+                              className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
+                            >
+                              <RotateCcw className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteModal({
+                                  isOpen: true,
+                                  productId: product.id,
+                                  modelName: product.modelName,
+                                });
+                              }}
+                              className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 md:py-1.5 rounded text-sm md:text-xs font-bold transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />{" "}
+                              Remove
+                            </button>
+                          ))}
                       </div>
                     </td>
                   </tr>

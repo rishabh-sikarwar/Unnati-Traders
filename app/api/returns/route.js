@@ -67,6 +67,11 @@ export async function POST(req) {
           update: { quantity: { increment: Number(quantity) } },
           create: { productId, locationId, quantity: Number(quantity) },
         });
+
+        await tx.product.update({
+          where: { id: productId },
+          data: { isArchived: false },
+        });
       }
 
       return returnLog;
