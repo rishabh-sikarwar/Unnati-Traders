@@ -28,6 +28,7 @@ export default function BillingForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const todayStr = new Date().toISOString().split("T")[0];
@@ -231,18 +232,28 @@ export default function BillingForm({
 
   const handleCheckout = async (e) => {
     e.preventDefault();
-    if (cart.length === 0) return toast.error("Cart is empty!");
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    if (cart.length === 0) {
+      setIsSubmitting(false);
+      return toast.error("Cart is empty!");
+    }
 
     if (
       customer.paymentMode === "Credit" &&
       toDecimal(initialPayment).gt(totals.grandTotal)
-    )
+    ) {
+      setIsSubmitting(false);
       return toast.error("Initial payment cannot be greater than Total!");
+    }
     if (
       customer.paymentMode === "Multiple" &&
       totalSplitPaid.gt(totals.grandTotal)
-    )
+    ) {
+      setIsSubmitting(false);
       return toast.error("Split payments exceed the Grand Total!");
+    }
 
     try {
       const formattedItems = cart.map((item, index) => {
@@ -291,6 +302,7 @@ export default function BillingForm({
     } catch (error) {
       toast.error(error.message);
       setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -915,7 +927,7 @@ export default function BillingForm({
 
           <button
             type="submit"
-            disabled={loading || isRedirecting || cart.length === 0}
+            disabled={isSubmitting || loading || isRedirecting || cart.length === 0}
             className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-black text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
           >
             {loading || isRedirecting ? <Loader2 className="w-6 h-6 animate-spin" /> : null}
