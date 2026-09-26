@@ -71,9 +71,9 @@ export async function POST(req) {
     // --- 3. RETRY LOOP FOR SAFE INVOICE GENERATION ---
     let result = null;
     let finalCustomer = null;
-    const maxAttempts = 5;
+    const MAX_RETRIES = 3;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (let attempts = 0; attempts < MAX_RETRIES; attempts++) {
       try {
         result = await prisma.$transaction(
           async (tx) => {
@@ -153,26 +153,25 @@ export async function POST(req) {
             // ==========================================
             const prefix = `${shopCode}/${fiscalYearLabel}/`; // e.g., BHD/25-26/
 
-            const lastInvoice = await tx.invoice.findFirst({
-              where: {
-                invoiceNumber: { startsWith: prefix },
-              },
-              orderBy: { createdAt: "desc" },
+            const existingInvoices = await tx.invoice.findMany({
+              where: { invoiceNumber: { startsWith: prefix } },
               select: { invoiceNumber: true },
             });
 
-            let nextSequence = 1;
-            if (lastInvoice) {
-              // Extract the number from "BHD/25-26/0004" -> "0004" -> 4
-              const lastNum = parseInt(
-                lastInvoice.invoiceNumber.split("/").pop(),
-                10,
-              );
-              if (!isNaN(lastNum)) {
-                nextSequence = lastNum + 1;
+            let maxSequence = 0;
+
+            for (const inv of existingInvoices) {
+              // Extract the numeric part at the end (e.g., "0054" from "BHD/25-26/0054")
+              const parts = inv.invoiceNumber.split("/");
+              const seqStr = parts[parts.length - 1];
+              const seqNum = parseInt(seqStr, 10);
+
+              if (!isNaN(seqNum) && seqNum > maxSequence) {
+                maxSequence = seqNum;
               }
             }
 
+            const nextSequence = maxSequence + 1;
             const invoiceNumber = `${prefix}${String(nextSequence).padStart(4, "0")}`;
             // ==========================================
 
@@ -286,10 +285,8 @@ export async function POST(req) {
         break;
       } catch (error) {
         // If two shops bill at the exact same second, retry.
-        if (
-          (error?.code === "P2002" || error?.code === "P2034") &&
-          attempt < maxAttempts - 1
-        ) {
+        if (error?.code === "P2002" && attempts < MAX_RETRIES - 1) {
+          console.warn(`P2002 Collision detected. Retrying... (Attempt ${attempts + 1} of ${MAX_RETRIES})`);
           continue;
         }
         throw error; // If it's a different error, crash and show the user.
