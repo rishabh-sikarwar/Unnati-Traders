@@ -13,6 +13,7 @@ import {
   Tag,
   Building2,
   SplitSquareHorizontal,
+  Calendar,
 } from "lucide-react";
 import SmartTyreSelector from "@/components/shared/smart-tyre-selector";
 import { formatNumber } from "@/lib/format";
@@ -27,6 +28,9 @@ export default function BillingForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const [customer, setCustomer] = useState({
     id: null,
@@ -274,6 +278,7 @@ export default function BillingForm({
           locationId,
           userId,
           totals,
+          invoiceDate,
         }),
       });
 
@@ -301,33 +306,45 @@ export default function BillingForm({
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <User className="w-5 h-5 text-[#522874]" /> Customer Details
             </h2>
-            <div className="flex items-center gap-2 text-sm font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 self-start sm:self-auto">
-              <span
-                className={!customer.b2b ? "text-[#522874]" : "text-gray-400"}
-              >
-                B2C (Retail)
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setCustomer({
-                    ...customer,
-                    id: null,
-                    b2b: !customer.b2b,
-                    gstNumber: "",
-                  })
-                }
-                className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${customer.b2b ? "bg-[#522874]" : "bg-gray-300"}`}
-              >
-                <div
-                  className={`w-4 h-4 bg-white rounded-full transition-transform ${customer.b2b ? "translate-x-6" : ""}`}
+            <div className="flex flex-wrap items-center gap-4 self-start sm:self-auto">
+              <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100">
+                <Calendar className="w-4 h-4 text-[#522874]" />
+                <input
+                  type="date"
+                  max={todayStr}
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  className="bg-transparent text-sm font-bold text-[#522874] outline-none cursor-pointer"
                 />
-              </button>
-              <span
-                className={customer.b2b ? "text-[#522874]" : "text-gray-400"}
-              >
-                B2B (Dealer)
-              </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                <span
+                  className={!customer.b2b ? "text-[#522874]" : "text-gray-400"}
+                >
+                  B2C (Retail)
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCustomer({
+                      ...customer,
+                      id: null,
+                      b2b: !customer.b2b,
+                      gstNumber: "",
+                    })
+                  }
+                  className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${customer.b2b ? "bg-[#522874]" : "bg-gray-300"}`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full transition-transform ${customer.b2b ? "translate-x-6" : ""}`}
+                  />
+                </button>
+                <span
+                  className={customer.b2b ? "text-[#522874]" : "text-gray-400"}
+                >
+                  B2B (Dealer)
+                </span>
+              </div>
             </div>
           </div>
 

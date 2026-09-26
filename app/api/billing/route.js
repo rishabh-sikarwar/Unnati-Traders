@@ -24,7 +24,9 @@ export async function POST(req) {
     const payload = await req.json();
     console.log("Received Billing Payload:", JSON.stringify(payload, null, 2));
 
-    let { customerInfo, items, locationId, userId, totals } = payload;
+    let { customerInfo, items, locationId, userId, totals, invoiceDate } = payload;
+
+    const parsedInvoiceDate = invoiceDate ? new Date(invoiceDate) : new Date();
 
     if (!customerInfo || !items || !totals) {
       console.error("Missing required fields in payload");
@@ -64,7 +66,7 @@ export async function POST(req) {
     }
 
     const shopCode = billingLocation.code || "UT";
-    const fiscalYearLabel = getFiscalYearLabel();
+    const fiscalYearLabel = getFiscalYearLabel(parsedInvoiceDate);
 
     // --- 3. RETRY LOOP FOR SAFE INVOICE GENERATION ---
     let result = null;
@@ -177,6 +179,7 @@ export async function POST(req) {
             // E. Create Invoice
             const invoice = await tx.invoice.create({
               data: {
+                createdAt: parsedInvoiceDate,
                 invoiceNumber,
                 subtotal: moneyToString(totals.subtotal),
                 totalGst: moneyToString(totals.totalGst),
@@ -209,6 +212,7 @@ export async function POST(req) {
               if (toDecimal(splits.cash).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
+                    createdAt: parsedInvoiceDate,
                     amount: moneyToString(splits.cash),
                     paymentMode: "CASH",
                     customerId: dbCustomer.id,
@@ -221,6 +225,7 @@ export async function POST(req) {
               if (toDecimal(splits.upi).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
+                    createdAt: parsedInvoiceDate,
                     amount: moneyToString(splits.upi),
                     paymentMode: "UPI",
                     customerId: dbCustomer.id,
@@ -233,6 +238,7 @@ export async function POST(req) {
               if (toDecimal(splits.card).gt(0)) {
                 await tx.paymentLog.create({
                   data: {
+                    createdAt: parsedInvoiceDate,
                     amount: moneyToString(splits.card),
                     paymentMode: "CARD",
                     customerId: dbCustomer.id,
@@ -245,6 +251,7 @@ export async function POST(req) {
             } else if (actualAmountPaid.gt(0)) {
               await tx.paymentLog.create({
                 data: {
+                  createdAt: parsedInvoiceDate,
                   amount: moneyToString(actualAmountPaid),
                   paymentMode: modeEnum === "CREDIT" ? "CASH" : modeEnum,
                   customerId: dbCustomer.id,
