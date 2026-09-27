@@ -154,7 +154,7 @@ export default async function ReceiptPage({ params }) {
             <div className="hidden sm:block"></div>
           )}
           <div className="w-full sm:w-auto mt-4 sm:mt-0">
-            <PrintButton />
+            <PrintButton invoice={invoice} />
           </div>
         </div>
 

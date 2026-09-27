@@ -88,7 +88,7 @@ export default async function OrdersPage({ searchParams }) {
       items: { select: { quantity: true } },
       _count: { select: { items: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { invoiceNumber: "desc" },
     take: 500, // SAFEGUARD: Never fetch more than 500 at a time to prevent memory crashes
   });
 

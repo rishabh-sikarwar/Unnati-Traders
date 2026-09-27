@@ -26,7 +26,11 @@ export async function POST(req) {
 
     let { customerInfo, items, locationId, userId, totals, invoiceDate } = payload;
 
-    const parsedInvoiceDate = invoiceDate ? new Date(invoiceDate) : new Date();
+    const todayLocalStr = new Date().toLocaleDateString('en-CA');
+    let parsedInvoiceDate = new Date();
+    if (invoiceDate && invoiceDate !== todayLocalStr) {
+      parsedInvoiceDate = new Date(invoiceDate);
+    }
 
     if (!customerInfo || !items || !totals) {
       console.error("Missing required fields in payload");
