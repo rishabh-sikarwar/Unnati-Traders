@@ -25,6 +25,8 @@ export async function POST(req) {
         name: body.name,
         address: body.address,
         type: body.type.toUpperCase(), // Ensures enum matching (e.g., 'WAREHOUSE')
+        upiId: body.upiId || null,
+        upiQrUrl: body.upiQrUrl || null,
       },
     });
 
@@ -88,7 +90,7 @@ export async function DELETE(req) {
 export async function PUT(req) {
   try {
     const body = await req.json();
-    const { id, name, address } = body;
+    const { id, name, address, upiId, upiQrUrl } = body;
 
     if (!id || !name) {
       return NextResponse.json(
@@ -102,6 +104,8 @@ export async function PUT(req) {
       data: {
         name,
         address,
+        ...(upiId !== undefined && { upiId: upiId || null }),
+        ...(upiQrUrl !== undefined && { upiQrUrl: upiQrUrl || null }),
         // Note: We intentionally do not update the 'type' (Warehouse vs Retail)
         // to prevent breaking existing business logic rules associated with that shop type.
       },

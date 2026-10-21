@@ -44,9 +44,41 @@ export default async function DashboardPage() {
       // <--- FIX 2: PASS THE USER OBJECT HERE!
       DashboardView = <ShopkeeperDashboard user={dbUser} />; 
       break;
-    case "DEALER":
-      DashboardView = <DealerDashboard user={dbUser} />;
+    case "DEALER": {
+      // Exclude CANCELLED bookings from dashboard stats
+      const totalBookings = await prisma.dealerOrder.count({
+        where: {
+          userId: clerkUser.id,
+          status: { not: "CANCELLED" },
+        },
+      });
+
+      const billedInvoices = await prisma.dealerOrder.count({
+        where: {
+          userId: clerkUser.id,
+          status: {
+            in: ["BILLED", "COMPLETED"],
+            not: "CANCELLED",
+          },
+        },
+      });
+
+      const pendingOrders = await prisma.dealerOrder.count({
+        where: {
+          userId: clerkUser.id,
+          status: "PENDING",
+        },
+      });
+
+      const dealerStats = {
+        totalBookings,
+        billedInvoices,
+        pendingOrders,
+      };
+
+      DashboardView = <DealerDashboard user={dbUser} stats={dealerStats} />;
       break;
+    }
     case "VISITOR":
     default:
       DashboardView = <VisitorDashboard user={dbUser} />;

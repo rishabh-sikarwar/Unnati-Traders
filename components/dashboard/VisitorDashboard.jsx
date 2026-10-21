@@ -3,32 +3,38 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, ShieldCheck } from "lucide-react";
+import { Wrench, ShoppingBag } from "lucide-react";
+import Link from "next/link";
 
-const VisitorDashboard = () => {
+const VisitorDashboard = ({ user }) => {
   return (
     <div className="min-h-screen bg-gray-50 px-6 md:px-8 pb-8 pt-28 md:pt-32">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
-          <p className="text-gray-600">Welcome to Unnati Traders.</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Welcome, {user?.fullName || "Valued Customer"}!
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Welcome to Unnati Traders Wholesale & Retail Portal.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="hover:shadow-md transition-shadow">
+          <Card className="hover:shadow-md transition-shadow border-purple-100">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-green-600" /> My Warranties
-                & Bills
+              <CardTitle className="flex items-center gap-2 text-gray-900">
+                <ShoppingBag className="w-5 h-5 text-[#522874]" /> Place Wholesale / Tyre Order
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600 mb-4">
-                View your past purchases and access digital warranty cards.
+                Browse live shop stock and place your first tyre booking.
               </p>
-              <Button variant="outline" className="w-full">
-                View History
-              </Button>
+              <Link href="/store" className="block">
+                <Button className="w-full bg-[#522874] hover:bg-[#432060] text-white">
+                  Place Order Now
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -42,7 +48,7 @@ const VisitorDashboard = () => {
               <p className="text-sm text-gray-600 mb-4">
                 Schedule an appointment for alignment, balancing, or fitting.
               </p>
-              <Button className="w-full bg-[#522874]">Book Appointment</Button>
+              <Button className="w-full bg-[#522874] hover:bg-[#432060]">Book Appointment</Button>
             </CardContent>
           </Card>
         </div>
@@ -51,3 +57,4 @@ const VisitorDashboard = () => {
   );
 };
 export default VisitorDashboard;
+

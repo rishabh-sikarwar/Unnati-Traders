@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OrdersTable from "@/components/orders/orders-table";
-import { ScrollText, ShieldAlert } from "lucide-react";
-import { startOfDay, endOfDay, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
+import { ScrollText, ShieldAlert, Truck } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { getIstDateFilter } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,16 @@ export default async function OrdersPage({ searchParams }) {
 
   const locations = await prisma.location.findMany({ orderBy: { name: "asc" } });
 
+  // Fetch pending dealer order requests count for admin/shopkeeper (both PENDING fulfillment & BILLED pending payment verification)
+  let pendingRequestsCount = 0;
+  if (dbUser.role === "ADMIN" || dbUser.role === "SHOPKEEPER") {
+    const pendingWhere =
+      dbUser.role === "SHOPKEEPER" 
+        ? { locationId: dbUser.locationId, status: { in: ["PENDING", "BILLED"] } }
+        : { status: { in: ["PENDING", "BILLED"] } };
+    pendingRequestsCount = await prisma.dealerOrder.count({ where: pendingWhere });
+  }
+
   // --- 1. READ URL PARAMETERS ---
   // In Next.js 15, searchParams is an async promise
   const queries = await searchParams; 
@@ -61,20 +73,10 @@ export default async function OrdersPage({ searchParams }) {
     whereClause.customer = { type: "RETAIL" };
   }
 
-  // C. Date Filter Logic
-  const now = new Date();
-  if (dateFilter === "today") {
-    whereClause.createdAt = { gte: startOfDay(now), lte: endOfDay(now) };
-  } else if (dateFilter === "yesterday") {
-    const yesterday = subDays(now, 1);
-    whereClause.createdAt = { gte: startOfDay(yesterday), lte: endOfDay(yesterday) };
-  } else if (dateFilter === "this_month") {
-    whereClause.createdAt = { gte: startOfMonth(now), lte: endOfDay(now) };
-  } else if (dateFilter === "last_month") {
-    const lastMonth = subMonths(now, 1);
-    whereClause.createdAt = { gte: startOfMonth(lastMonth), lte: endOfMonth(lastMonth) };
-  } else if (dateFilter === "custom" && customStart && customEnd) {
-    whereClause.createdAt = { gte: startOfDay(new Date(customStart)), lte: endOfDay(new Date(customEnd)) };
+  // C. Date Filter Logic (IST Midnight & Predefined Ranges)
+  const dateRange = getIstDateFilter(dateFilter, customStart, customEnd);
+  if (dateRange) {
+    whereClause.createdAt = dateRange;
   }
   // If "all", we don't add a date filter, but we WILL limit the fetch to 500 records to protect the server.
 
@@ -128,6 +130,22 @@ export default async function OrdersPage({ searchParams }) {
                 ? "Viewing network-wide sales and invoices."
                 : `Viewing sales history for ${dbUser.location?.name}.`}
             </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {(dbUser.role === "ADMIN" || dbUser.role === "SHOPKEEPER") && (
+              <Link href="/orders/dealer-requests">
+                <Button className="bg-[#522874] hover:bg-[#432060] text-white flex items-center gap-2 shadow-sm font-semibold">
+                  <Truck className="w-4 h-4" />
+                  <span>Dealer Order Requests</span>
+                  {pendingRequestsCount > 0 && (
+                    <span className="ml-1 bg-amber-400 text-purple-950 font-bold text-xs px-2 py-0.5 rounded-full">
+                      {pendingRequestsCount} new
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 

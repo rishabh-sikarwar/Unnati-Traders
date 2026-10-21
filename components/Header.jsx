@@ -90,6 +90,7 @@ const Header = () => {
 
   // Both Admin and Shopkeeper get the Staff Links
   const isInternalUser = dbRole?.toUpperCase() === "ADMIN" || dbRole?.toUpperCase() === "SHOPKEEPER";
+  const isCustomerUser = dbRole?.toUpperCase() === "VISITOR" || dbRole?.toUpperCase() === "DEALER";
 
   const publicLinks = [
     { name: "Tyres", icon: LayoutDashboard, href: "/tyres" },
@@ -200,6 +201,15 @@ const Header = () => {
                       </Link>
                     ))}
                   </nav>
+                )}
+
+                {isCustomerUser && (
+                  <Link
+                    className="hidden sm:flex items-center gap-1.5 bg-[#522874] text-white hover:bg-[#432060] font-bold px-4 py-2 rounded-lg text-sm shadow-sm transition-all duration-300 mr-1 border border-white/10"
+                    href="/dashboard"
+                  >
+                    <LayoutDashboard size={15} /> Dashboard
+                  </Link>
                 )}
 
                 <div className="flex items-center justify-center rounded-full border-2 border-transparent hover:border-white/30 transition-all duration-300 shrink-0 ml-1">
@@ -333,6 +343,23 @@ const Header = () => {
                       />
                     </Link>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {isCustomerUser && (
+              <section className="mb-5">
+                <div className="bg-[#522874]/5 rounded-xl p-1.5 border border-[#522874]/10">
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-between px-3 py-3 rounded-lg font-bold text-sm bg-[#522874] text-white shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LayoutDashboard size={16} /> My Dashboard
+                    </div>
+                    <ChevronRight className="opacity-50" size={14} />
+                  </Link>
                 </div>
               </section>
             )}

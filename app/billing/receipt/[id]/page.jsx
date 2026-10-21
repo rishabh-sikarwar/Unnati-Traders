@@ -84,6 +84,9 @@ export default async function ReceiptPage({ params }) {
     ? toDecimal(invoice.splitCard)
     : logCard;
 
+  // Serialize Prisma Decimals and Dates into plain strings/numbers
+  const safeInvoice = JSON.parse(JSON.stringify(invoice));
+
   return (
     <>
       <style
@@ -154,7 +157,7 @@ export default async function ReceiptPage({ params }) {
             <div className="hidden sm:block"></div>
           )}
           <div className="w-full sm:w-auto mt-4 sm:mt-0">
-            <PrintButton invoice={invoice} />
+            <PrintButton invoice={safeInvoice} />
           </div>
         </div>
 

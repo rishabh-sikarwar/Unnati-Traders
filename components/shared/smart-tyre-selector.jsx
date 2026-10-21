@@ -12,12 +12,17 @@ export default function SmartTyreSelector({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Sync the search bar text if the parent resets the form (e.g., after a successful save)
+  // Sync the search bar text if selectedProductId changes or parent resets
   useEffect(() => {
     if (!selectedProductId) {
       setSearchQuery("");
+    } else {
+      const match = products.find((p) => p.id === selectedProductId);
+      if (match) {
+        setSearchQuery(`${match.modelName} (${match.size})`);
+      }
     }
-  }, [selectedProductId]);
+  }, [selectedProductId, products]);
 
   // Close dropdown if clicked outside
   useEffect(() => {

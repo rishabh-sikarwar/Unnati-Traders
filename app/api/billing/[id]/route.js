@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function DELETE(req, { params }) {
   try {
@@ -17,7 +18,9 @@ export async function DELETE(req, { params }) {
 
     if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-    // 2. Perform cascade delete inside a transaction
+    let cancelledDealerOrderId = null;
+
+    // 2. Perform cascade delete inside an atomic transaction
     await prisma.$transaction(async (tx) => {
       // a. Restore Inventory
       // Only restore inventory if it's not a generic CUSTOMER fallback location.
@@ -53,19 +56,46 @@ export async function DELETE(req, { params }) {
         });
       }
 
-      // c. Delete Invoice Items before deleting invoice itself.
+      // c. Check for linked DealerOrder and mark as CANCELLED (unlinking invoiceId)
+      const linkedOrder = await tx.dealerOrder.findFirst({
+        where: { invoiceId: invoiceId },
+      });
+
+      if (linkedOrder) {
+        cancelledDealerOrderId = linkedOrder.id;
+        await tx.dealerOrder.update({
+          where: { id: linkedOrder.id },
+          data: {
+            status: "CANCELLED",
+            invoiceId: null,
+          },
+        });
+      }
+
+      // d. Delete Invoice Items before deleting invoice itself.
       // (Even though cascade delete is usually on, it's safer to explicitly delete elements in Supabase connected Prisma).
       await tx.invoiceItem.deleteMany({
         where: { invoiceId: invoiceId },
       });
 
-      // d. Finally Delete the Invoice itself
+      // e. Finally Delete the Invoice itself
       await tx.invoice.delete({
         where: { id: invoiceId },
       });
     });
 
-    return NextResponse.json({ success: true, message: "Invoice cancelled and stock restored." });
+    // 3. Cache Invalidation - Forcefully clear Next.js caches
+    revalidatePath("/dashboard");
+    revalidatePath("/orders");
+    revalidatePath("/orders/dealer-requests");
+    if (cancelledDealerOrderId) {
+      revalidatePath(`/store/orders/${cancelledDealerOrderId}`);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Invoice cancelled, stock restored, and linked dealer order marked as CANCELLED.",
+    });
   } catch (error) {
     console.error("Cancel Invoice API Error:", error);
     return NextResponse.json({ error: "Failed to cancel invoice" }, { status: 500 });

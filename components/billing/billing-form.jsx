@@ -24,11 +24,13 @@ export default function BillingForm({
   locationId,
   userId,
   b2bCustomers,
+  dealerOrderId: propDealerOrderId = null,
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadedDealerOrderId, setLoadedDealerOrderId] = useState(null);
 
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const todayStr = new Date().toISOString().split("T")[0];
@@ -113,6 +115,108 @@ export default function BillingForm({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // --- AUTO-POPULATE DEALER ORDER ---
+  useEffect(() => {
+    const urlId =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("dealerOrderId")
+        : null;
+    const orderIdToLoad = propDealerOrderId || urlId;
+
+    if (!orderIdToLoad || orderIdToLoad === loadedDealerOrderId) return;
+
+    let isMounted = true;
+    async function loadDealerOrder() {
+      try {
+        const res = await fetch(`/api/dealer-orders/${orderIdToLoad}`);
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Failed to load dealer order.");
+        }
+        const data = await res.json();
+        if (!isMounted || !data.order) return;
+
+        const order = data.order;
+        setLoadedDealerOrderId(order.id);
+
+        // 1. Auto-fill Customer selection field
+        if (order.customer) {
+          setCustomer((prev) => ({
+            ...prev,
+            id: order.customer.id || null,
+            b2b: true,
+            name: order.customer.name || "",
+            phone: order.customer.phone || "",
+            email: order.customer.email || "",
+            address: order.customer.address || "",
+            gstNumber: order.customer.gstNumber || "",
+          }));
+        }
+
+        // 2. Auto-fill Material/Items array with requested tyres & quantities
+        // 3. Stock Validation & Toast Notifications
+        let hasZeroStock = false;
+        let hasAdjustedQty = false;
+
+        const populatedCart = [];
+
+        for (const item of order.items) {
+          // Find matching inventory record in local shop inventory
+          let localInv = inventory.find((inv) => inv.id === item.inventoryId);
+          if (!localInv && item.productId) {
+            localInv = inventory.find((inv) => inv.productId === item.productId);
+          }
+
+          const actualStock = localInv
+            ? Number(localInv.quantity)
+            : Number(item.actualShopStock || 0);
+          const reqQty = Number(item.requestedQuantity) || 1;
+          let assignedQty = reqQty;
+
+          if (actualStock <= 0) {
+            hasZeroStock = true;
+            toast.error(
+              `Tyre ${item.modelName} is completely out of stock! Please remove it or arrange stock.`,
+              { duration: 7000 }
+            );
+            assignedQty = 0;
+          } else if (reqQty > actualStock) {
+            hasAdjustedQty = true;
+            assignedQty = actualStock;
+            toast.error(
+              `Dealer requested ${reqQty} of Tyre ${item.modelName}, but only ${actualStock} available. Quantity adjusted.`,
+              { duration: 7000 }
+            );
+          }
+
+          populatedCart.push({
+            rowId: Math.random().toString(36).substr(2, 9),
+            inventoryId: localInv ? localInv.id : item.inventoryId || "",
+            quantity: assignedQty,
+            unitPrice: "", // Leave unit prices blank (or 0) so the shopkeeper is forced to input them manually
+            tyreCode: "",
+          });
+        }
+
+        setCart(populatedCart);
+
+        // Toast success if all items are perfectly in stock
+        if (!hasZeroStock && !hasAdjustedQty && order.items.length > 0) {
+          toast.success("Dealer request loaded successfully.");
+        }
+      } catch (err) {
+        console.error("Failed to auto-populate dealer order:", err);
+        toast.error(err.message || "Failed to load dealer order details.");
+      }
+    }
+
+    loadDealerOrder();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [propDealerOrderId, inventory, loadedDealerOrderId]);
 
   const addItem = () => {
     setCart([
@@ -261,9 +365,17 @@ export default function BillingForm({
           throw new Error(`Please select a tyre for item #${index + 1}`);
         const invRecord = inventory.find((i) => i.id === item.inventoryId);
         const qty = Number(item.quantity);
+        if (qty <= 0)
+          throw new Error(
+            `Quantity for ${invRecord?.product?.modelName || `item #${index + 1}`} must be at least 1. Please adjust quantity or remove out-of-stock item.`
+          );
         if (qty > invRecord.quantity)
           throw new Error(
             `Only ${invRecord.quantity} left for ${invRecord.product.modelName}`,
+          );
+        if (!item.unitPrice || Number(item.unitPrice) <= 0)
+          throw new Error(
+            `Please enter a valid unit rate for ${invRecord.product.modelName}.`
           );
         return {
           productId: invRecord.productId,
@@ -290,6 +402,7 @@ export default function BillingForm({
           userId,
           totals,
           invoiceDate,
+          dealerOrderId: loadedDealerOrderId || propDealerOrderId || null,
         }),
       });
 
@@ -312,6 +425,28 @@ export default function BillingForm({
       className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8"
     >
       <div className="lg:col-span-2 space-y-6">
+        {/* DEALER ORDER NOTICE */}
+        {loadedDealerOrderId && (
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="bg-[#522874] text-white text-xs font-bold px-2.5 py-1 rounded-md">
+                Dealer Order
+              </span>
+              <div>
+                <p className="text-xs font-bold text-gray-900">
+                  Fulfilling Wholesale Booking
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Customer and requested tyres loaded. Please verify stock, input agreed unit rates, and select payment mode.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold text-[#522874] bg-white px-2.5 py-1 rounded-lg border border-purple-100">
+              ID: {loadedDealerOrderId.slice(0, 8)}...
+            </span>
+          </div>
+        )}
+
         {/* CUSTOMER INFO */}
         <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5">

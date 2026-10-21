@@ -12,6 +12,8 @@ model Location {
   code      String       @unique @default("UT")
   type      LocationType
   address   String?
+  upiId     String?
+  upiQrUrl  String?
   createdAt DateTime     @default(now())
 
   users       User[]
@@ -23,6 +25,7 @@ model Location {
   transferFromLogs TransferLog[] @relation("TransferFromLocation")
   transferToLogs   TransferLog[] @relation("TransferToLocation")
   stockAdjustments StockAdjustmentLog[]
+  dealerOrders     DealerOrder[]
 }
 
 model User {
@@ -41,6 +44,7 @@ model User {
   returns   ReturnLog[]
   transferLogs TransferLog[]
   stockAdjustments StockAdjustmentLog[]
+  dealerOrders     DealerOrder[]
 }
 
 model Product {
@@ -68,6 +72,7 @@ model Product {
   returns       ReturnLog[]
   transferLogs  TransferLog[]
   stockAdjustments StockAdjustmentLog[]
+  dealerOrderItems DealerOrderItem[]
 }
 
 model Inventory {
@@ -85,20 +90,22 @@ model Inventory {
 }
 
 model Customer {
-  id         String       @id @default(uuid())
-  type       CustomerType
-  name       String
-  phone      String?
-  email      String?
-  gstNumber  String?
-  address    String?
+  id          String       @id @default(uuid())
+  clerkUserId String?      @unique
+  type        CustomerType
+  name        String
+  phone       String?
+  email       String?
+  gstNumber   String?
+  address     String?
   openingBalance Decimal   @default(0) @db.Decimal(18, 2)
-  isArchived Boolean      @default(false)
-  createdAt  DateTime     @default(now())
+  isArchived  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
 
-  invoices Invoice[]
-  payments PaymentLog[]
-  returns  ReturnLog[]
+  invoices     Invoice[]
+  payments     PaymentLog[]
+  returns      ReturnLog[]
+  dealerOrders DealerOrder[]
 }
 
 model Invoice {
@@ -127,6 +134,7 @@ model Invoice {
 
   items InvoiceItem[]
   payments PaymentLog[]
+  dealerOrder DealerOrder?
 }
 
 model InvoiceItem {
@@ -320,4 +328,45 @@ enum PaymentMode {
 enum ReturnCondition {
   GOOD
   DEFECTIVE
+}
+
+enum DealerOrderStatus {
+  PENDING
+  BILLED
+  COMPLETED
+  CANCELLED
+}
+
+model DealerOrder {
+  id          String            @id @default(uuid())
+  orderNumber String            @unique
+  status      DealerOrderStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+
+  customerId  String?
+  customer    Customer?         @relation(fields: [customerId], references: [id])
+
+  locationId  String
+  location    Location          @relation(fields: [locationId], references: [id])
+
+  invoiceId   String?           @unique
+  invoice     Invoice?          @relation(fields: [invoiceId], references: [id])
+
+  items       DealerOrderItem[]
+}
+
+model DealerOrderItem {
+  id        String      @id @default(uuid())
+  quantity  Int
+
+  orderId   String
+  order     DealerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product     @relation(fields: [productId], references: [id])
 }

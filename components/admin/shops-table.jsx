@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Edit, Trash2, Loader2, X, Save, MapPin } from "lucide-react";
+import { Edit, Trash2, Loader2, X, Save, MapPin, UploadCloud, QrCode } from "lucide-react";
+import { CldUploadWidget } from "next-cloudinary";
 
 export default function ShopsTable({ shops }) {
   const router = useRouter();
@@ -29,6 +30,8 @@ export default function ShopsTable({ shops }) {
           id: editModal.shop.id,
           name: editModal.shop.name,
           address: editModal.shop.address,
+          upiId: editModal.shop.upiId || "",
+          upiQrUrl: editModal.shop.upiQrUrl || "",
         }),
       });
 
@@ -129,6 +132,80 @@ export default function ShopsTable({ shops }) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  UPI ID / VPA (Optional)
+                </label>
+                <input
+                  placeholder="e.g. 9425126868@okbizaxis"
+                  value={editModal.shop.upiId || ""}
+                  onChange={(e) =>
+                    setEditModal({
+                      ...editModal,
+                      shop: { ...editModal.shop, upiId: e.target.value },
+                    })
+                  }
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none text-gray-900 font-mono text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase">
+                  Shop UPI QR Code Image (Admin Only)
+                </label>
+                {editModal.shop.upiQrUrl ? (
+                  <div className="relative inline-block border p-2 rounded-lg bg-gray-50 shadow-xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={editModal.shop.upiQrUrl}
+                      alt="Shop QR Code"
+                      className="w-24 h-24 object-contain rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditModal({
+                          ...editModal,
+                          shop: { ...editModal.shop, upiQrUrl: "" },
+                        })
+                      }
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-sm transition-colors cursor-pointer"
+                      title="Remove QR code"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <CldUploadWidget
+                    uploadPreset="unnati_uploads"
+                    onSuccess={(result) => {
+                      if (result?.info?.secure_url) {
+                        setEditModal({
+                          ...editModal,
+                          shop: {
+                            ...editModal.shop,
+                            upiQrUrl: result.info.secure_url,
+                          },
+                        });
+                        toast.success("QR Code uploaded successfully!");
+                      }
+                    }}
+                  >
+                    {({ open }) => (
+                      <button
+                        type="button"
+                        onClick={() => open()}
+                        className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-purple-300 transition-colors cursor-pointer"
+                      >
+                        <UploadCloud className="w-6 h-6 mb-2 text-[#522874]" />
+                        <span className="text-sm font-medium">Click to upload QR Code</span>
+                        <span className="text-[10px] text-gray-400 mt-0.5">PNG, JPG, or SVG</span>
+                      </button>
+                    )}
+                  </CldUploadWidget>
+                )}
+              </div>
+
               <div className="pt-4 mt-2 border-t border-gray-100 flex gap-3">
                 <button
                   type="button"
@@ -185,12 +262,29 @@ export default function ShopsTable({ shops }) {
                   className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 p-4 md:p-0"
                 >
                   <td className="block md:table-cell md:p-4 mb-2 md:mb-0">
-                    <div className="font-bold text-gray-900 text-lg md:text-base">
-                      {shop.name}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />{" "}
-                      {shop.address || "No address provided"}
+                    <div className="flex items-center gap-3">
+                      {shop.upiQrUrl && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={shop.upiQrUrl}
+                          alt="QR Code"
+                          className="w-10 h-10 object-contain rounded border border-gray-200 bg-gray-50 shrink-0"
+                        />
+                      )}
+                      <div>
+                        <div className="font-bold text-gray-900 text-lg md:text-base">
+                          {shop.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />{" "}
+                          {shop.address || "No address provided"}
+                        </div>
+                        {shop.upiId && (
+                          <div className="text-[11px] text-[#522874] font-mono font-semibold mt-0.5">
+                            UPI: {shop.upiId}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="block md:table-cell md:p-4 mb-3 md:mb-0">

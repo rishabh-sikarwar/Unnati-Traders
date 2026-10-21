@@ -24,7 +24,7 @@ export async function POST(req) {
     const payload = await req.json();
     console.log("Received Billing Payload:", JSON.stringify(payload, null, 2));
 
-    let { customerInfo, items, locationId, userId, totals, invoiceDate } = payload;
+    let { customerInfo, items, locationId, userId, totals, invoiceDate, dealerOrderId } = payload;
 
     const todayLocalStr = new Date().toLocaleDateString('en-CA');
     let parsedInvoiceDate = new Date();
@@ -279,6 +279,17 @@ export async function POST(req) {
                 }),
               ),
             );
+
+            // H. Link Invoice to Dealer Order if fulfilling dealer booking
+            if (dealerOrderId) {
+              await tx.dealerOrder.update({
+                where: { id: dealerOrderId },
+                data: {
+                  status: "BILLED",
+                  invoiceId: invoice.id,
+                },
+              });
+            }
 
             return invoice; // Return the successfully created invoice
           },

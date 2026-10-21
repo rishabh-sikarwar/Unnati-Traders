@@ -6,8 +6,10 @@ import { AlertTriangle, ReceiptIndianRupee } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function BillingPage() {
+export default async function BillingPage({ searchParams }) {
   const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
   const dbUser = await prisma.user.findUnique({
     where: { id: clerkUser.id },
     include: { location: true },
@@ -28,11 +30,63 @@ export default async function BillingPage() {
     );
   }
 
-  // Fetch ONLY products that have stock > 0 in THIS user's location
+  // Check if fulfilling a Dealer Order via query param
+  const resolvedParams = searchParams ? await searchParams : {};
+  const dealerOrderId = resolvedParams?.dealerOrderId || null;
+
+  let dealerOrder = null;
+  if (dealerOrderId) {
+    dealerOrder = await prisma.dealerOrder.findUnique({
+      where: { id: dealerOrderId },
+      include: {
+        customer: true,
+        user: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    // Ensure inventory records exist at this location for dealer requested tyres
+    if (dealerOrder) {
+      for (const it of dealerOrder.items) {
+        const invExists = await prisma.inventory.findUnique({
+          where: {
+            productId_locationId: {
+              productId: it.productId,
+              locationId: dbUser.locationId,
+            },
+          },
+        });
+        if (!invExists) {
+          await prisma.inventory.create({
+            data: {
+              productId: it.productId,
+              locationId: dbUser.locationId,
+              quantity: 0,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  const productIdsFromOrder = dealerOrder
+    ? dealerOrder.items.map((it) => it.productId)
+    : [];
+
+  // Fetch products that have stock > 0 in THIS user's location, PLUS any items from dealer order
   const localInventory = await prisma.inventory.findMany({
     where: {
       locationId: dbUser.locationId,
-      quantity: { gt: 0 }, // Don't show out-of-stock items in the billing dropdown
+      OR: [
+        { quantity: { gt: 0 } },
+        ...(productIdsFromOrder.length > 0
+          ? [{ productId: { in: productIdsFromOrder } }]
+          : []),
+      ],
     },
     include: { product: true },
     orderBy: { product: { modelName: "asc" } },
@@ -83,6 +137,7 @@ export default async function BillingPage() {
           locationId={dbUser.locationId}
           userId={dbUser.id}
           b2bCustomers={b2bCustomers}
+          dealerOrderId={dealerOrderId}
         />
       </div>
     </div>
