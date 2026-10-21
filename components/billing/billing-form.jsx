@@ -70,6 +70,7 @@ export default function BillingForm({
       id: inv.id,
       modelName: inv.product.modelName,
       size: inv.product.size,
+      brand: inv.product.brand || "",
       sku: inv.product.sku,
       hsnCode: inv.product.hsnCode || "",
     }));
@@ -196,6 +197,7 @@ export default function BillingForm({
             quantity: assignedQty,
             unitPrice: "", // Leave unit prices blank (or 0) so the shopkeeper is forced to input them manually
             tyreCode: "",
+            isLocked: true,
           });
         }
 
@@ -226,6 +228,7 @@ export default function BillingForm({
         quantity: 1,
         unitPrice: "",
         tyreCode: "",
+        isLocked: false,
       },
       ...cart,
     ]);
@@ -671,6 +674,7 @@ export default function BillingForm({
                       products={availableInventory}
                       selectedProductId={item.inventoryId}
                       onSelect={(val) => handleInventorySelect(item.rowId, val)} // FIX: Using handleInventorySelect to auto-fetch price
+                      locked={item.isLocked}
                     />
                     <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
                       <span className="shrink-0">HSN</span>
