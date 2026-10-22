@@ -296,12 +296,10 @@ export default function BillingForm({
     const safeTaxableValue = taxableValue.gt(0) ? taxableValue : toDecimal(0);
 
     const subtotal = safeTaxableValue;
-    const totalGst = (cgstType === "%"
-      ? safeTaxableValue.times(cVal).div(100)
-      : cVal
-    )
-      .plus(sgstType === "%" ? safeTaxableValue.times(sVal).div(100) : sVal)
-      .plus(igstType === "%" ? safeTaxableValue.times(iVal).div(100) : iVal);
+    const cgstAmount = cgstType === "%" ? safeTaxableValue.times(cVal).div(100) : cVal;
+    const sgstAmount = sgstType === "%" ? safeTaxableValue.times(sVal).div(100) : sVal;
+    const igstAmount = igstType === "%" ? safeTaxableValue.times(iVal).div(100) : iVal;
+    const totalGst = cgstAmount.plus(sgstAmount).plus(igstAmount);
 
     const exactTotal = subtotal.plus(totalGst);
     const roundedTotal = exactTotal.ceil();
@@ -311,6 +309,9 @@ export default function BillingForm({
       rawItemsTotal,
       discountAmount,
       subtotal,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
       totalGst,
       exactTotal,
       grandTotal: roundedTotal,
@@ -327,6 +328,61 @@ export default function BillingForm({
     igst,
     igstType,
   ]);
+
+  // GST Mutual Exclusivity Handlers: Intra-state (CGST + SGST) vs Inter-state (IGST)
+  const handleCgstChange = (val) => {
+    setCgst(val);
+    if (val && Number(val) > 0) {
+      setIgst("");
+      if (cgstType === "%") {
+        setSgst(val);
+        setSgstType("%");
+      }
+    }
+  };
+
+  const handleSgstChange = (val) => {
+    setSgst(val);
+    if (val && Number(val) > 0) {
+      setIgst("");
+      if (sgstType === "%") {
+        setCgst(val);
+        setCgstType("%");
+      }
+    }
+  };
+
+  const handleIgstChange = (val) => {
+    setIgst(val);
+    if (val && Number(val) > 0) {
+      setCgst("");
+      setSgst("");
+    }
+  };
+
+  const handleCgstTypeChange = (type) => {
+    setCgstType(type);
+    if (type === "%" && cgst && Number(cgst) > 0) {
+      setSgstType("%");
+      setSgst(cgst);
+    }
+  };
+
+  const handleSgstTypeChange = (type) => {
+    setSgstType(type);
+    if (type === "%" && sgst && Number(sgst) > 0) {
+      setCgstType("%");
+      setCgst(sgst);
+    }
+  };
+
+  const handleIgstTypeChange = (type) => {
+    setIgstType(type);
+    if (igst && Number(igst) > 0) {
+      setCgst("");
+      setSgst("");
+    }
+  };
 
   // CALCULATE SPLIT AMOUNTS
   const totalSplitPaid = toDecimal(splitPayments.cash)
@@ -820,14 +876,14 @@ export default function BillingForm({
                 <div className="flex bg-black/20 rounded overflow-hidden border border-white/10">
                   <button
                     type="button"
-                    onClick={() => setCgstType("₹")}
+                    onClick={() => handleCgstTypeChange("₹")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${cgstType === "₹" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     ₹
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCgstType("%")}
+                    onClick={() => handleCgstTypeChange("%")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${cgstType === "%" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     %
@@ -838,7 +894,7 @@ export default function BillingForm({
                   min="0"
                   step="0.01"
                   value={cgst}
-                  onChange={(e) => setCgst(e.target.value)}
+                  onChange={(e) => handleCgstChange(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
                   placeholder="0"
                 />
@@ -851,14 +907,14 @@ export default function BillingForm({
                 <div className="flex bg-black/20 rounded overflow-hidden border border-white/10">
                   <button
                     type="button"
-                    onClick={() => setSgstType("₹")}
+                    onClick={() => handleSgstTypeChange("₹")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${sgstType === "₹" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     ₹
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSgstType("%")}
+                    onClick={() => handleSgstTypeChange("%")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${sgstType === "%" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     %
@@ -869,7 +925,7 @@ export default function BillingForm({
                   min="0"
                   step="0.01"
                   value={sgst}
-                  onChange={(e) => setSgst(e.target.value)}
+                  onChange={(e) => handleSgstChange(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
                   placeholder="0"
                 />
@@ -882,14 +938,14 @@ export default function BillingForm({
                 <div className="flex bg-black/20 rounded overflow-hidden border border-white/10">
                   <button
                     type="button"
-                    onClick={() => setIgstType("₹")}
+                    onClick={() => handleIgstTypeChange("₹")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${igstType === "₹" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     ₹
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIgstType("%")}
+                    onClick={() => handleIgstTypeChange("%")}
                     className={`px-2 py-1 text-xs font-bold transition-colors cursor-pointer ${igstType === "%" ? "bg-purple-400 text-white" : "text-white/50 hover:text-white/80"}`}
                   >
                     %
@@ -900,7 +956,7 @@ export default function BillingForm({
                   min="0"
                   step="0.01"
                   value={igst}
-                  onChange={(e) => setIgst(e.target.value)}
+                  onChange={(e) => handleIgstChange(e.target.value)}
                   className="w-20 px-2 py-1.5 bg-white/10 border border-white/20 rounded text-right outline-none focus:border-purple-300 focus:bg-white/20 transition-all text-white placeholder-white/30"
                   placeholder="0"
                 />

@@ -52,15 +52,31 @@ export default async function ReceiptPage({ params }) {
 
   const roundOffAmount = Number(invoice.grandTotal) - (Number(invoice.subtotal) + Number(invoice.totalGst));
 
-  // --- GST LOGIC (MP State Code is 23) ---
-  // If GST number exists and DOES NOT start with 23, it is IGST. Otherwise, CGST + SGST.
-  const hasGst = Boolean(invoice.customer?.gstNumber);
-  const isIgst = hasGst && !invoice.customer.gstNumber.startsWith("23");
+  // --- ACCURATE STORED TAX BREAKDOWN WITH BACKWARD COMPATIBILITY ---
+  const storedCgst = toDecimal(invoice.cgstAmount || 0);
+  const storedSgst = toDecimal(invoice.sgstAmount || 0);
+  const storedIgst = toDecimal(invoice.igstAmount || 0);
+  const totalTax = toDecimal(invoice.totalGst || 0);
 
-  const cgstSgstAmount = isIgst
-    ? toDecimal(0)
-    : toDecimal(invoice.totalGst).div(2);
-  const igstAmount = isIgst ? toDecimal(invoice.totalGst) : toDecimal(0);
+  let cgstAmount = storedCgst;
+  let sgstAmount = storedSgst;
+  let igstAmount = storedIgst;
+
+  // Backward Compatibility Fallback:
+  // For older invoices where all three new fields are 0 but totalGst > 0, fallback to historical logic
+  if (storedCgst.isZero() && storedSgst.isZero() && storedIgst.isZero() && totalTax.gt(0)) {
+    const hasGst = Boolean(invoice.customer?.gstNumber);
+    const isHistoricalIgst = hasGst && !invoice.customer.gstNumber.startsWith("23");
+    if (isHistoricalIgst) {
+      igstAmount = totalTax;
+      cgstAmount = toDecimal(0);
+      sgstAmount = toDecimal(0);
+    } else {
+      cgstAmount = totalTax.div(2);
+      sgstAmount = totalTax.div(2);
+      igstAmount = toDecimal(0);
+    }
+  }
 
   // Prefer invoice-level split amounts; fallback to payment logs for older records.
   const paymentLogs = Array.isArray(invoice.payments) ? invoice.payments : [];
@@ -379,11 +395,11 @@ export default async function ReceiptPage({ params }) {
                   {/* Explicit CA-Level Breakdown */}
                   <span>CGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(cgstSgstAmount, 2)}`}
+                    {`₹${formatNumber(cgstAmount, 2)}`}
                   </span>
                   <span>SGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(cgstSgstAmount, 2)}`}
+                    {`₹${formatNumber(sgstAmount, 2)}`}
                   </span>
                   <span>IGST:</span>{" "}
                   <span className="font-bold text-gray-800 text-right">

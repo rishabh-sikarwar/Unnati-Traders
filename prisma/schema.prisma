@@ -112,6 +112,9 @@ model Invoice {
   id            String        @id @default(uuid())
   invoiceNumber String        @unique
   subtotal      Decimal   @db.Decimal(18, 2)
+  cgstAmount    Decimal   @default(0) @db.Decimal(18, 2)
+  sgstAmount    Decimal   @default(0) @db.Decimal(18, 2)
+  igstAmount    Decimal   @default(0) @db.Decimal(18, 2)
   totalGst      Decimal   @db.Decimal(18, 2)
   grandTotal    Decimal   @db.Decimal(18, 2)
   status        InvoiceStatus @default(COMPLETED)

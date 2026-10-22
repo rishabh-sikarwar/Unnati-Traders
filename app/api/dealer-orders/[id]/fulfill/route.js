@@ -189,11 +189,19 @@ export async function POST(req, { params }) {
             const nextSequence = maxSequence + 1;
             const invoiceNumber = `${prefix}${String(nextSequence).padStart(4, "0")}`;
 
+            const isInterState = order.customer?.gstNumber && !order.customer.gstNumber.startsWith("23");
+            const igstDecimal = isInterState ? totalGstDecimal : toDecimal(0);
+            const cgstDecimal = isInterState ? toDecimal(0) : totalGstDecimal.div(2);
+            const sgstDecimal = isInterState ? toDecimal(0) : totalGstDecimal.div(2);
+
             // E. Create Invoice
             const invoice = await tx.invoice.create({
               data: {
                 invoiceNumber,
                 subtotal: moneyToString(subtotalDecimal),
+                cgstAmount: moneyToString(cgstDecimal),
+                sgstAmount: moneyToString(sgstDecimal),
+                igstAmount: moneyToString(igstDecimal),
                 totalGst: moneyToString(totalGstDecimal),
                 grandTotal: moneyToString(grandTotalDecimal),
                 paymentMode: normalizedMode === "CREDIT" ? "CREDIT" : normalizedMode,

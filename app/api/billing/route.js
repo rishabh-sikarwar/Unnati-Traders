@@ -179,12 +179,20 @@ export async function POST(req) {
             const invoiceNumber = `${prefix}${String(nextSequence).padStart(4, "0")}`;
             // ==========================================
 
+            // Extract tax breakdown amounts
+            const cgstAmount = totals?.cgstAmount ? toDecimal(totals.cgstAmount) : toDecimal(0);
+            const sgstAmount = totals?.sgstAmount ? toDecimal(totals.sgstAmount) : toDecimal(0);
+            const igstAmount = totals?.igstAmount ? toDecimal(totals.igstAmount) : toDecimal(0);
+
             // E. Create Invoice
             const invoice = await tx.invoice.create({
               data: {
                 createdAt: parsedInvoiceDate,
                 invoiceNumber,
                 subtotal: moneyToString(totals.subtotal),
+                cgstAmount: moneyToString(cgstAmount),
+                sgstAmount: moneyToString(sgstAmount),
+                igstAmount: moneyToString(igstAmount),
                 totalGst: moneyToString(totals.totalGst),
                 grandTotal: moneyToString(totals.grandTotal),
                 paymentMode: modeEnum,

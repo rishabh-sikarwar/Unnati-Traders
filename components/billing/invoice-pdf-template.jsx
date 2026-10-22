@@ -245,11 +245,29 @@ export default function InvoicePDF({ invoiceData }) {
     year: "numeric",
   });
 
-  const hasGst = Boolean(invoiceData.customer?.gstNumber);
-  const isIgst = hasGst && !invoiceData.customer.gstNumber.startsWith("23");
+  // --- ACCURATE STORED TAX BREAKDOWN WITH BACKWARD COMPATIBILITY ---
+  const storedCgst = toDecimal(invoiceData.cgstAmount || 0);
+  const storedSgst = toDecimal(invoiceData.sgstAmount || 0);
+  const storedIgst = toDecimal(invoiceData.igstAmount || 0);
+  const totalTax = toDecimal(invoiceData.totalGst || 0);
 
-  const cgstSgstAmount = isIgst ? toDecimal(0) : toDecimal(invoiceData.totalGst).div(2);
-  const igstAmount = isIgst ? toDecimal(invoiceData.totalGst) : toDecimal(0);
+  let cgstAmount = storedCgst;
+  let sgstAmount = storedSgst;
+  let igstAmount = storedIgst;
+
+  if (storedCgst.isZero() && storedSgst.isZero() && storedIgst.isZero() && totalTax.gt(0)) {
+    const hasGst = Boolean(invoiceData.customer?.gstNumber);
+    const isHistoricalIgst = hasGst && !invoiceData.customer.gstNumber.startsWith("23");
+    if (isHistoricalIgst) {
+      igstAmount = totalTax;
+      cgstAmount = toDecimal(0);
+      sgstAmount = toDecimal(0);
+    } else {
+      cgstAmount = totalTax.div(2);
+      sgstAmount = totalTax.div(2);
+      igstAmount = toDecimal(0);
+    }
+  }
 
   const roundOffAmount = Number(invoiceData.grandTotal) - (Number(invoiceData.subtotal) + Number(invoiceData.totalGst));
 
@@ -387,11 +405,11 @@ export default function InvoicePDF({ invoiceData }) {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.headerText}>CGST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(cgstSgstAmount, 2)}`}</Text>
+              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(cgstAmount, 2)}`}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.headerText}>SGST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(cgstSgstAmount, 2)}`}</Text>
+              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(sgstAmount, 2)}`}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.headerText}>IGST:</Text>
