@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,27 @@ export async function POST(req, { params }) {
       },
     });
 
+    // If an invoice is linked, update its payment / status if tracked
+    if (order.invoiceId && order.invoice) {
+      const invoiceData = { status: "COMPLETED" };
+      if (Number(order.invoice.amountPaid || 0) < Number(order.invoice.grandTotal || 0)) {
+        invoiceData.amountPaid = order.invoice.grandTotal;
+      }
+      await prisma.invoice.update({
+        where: { id: order.invoiceId },
+        data: invoiceData,
+      });
+    }
+
+    // Step 4: Refresh & Cache Purge
+    revalidatePath("/dashboard");
+    revalidatePath("/orders/dealer-requests");
+    revalidatePath(`/store/orders/${id}`);
+    revalidatePath("/orders");
+
     return NextResponse.json({
       success: true,
-      message: "Order marked as completed successfully.",
+      message: "Payment confirmed & order marked completed!",
       order: updatedOrder,
     });
   } catch (error) {

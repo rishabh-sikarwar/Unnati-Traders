@@ -49,9 +49,11 @@ export default function DealerRequestsManager({
     return () => clearInterval(intervalId);
   }, [router]);
 
-  // Filtered orders: "PENDING" view includes both unfulfilled PENDING bookings & BILLED orders awaiting payment
+  // Filtered orders: "PENDING" view includes unfulfilled PENDING bookings, BILLED orders, and PAYMENT_SUBMITTED awaiting verification
   const displayedOrders = orders.filter((o) => {
-    if (activeTab === "PENDING") return o.status === "PENDING" || o.status === "BILLED";
+    if (activeTab === "PENDING") {
+      return o.status === "PENDING" || o.status === "BILLED" || o.status === "PAYMENT_SUBMITTED";
+    }
     return true;
   });
 
@@ -124,10 +126,11 @@ export default function DealerRequestsManager({
       if (!res.ok) {
         throw new Error(data.error || "Failed to mark order as completed");
       }
-      toast.success("Payment verified! Order marked as completed.");
+      toast.success("Payment confirmed & order marked completed!");
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: "COMPLETED" } : o))
       );
+      router.refresh();
     } catch (err) {
       toast.error(err.message || "Failed to complete order");
     } finally {
@@ -150,7 +153,12 @@ export default function DealerRequestsManager({
           >
             <Clock className="w-4 h-4" />
             Pending Requests (
-            {orders.filter((o) => o.status === "PENDING" || o.status === "BILLED").length})
+            {orders.filter((o) => o.status === "PENDING" || o.status === "BILLED" || o.status === "PAYMENT_SUBMITTED").length})
+            {orders.filter((o) => o.status === "PAYMENT_SUBMITTED").length > 0 && (
+              <span className="bg-amber-300 text-amber-950 px-1.5 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                {orders.filter((o) => o.status === "PAYMENT_SUBMITTED").length} to verify
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("ALL")}
@@ -204,6 +212,11 @@ export default function DealerRequestsManager({
                       {order.status === "BILLED" && (
                         <Badge className="bg-blue-100 text-blue-800 border-blue-300">
                           <Clock className="w-3 h-3 mr-1 inline" /> Billed • Awaiting Payment
+                        </Badge>
+                      )}
+                      {order.status === "PAYMENT_SUBMITTED" && (
+                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold animate-pulse">
+                          <Clock className="w-3 h-3 mr-1 inline" /> Payment Claimed by Dealer
                         </Badge>
                       )}
                       {order.status === "COMPLETED" && (
@@ -290,6 +303,28 @@ export default function DealerRequestsManager({
                   </div>
                 </div>
 
+                {/* Payment Reference (if dealer submitted payment) */}
+                {order.status === "PAYMENT_SUBMITTED" && (
+                  <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50/70 rounded-xl border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-extrabold uppercase tracking-wider text-[10px] text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded border border-amber-300">
+                        UTR / Reference
+                      </span>
+                      <span className="font-mono font-bold text-sm text-gray-900 bg-white px-2 py-0.5 rounded border border-amber-300 shadow-2xs">
+                        {order.paymentReference || "None provided"}
+                      </span>
+                      <span className="text-gray-600">
+                        — Dealer declared payment done. Verify bank credit before completing.
+                      </span>
+                    </div>
+                    {order.paymentSubmittedAt && (
+                      <span className="text-[11px] text-amber-700 shrink-0 font-medium">
+                        Submitted at {format(new Date(order.paymentSubmittedAt), "dd MMM, hh:mm a")}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Notes if any */}
                 {order.notes && (
                   <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs text-amber-900">
@@ -333,7 +368,7 @@ export default function DealerRequestsManager({
                     </div>
                   )}
 
-                  {order.status === "BILLED" && (
+                  {(order.status === "BILLED" || order.status === "PAYMENT_SUBMITTED") && (
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/billing/receipt/${order.invoiceId || order.invoice?.id}`}
@@ -356,7 +391,11 @@ export default function DealerRequestsManager({
                       <Button
                         onClick={() => handleMarkCompleted(order.id)}
                         disabled={loadingId === order.id}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 font-bold px-4 shadow-sm"
+                        className={`text-white flex items-center gap-2 font-bold px-4 shadow-sm transition-all ${
+                          order.status === "PAYMENT_SUBMITTED"
+                            ? "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-500/50 shadow-emerald-200"
+                            : "bg-emerald-600 hover:bg-emerald-700"
+                        }`}
                       >
                         {loadingId === order.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />

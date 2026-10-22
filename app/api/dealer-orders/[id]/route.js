@@ -63,6 +63,8 @@ export async function GET(req, { params }) {
         orderNumber: order.orderNumber,
         status: order.status,
         notes: order.notes,
+        paymentReference: order.paymentReference || null,
+        paymentSubmittedAt: order.paymentSubmittedAt || null,
         locationId: order.locationId,
         location: order.location,
         customer: order.customer

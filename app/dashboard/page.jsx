@@ -57,7 +57,7 @@ export default async function DashboardPage() {
         where: {
           userId: clerkUser.id,
           status: {
-            in: ["BILLED", "COMPLETED"],
+            in: ["BILLED", "PAYMENT_SUBMITTED", "COMPLETED"],
             not: "CANCELLED",
           },
         },

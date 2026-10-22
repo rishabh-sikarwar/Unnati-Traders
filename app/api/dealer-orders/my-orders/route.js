@@ -61,6 +61,8 @@ export async function GET(req) {
         orderNumber: order.orderNumber,
         status: order.status,
         notes: order.notes,
+        paymentReference: order.paymentReference || null,
+        paymentSubmittedAt: order.paymentSubmittedAt || null,
         createdAt: order.createdAt,
         totalTyres,
         location: order.location,
@@ -87,7 +89,7 @@ export async function GET(req) {
       where: {
         userId: clerkUser.id,
         status: {
-          in: ["BILLED", "COMPLETED"],
+          in: ["BILLED", "PAYMENT_SUBMITTED", "COMPLETED"],
           not: "CANCELLED",
         },
       },

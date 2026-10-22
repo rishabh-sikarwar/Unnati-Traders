@@ -76,6 +76,8 @@ export default async function DealerRequestsPage() {
     orderNumber: o.orderNumber,
     status: o.status,
     notes: o.notes,
+    paymentReference: o.paymentReference || null,
+    paymentSubmittedAt: o.paymentSubmittedAt ? o.paymentSubmittedAt.toISOString() : null,
     createdAt: o.createdAt.toISOString(),
     locationId: o.locationId,
     location: o.location

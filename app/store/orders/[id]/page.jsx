@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import OrderLivePoller from "@/components/store/OrderLivePoller";
+import CustomerPaymentAction from "@/components/store/CustomerPaymentAction";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,12 @@ export default async function OrderDetailPage({ params }) {
 
   // Status Stepper helpers
   const isPending = order.status === "PENDING";
-  const isBilled = (order.status === "BILLED" || order.status === "COMPLETED") && order.status !== "CANCELLED";
+  const isPaymentSubmitted = order.status === "PAYMENT_SUBMITTED";
+  const isBilled =
+    (order.status === "BILLED" ||
+      order.status === "PAYMENT_SUBMITTED" ||
+      order.status === "COMPLETED") &&
+    order.status !== "CANCELLED";
   const isCompleted = order.status === "COMPLETED";
   const isCancelled = order.status === "CANCELLED";
 
@@ -137,7 +143,12 @@ export default async function OrderDetailPage({ params }) {
               )}
               {order.status === "BILLED" && (
                 <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                  <Receipt className="w-3 h-3 mr-1 inline" /> Bill Ready
+                  <Receipt className="w-3 h-3 mr-1 inline" /> Bill Ready • Awaiting Payment
+                </Badge>
+              )}
+              {order.status === "PAYMENT_SUBMITTED" && (
+                <Badge className="bg-amber-100 text-amber-900 border-amber-300 animate-pulse">
+                  <Clock className="w-3 h-3 mr-1 inline" /> Payment Claimed • Verification Pending
                 </Badge>
               )}
               {order.status === "COMPLETED" && (
@@ -201,17 +212,35 @@ export default async function OrderDetailPage({ params }) {
             {/* Step 3 */}
             <div className="flex flex-col items-center">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
                   isCompleted
                     ? "bg-emerald-500 text-white shadow-md shadow-emerald-200"
+                    : isPaymentSubmitted
+                    ? "bg-amber-500 text-white shadow-md shadow-amber-200 animate-pulse"
                     : "bg-gray-200 text-gray-500"
                 }`}
               >
-                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : 3}
+                {isCompleted ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : isPaymentSubmitted ? (
+                  <Clock className="w-5 h-5" />
+                ) : (
+                  3
+                )}
               </div>
-              <p className="text-xs font-bold text-gray-900 mt-2">Order Complete</p>
+              <p className="text-xs font-bold text-gray-900 mt-2">
+                {isCompleted
+                  ? "Order Complete"
+                  : isPaymentSubmitted
+                  ? "Payment Verification & Dispatch"
+                  : "Payment & Dispatch"}
+              </p>
               <p className="text-[11px] text-gray-400">
-                {isCompleted ? "Payment Received" : "Payment & Dispatch"}
+                {isCompleted
+                  ? "Payment Received"
+                  : isPaymentSubmitted
+                  ? "Awaiting shopkeeper approval"
+                  : "Awaiting payment"}
               </p>
             </div>
           </div>
@@ -414,6 +443,15 @@ export default async function OrderDetailPage({ params }) {
                         Pay ₹{grandTotal.toLocaleString("en-IN")} via UPI App
                       </a>
                     </Button>
+                  </div>
+
+                  {/* Customer Payment Confirmation & UTR Submission Action */}
+                  <div className="pt-2 border-t border-purple-100/80">
+                    <CustomerPaymentAction
+                      orderId={order.id}
+                      status={order.status}
+                      paymentReference={order.paymentReference || ""}
+                    />
                   </div>
                 </div>
               </div>

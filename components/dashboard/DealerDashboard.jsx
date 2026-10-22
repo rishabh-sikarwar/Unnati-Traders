@@ -47,7 +47,7 @@ const DealerDashboard = ({ user, stats: initialStats = null }) => {
   // Exclude CANCELLED orders from active bookings and billed stats
   const activeOrders = orders.filter((o) => o.status !== "CANCELLED");
   const billedOrders = orders.filter(
-    (o) => (o.status === "BILLED" || o.status === "COMPLETED") && o.status !== "CANCELLED"
+    (o) => (o.status === "BILLED" || o.status === "PAYMENT_SUBMITTED" || o.status === "COMPLETED") && o.status !== "CANCELLED"
   );
   const pendingOrders = orders.filter((o) => o.status === "PENDING");
 
@@ -63,6 +63,12 @@ const DealerDashboard = ({ user, stats: initialStats = null }) => {
         return (
           <Badge className="bg-blue-100 text-blue-800 border-blue-300 font-medium">
             <ReceiptText className="w-3 h-3 mr-1 inline" /> Bill Ready
+          </Badge>
+        );
+      case "PAYMENT_SUBMITTED":
+        return (
+          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-medium animate-pulse">
+            <Clock className="w-3 h-3 mr-1 inline" /> Verification Pending
           </Badge>
         );
       case "COMPLETED":
@@ -253,12 +259,12 @@ const DealerDashboard = ({ user, stats: initialStats = null }) => {
                           <Button
                             size="sm"
                             className={
-                              order.status === "BILLED" || order.status === "COMPLETED"
+                              order.status === "BILLED" || order.status === "PAYMENT_SUBMITTED" || order.status === "COMPLETED"
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                 : "bg-[#522874] hover:bg-[#432060] text-white"
                             }
                           >
-                            {order.status === "BILLED" || order.status === "COMPLETED"
+                            {order.status === "BILLED" || order.status === "PAYMENT_SUBMITTED" || order.status === "COMPLETED"
                               ? "View / Pay Bill"
                               : "View Order"}
                             <ArrowRight className="w-3.5 h-3.5 ml-1" />

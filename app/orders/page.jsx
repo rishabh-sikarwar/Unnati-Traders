@@ -42,8 +42,8 @@ export default async function OrdersPage({ searchParams }) {
   if (dbUser.role === "ADMIN" || dbUser.role === "SHOPKEEPER") {
     const pendingWhere =
       dbUser.role === "SHOPKEEPER" 
-        ? { locationId: dbUser.locationId, status: { in: ["PENDING", "BILLED"] } }
-        : { status: { in: ["PENDING", "BILLED"] } };
+        ? { locationId: dbUser.locationId, status: { in: ["PENDING", "BILLED", "PAYMENT_SUBMITTED"] } }
+        : { status: { in: ["PENDING", "BILLED", "PAYMENT_SUBMITTED"] } };
     pendingRequestsCount = await prisma.dealerOrder.count({ where: pendingWhere });
   }
 
