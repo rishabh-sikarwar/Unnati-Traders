@@ -4,14 +4,7 @@ import { redirect } from "next/navigation";
 import CustomerLedger from "@/components/customers/customer-ledger";
 import { UsersRound } from "lucide-react";
 import { toDecimal } from "@/lib/money";
-import {
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
-  subDays,
-  subMonths,
-} from "date-fns";
+import { getIstDateFilter } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -36,69 +29,49 @@ export default async function CustomersPage({ searchParams }) {
   const shopFilter = queries?.shopId || "ALL";
   const duesOnly = queries?.duesOnly === "true";
 
-  // NEW DATE FILTERS
-  const dateFilter = queries?.date || "all";
+  // DEFAULT DATE FILTER: "this_month" in IST
+  const dateFilter = queries?.date || "this_month";
   const customStart = queries?.start;
   const customEnd = queries?.end;
 
-  // Calculate Cutoff Dates based on selection
-  let cutoffStart = null;
-  let cutoffEnd = null;
-  const now = new Date();
+  // Calculate IST Date Range using date-utils
+  const dateRange = getIstDateFilter(dateFilter, customStart, customEnd);
+  const cutoffStart = dateRange?.gte || null;
+  const cutoffEnd = dateRange?.lte || null;
 
-  if (dateFilter === "today") {
-    cutoffStart = startOfDay(now);
-    cutoffEnd = endOfDay(now);
-  } else if (dateFilter === "yesterday") {
-    const yesterday = subDays(now, 1);
-    cutoffStart = startOfDay(yesterday);
-    cutoffEnd = endOfDay(yesterday);
-  } else if (dateFilter === "this_month") {
-    cutoffStart = startOfMonth(now);
-    cutoffEnd = endOfDay(now);
-  } else if (dateFilter === "last_month") {
-    const lastMonth = subMonths(now, 1);
-    cutoffStart = startOfMonth(lastMonth);
-    cutoffEnd = endOfMonth(lastMonth);
-  } else if (dateFilter === "custom" && customStart && customEnd) {
-    cutoffStart = startOfDay(new Date(customStart));
-    cutoffEnd = endOfDay(new Date(customEnd));
-  }
-
-  // Build Date Condition for Database Query (Prisma)
-  const dateFilterCondition =
-    cutoffStart || cutoffEnd
-      ? {
-          ...(cutoffStart ? { gte: cutoffStart } : {}),
-          ...(cutoffEnd ? { lte: cutoffEnd } : {}),
-        }
-      : null;
-
-  // --- 2. FETCH MINIMAL DATA FROM DB ---
+  // --- 2. FETCH ACTIVE CUSTOMERS FOR LEDGER & MARKET DUES ---
   const customers = await prisma.customer.findMany({
     where: {
       isArchived: false,
-      ...(dateFilterCondition
-        ? {
-            OR: [
-              { invoices: { some: { createdAt: dateFilterCondition } } },
-              { payments: { some: { createdAt: dateFilterCondition } } },
-            ],
-          }
-        : {}),
     },
     include: {
       invoices: {
-        select: { grandTotal: true, createdAt: true, locationId: true },
+        select: {
+          id: true,
+          grandTotal: true,
+          amountPaid: true,
+          paymentMode: true,
+          createdAt: true,
+          locationId: true,
+        },
       },
-      payments: { select: { amount: true, createdAt: true } },
+      payments: {
+        select: {
+          id: true,
+          amount: true,
+          paymentMode: true,
+          createdAt: true,
+          invoiceId: true,
+        },
+      },
     },
     orderBy: { name: "asc" },
   });
 
   // --- 3. SERVER-SIDE MATH & DEDUPLICATION ---
+  const customerShopMap = new Map();
   const groupedData = {};
-  let globalOutstanding = toDecimal(0);
+  let filteredMarketDues = toDecimal(0);
 
   for (const c of customers) {
     const key = c.name.toLowerCase().trim();
@@ -128,9 +101,12 @@ export default async function CustomersPage({ searchParams }) {
       toDecimal(c.openingBalance || 0),
     );
 
+    const shopSet = new Set();
+
     // Process Invoices
     for (const inv of c.invoices) {
       group.globalBilled = group.globalBilled.plus(toDecimal(inv.grandTotal));
+      if (inv.locationId) shopSet.add(inv.locationId);
       if (shopFilter === "ALL" || inv.locationId === shopFilter) {
         group.interactedWithShop = true;
       }
@@ -158,9 +134,11 @@ export default async function CustomersPage({ searchParams }) {
         group.displayPaid = group.displayPaid.plus(toDecimal(pay.amount));
       }
     }
+
+    customerShopMap.set(c.id, shopSet);
   }
 
-  // --- 4. FILTER AND FORMAT FOR CLIENT ---
+  // --- 4. FILTER AND FORMAT CUSTOMERS FOR TABLE ---
   let processedCustomers = [];
 
   for (const group of Object.values(groupedData)) {
@@ -169,7 +147,14 @@ export default async function CustomersPage({ searchParams }) {
       .minus(group.globalPaid);
     group.outstandingDues = outstandingDues;
 
-    // Apply Filters
+    // Filter Market Dues respects shopFilter
+    if (shopFilter === "ALL" || group.interactedWithShop) {
+      if (outstandingDues.gt(0)) {
+        filteredMarketDues = filteredMarketDues.plus(outstandingDues);
+      }
+    }
+
+    // Apply Filters for Table Display
     if (
       searchQuery &&
       !group.name.toLowerCase().includes(searchQuery) &&
@@ -179,19 +164,107 @@ export default async function CustomersPage({ searchParams }) {
     if (duesOnly && !outstandingDues.gt(0)) continue;
     if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
 
-    // If a date filter is applied (not "all"), only show customers who had activity (billed or paid) within the selected date window
+    // If a date filter is applied (not "all"), show customers active within window or if duesOnly
     const hasActivity =
       dateFilter === "all" ||
       group.displayBilled.gt(0) ||
       group.displayPaid.gt(0);
-    if (!hasActivity) continue;
+    if (!hasActivity && !duesOnly) continue;
 
     processedCustomers.push(group);
+  }
 
-    if (outstandingDues.gt(0)) {
-      globalOutstanding = globalOutstanding.plus(outstandingDues);
+  // --- 5. TIMELINE RECOVERY ANALYTICS (Dues Paid / Credit Settlements) ---
+  const users = await prisma.user.findMany({ select: { id: true, locationId: true } });
+  const userLocMap = new Map(users.map((u) => [u.id, u.locationId]));
+
+  const paymentsInPeriod = await prisma.paymentLog.findMany({
+    where: {
+      paymentMode: { not: "RETURN_CREDIT" },
+      ...(dateRange ? { createdAt: dateRange } : {}),
+    },
+    select: {
+      id: true,
+      amount: true,
+      paymentMode: true,
+      invoiceId: true,
+      userId: true,
+      customerId: true,
+      invoice: { select: { locationId: true } },
+    },
+  });
+
+  let duesRecovered = toDecimal(0);
+  let settlementCount = 0;
+  let cashRecovered = toDecimal(0);
+  let upiRecovered = toDecimal(0);
+  let bankRecovered = toDecimal(0);
+
+  for (const p of paymentsInPeriod) {
+    if (shopFilter !== "ALL") {
+      const invLoc = p.invoice?.locationId;
+      const userLoc = userLocMap.get(p.userId);
+      const custShops = customerShopMap.get(p.customerId);
+      const match =
+        invLoc === shopFilter ||
+        userLoc === shopFilter ||
+        (custShops && custShops.has(shopFilter));
+      if (!match) continue;
+    }
+
+    // Track Udhaar / Dues Paid (Credit Settlements against customer dues)
+    if (p.invoiceId === null) {
+      const pAmt = toDecimal(p.amount);
+      duesRecovered = duesRecovered.plus(pAmt);
+      settlementCount++;
+
+      if (p.paymentMode === "CASH") {
+        cashRecovered = cashRecovered.plus(pAmt);
+      } else if (p.paymentMode === "UPI") {
+        upiRecovered = upiRecovered.plus(pAmt);
+      } else {
+        bankRecovered = bankRecovered.plus(pAmt);
+      }
     }
   }
+
+  // Fetch Invoices in dateRange for New Credit Given
+  const invoicesInPeriod = await prisma.invoice.findMany({
+    where: {
+      ...(dateRange ? { createdAt: dateRange } : {}),
+      ...(shopFilter !== "ALL" ? { locationId: shopFilter } : {}),
+    },
+    select: {
+      id: true,
+      grandTotal: true,
+      amountPaid: true,
+      paymentMode: true,
+    },
+  });
+
+  let newCreditGiven = toDecimal(0);
+  let creditBillsCount = 0;
+
+  for (const inv of invoicesInPeriod) {
+    const total = toDecimal(inv.grandTotal);
+    const paid = toDecimal(inv.amountPaid);
+    const unpaid = total.minus(paid);
+    if (unpaid.gt(0) || inv.paymentMode === "CREDIT") {
+      newCreditGiven = newCreditGiven.plus(unpaid.gt(0) ? unpaid : toDecimal(0));
+      creditBillsCount++;
+    }
+  }
+
+  const analytics = {
+    filteredMarketDues: Number(filteredMarketDues),
+    duesRecovered: Number(duesRecovered),
+    settlementCount,
+    cashRecovered: Number(cashRecovered),
+    upiRecovered: Number(upiRecovered),
+    bankRecovered: Number(bankRecovered),
+    newCreditGiven: Number(newCreditGiven),
+    creditBillsCount,
+  };
 
   const finalCustomers = processedCustomers.slice(0, 200);
 
@@ -205,7 +278,9 @@ export default async function CustomersPage({ searchParams }) {
     outstandingDues: Number(customer.outstandingDues),
   }));
 
-  const cleanGlobalOutstanding = Number(globalOutstanding);
+  const safeCustomers = JSON.parse(JSON.stringify(cleanCustomers));
+  const safeAnalytics = JSON.parse(JSON.stringify(analytics));
+  const cleanGlobalOutstanding = Number(filteredMarketDues);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
@@ -223,8 +298,9 @@ export default async function CustomersPage({ searchParams }) {
         </div>
 
         <CustomerLedger
-          customers={cleanCustomers}
+          customers={safeCustomers}
           globalOutstanding={cleanGlobalOutstanding}
+          analytics={safeAnalytics}
           locations={locations}
           userId={dbUser.id}
           currentFilters={{
@@ -240,3 +316,4 @@ export default async function CustomersPage({ searchParams }) {
     </div>
   );
 }
+

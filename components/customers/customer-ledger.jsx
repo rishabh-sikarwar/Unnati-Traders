@@ -14,6 +14,9 @@ import {
   Filter,
   Wallet,
   Landmark,
+  Banknote,
+  Smartphone,
+  CircleDollarSign,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { toDecimal, moneyToString } from "@/lib/money";
@@ -21,6 +24,7 @@ import { toDecimal, moneyToString } from "@/lib/money";
 export default function CustomerLedger({
   customers,
   globalOutstanding,
+  analytics,
   locations = [],
   userId,
   currentFilters,
@@ -33,7 +37,7 @@ export default function CustomerLedger({
     currentFilters.searchQuery || "",
   );
   const [dateFilter, setDateFilter] = useState(
-    currentFilters.dateFilter || "all",
+    currentFilters.dateFilter || "this_month",
   );
   const [shopFilter, setShopFilter] = useState(
     currentFilters.shopFilter || "ALL",
@@ -47,6 +51,18 @@ export default function CustomerLedger({
     currentFilters.customStart || "",
   );
   const [customEnd, setCustomEnd] = useState(currentFilters.customEnd || "");
+
+  // Safe Analytics Stats
+  const stats = analytics || {
+    filteredMarketDues: globalOutstanding || 0,
+    duesRecovered: 0,
+    settlementCount: 0,
+    cashRecovered: 0,
+    upiRecovered: 0,
+    bankRecovered: 0,
+    newCreditGiven: 0,
+    creditBillsCount: 0,
+  };
 
   // Modal States
   const [paymentModal, setPaymentModal] = useState({
@@ -78,8 +94,8 @@ export default function CustomerLedger({
       const params = new URLSearchParams();
 
       if (search) params.set("search", search);
-      if (date !== "all") params.set("date", date);
-      if (shop !== "ALL") params.set("shopId", shop);
+      if (date) params.set("date", date);
+      if (shop && shop !== "ALL") params.set("shopId", shop);
       if (dues) params.set("duesOnly", "true");
       if (date === "custom" && start && end) {
         params.set("start", start);
@@ -194,23 +210,6 @@ export default function CustomerLedger({
 
   return (
     <div className="space-y-6">
-      {/* GLOBAL DUES BANNER */}
-      <div className="hidden md:flex justify-end mb-2">
-        <div className="bg-red-50 border border-red-100 px-5 py-3 rounded-xl shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
-          <div className="p-2 bg-red-100 rounded-lg">
-            <Wallet className="w-5 h-5 text-red-600" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
-              Filtered Market Dues
-            </span>
-            <p className="text-xl font-black text-red-600 leading-none mt-0.5">
-              {`₹${formatNumber(globalOutstanding, 2)}`}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* SERVER-SIDE SECURE TOOLBAR */}
       <div className="flex flex-col xl:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200 items-start xl:items-center">
         {/* Search Bar - Press Enter to Search */}
@@ -262,12 +261,12 @@ export default function CustomerLedger({
             }}
             className="flex-1 sm:flex-none px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-[#522874] cursor-pointer"
           >
-            <option value="all">All Time</option>
+            <option value="this_month">This Month</option>
             <option value="today">Today</option>
             <option value="yesterday">Yesterday</option>
-            <option value="this_month">This Month</option>
             <option value="last_month">Last Month</option>
             <option value="custom">Custom Range...</option>
+            <option value="all">All Time</option>
           </select>
 
           {/* CUSTOM DATE PICKERS */}
@@ -353,6 +352,142 @@ export default function CustomerLedger({
           >
             {filterDuesOnly ? "Dues Only: ON" : "Dues Only: OFF"}
           </button>
+        </div>
+      </div>
+
+      {/* ANALYTICS SUMMARY KPI GRID */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-1">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#522874] animate-pulse" />
+            <h2 className="text-xs font-bold text-[#522874] uppercase tracking-wider">
+              Selected Timeline Analytics
+            </h2>
+          </div>
+          <div className="text-xs font-semibold text-gray-500 flex items-center gap-3">
+            {stats.settlementCount > 0 && (
+              <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">
+                {stats.settlementCount} Settlement{stats.settlementCount === 1 ? "" : "s"}
+              </span>
+            )}
+            <span>
+              Net Recovery vs Credit:{" "}
+              <strong className={stats.duesRecovered >= stats.newCreditGiven ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+                {stats.duesRecovered >= stats.newCreditGiven ? "+" : "-"}₹{formatNumber(Math.abs(stats.duesRecovered - stats.newCreditGiven), 0)}
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        {/* 6 KPI Cards Responsive Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {/* 1. FILTERED MARKET DUES */}
+          <div className="bg-red-50/50 border border-red-100 hover:border-red-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-red-800 uppercase tracking-wider">
+                Filtered Market Dues
+              </span>
+              <div className="p-1.5 bg-red-100 text-red-700 rounded-lg">
+                <Wallet className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-red-950">
+              ₹{formatNumber(stats.filteredMarketDues, 2)}
+            </div>
+            <div className="text-[11px] text-red-700 font-medium mt-1">
+              Total Outstanding Balance
+            </div>
+          </div>
+
+          {/* 2. TOTAL DUES RECOVERED */}
+          <div className="bg-purple-50/60 border border-purple-200 hover:border-purple-300 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-[#522874] uppercase tracking-wider">
+                Total Dues Recovered
+              </span>
+              <div className="p-1.5 bg-purple-100 text-[#522874] rounded-lg">
+                <HandCoins className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[#522874]">
+              ₹{formatNumber(stats.duesRecovered, 2)}
+            </div>
+            <div className="text-[11px] text-purple-700 font-medium mt-1">
+              {stats.settlementCount} payment {stats.settlementCount === 1 ? "entry" : "entries"}
+            </div>
+          </div>
+
+          {/* 3. CASH COLLECTION */}
+          <div className="bg-emerald-50/50 border border-emerald-100 hover:border-emerald-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                Cash Collection
+              </span>
+              <div className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg">
+                <Banknote className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-950">
+              ₹{formatNumber(stats.cashRecovered, 2)}
+            </div>
+            <div className="text-[11px] text-emerald-700 font-medium mt-1">
+              {stats.duesRecovered > 0 ? ((stats.cashRecovered / stats.duesRecovered) * 100).toFixed(1) : "0.0"}% of recovered
+            </div>
+          </div>
+
+          {/* 4. UPI COLLECTION */}
+          <div className="bg-blue-50/50 border border-blue-100 hover:border-blue-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">
+                UPI Collection
+              </span>
+              <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                <Smartphone className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-blue-950">
+              ₹{formatNumber(stats.upiRecovered, 2)}
+            </div>
+            <div className="text-[11px] text-blue-700 font-medium mt-1">
+              {stats.duesRecovered > 0 ? ((stats.upiRecovered / stats.duesRecovered) * 100).toFixed(1) : "0.0"}% of recovered
+            </div>
+          </div>
+
+          {/* 5. CHEQUE / BANK */}
+          <div className="bg-amber-50/50 border border-amber-100 hover:border-amber-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
+                Cheque / Bank / Card
+              </span>
+              <div className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
+                <Landmark className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-amber-950">
+              ₹{formatNumber(stats.bankRecovered, 2)}
+            </div>
+            <div className="text-[11px] text-amber-700 font-medium mt-1">
+              {stats.duesRecovered > 0 ? ((stats.bankRecovered / stats.duesRecovered) * 100).toFixed(1) : "0.0"}% of recovered
+            </div>
+          </div>
+
+          {/* 6. NEW CREDIT GIVEN */}
+          <div className="bg-rose-50/50 border border-rose-100 hover:border-rose-200 rounded-xl p-3.5 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">
+                New Credit Given
+              </span>
+              <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+                <CircleDollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-rose-950">
+              ₹{formatNumber(stats.newCreditGiven, 2)}
+            </div>
+            <div className="text-[11px] text-rose-700 font-medium mt-1">
+              {stats.creditBillsCount || 0} credit bills generated
+            </div>
+          </div>
         </div>
       </div>
 

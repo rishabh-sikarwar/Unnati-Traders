@@ -98,6 +98,9 @@ export default async function OrdersPage({ searchParams }) {
     ...inv,
     subtotal: Number(inv.subtotal),
     totalGst: Number(inv.totalGst),
+    cgstAmount: Number(inv.cgstAmount || 0),
+    sgstAmount: Number(inv.sgstAmount || 0),
+    igstAmount: Number(inv.igstAmount || 0),
     grandTotal: Number(inv.grandTotal),
     amountPaid: Number(inv.amountPaid),
     splitCash: Number(inv.splitCash),
@@ -115,6 +118,8 @@ export default async function OrdersPage({ searchParams }) {
       ? inv.items.reduce((sum, item) => sum + (item.quantity || 0), 0)
       : 0,
   }));
+
+  const safeInvoices = JSON.parse(JSON.stringify(serializedInvoices));
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 md:px-8 pb-8 pt-28 md:pt-32">
@@ -151,7 +156,7 @@ export default async function OrdersPage({ searchParams }) {
 
         {/* Pass the data AND the current active filters to the UI */}
         <OrdersTable 
-          initialOrders={serializedInvoices} 
+          initialOrders={safeInvoices} 
           userRole={dbUser.role} 
           locations={locations} 
           currentFilters={{ dateFilter, shopFilter, typeFilter, customStart, customEnd }}
