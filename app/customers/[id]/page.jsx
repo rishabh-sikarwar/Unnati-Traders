@@ -32,7 +32,6 @@ export default async function CustomerStatementPage({ params, searchParams }) {
 
   // 1. Fetch all customers and manually filter by name to handle duplicates safely
   const allCustomers = await prisma.customer.findMany({
-    where: { isArchived: false },
     include: {
       invoices: { orderBy: { createdAt: "asc" } },
       payments: {

@@ -17,6 +17,7 @@ import {
   Banknote,
   Smartphone,
   CircleDollarSign,
+  RotateCcw,
 } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { toDecimal, moneyToString } from "@/lib/money";
@@ -44,6 +45,9 @@ export default function CustomerLedger({
   );
   const [filterDuesOnly, setFilterDuesOnly] = useState(
     currentFilters.duesOnly || false,
+  );
+  const [filterArchived, setFilterArchived] = useState(
+    currentFilters.archived || false,
   );
 
   // Custom Date States
@@ -83,13 +87,21 @@ export default function CustomerLedger({
 
   const [archiveModal, setArchiveModal] = useState({
     isOpen: false,
+    customer: null,
     customerId: null,
     customerName: "",
   });
   const [isArchiving, setIsArchiving] = useState(false);
 
+  const [restoreModal, setRestoreModal] = useState({
+    isOpen: false,
+    customer: null,
+    customerName: "",
+  });
+  const [isRestoring, setIsRestoring] = useState(false);
+
   // --- TRIGGER SERVER RE-FETCH ---
-  const applyFilters = (search, date, shop, dues, start, end) => {
+  const applyFilters = (search, date, shop, dues, archived, start, end) => {
     startTransition(() => {
       const params = new URLSearchParams();
 
@@ -97,6 +109,7 @@ export default function CustomerLedger({
       if (date) params.set("date", date);
       if (shop && shop !== "ALL") params.set("shopId", shop);
       if (dues) params.set("duesOnly", "true");
+      if (archived) params.set("archived", "true");
       if (date === "custom" && start && end) {
         params.set("start", start);
         params.set("end", end);
@@ -148,6 +161,7 @@ export default function CustomerLedger({
   };
 
   const executeArchive = async () => {
+    if (!archiveModal.customer) return;
     setIsArchiving(true);
     const toastId = toast.loading("Archiving account...");
 
@@ -155,7 +169,10 @@ export default function CustomerLedger({
       const res = await fetch("/api/customers/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerIds: archiveModal.customer.ids }),
+        body: JSON.stringify({
+          customerIds: archiveModal.customer.ids,
+          isArchived: true,
+        }),
       });
 
       if (!res.ok) throw new Error("Failed to archive");
@@ -163,12 +180,41 @@ export default function CustomerLedger({
       toast.success(`${archiveModal.customerName} archived successfully.`, {
         id: toastId,
       });
-      setArchiveModal({ isOpen: false, customerId: null, customerName: "" });
+      setArchiveModal({ isOpen: false, customer: null, customerId: null, customerName: "" });
       router.refresh();
     } catch (error) {
       toast.error(error.message, { id: toastId });
     } finally {
       setIsArchiving(false);
+    }
+  };
+
+  const executeRestore = async () => {
+    if (!restoreModal.customer) return;
+    setIsRestoring(true);
+    const toastId = toast.loading("Restoring account...");
+
+    try {
+      const res = await fetch("/api/customers/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerIds: restoreModal.customer.ids,
+          isArchived: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to restore customer");
+
+      toast.success(`${restoreModal.customerName} restored to active Khata!`, {
+        id: toastId,
+      });
+      setRestoreModal({ isOpen: false, customer: null, customerName: "" });
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message, { id: toastId });
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -227,6 +273,7 @@ export default function CustomerLedger({
                 dateFilter,
                 shopFilter,
                 filterDuesOnly,
+                filterArchived,
                 customStart,
                 customEnd,
               );
@@ -255,6 +302,7 @@ export default function CustomerLedger({
                 e.target.value,
                 shopFilter,
                 filterDuesOnly,
+                filterArchived,
                 customStart,
                 customEnd,
               );
@@ -283,6 +331,7 @@ export default function CustomerLedger({
                       "custom",
                       shopFilter,
                       filterDuesOnly,
+                      filterArchived,
                       e.target.value,
                       customEnd,
                     );
@@ -301,6 +350,7 @@ export default function CustomerLedger({
                       "custom",
                       shopFilter,
                       filterDuesOnly,
+                      filterArchived,
                       customStart,
                       e.target.value,
                     );
@@ -320,6 +370,7 @@ export default function CustomerLedger({
                   dateFilter,
                   e.target.value,
                   filterDuesOnly,
+                  filterArchived,
                   customStart,
                   customEnd,
                 );
@@ -344,6 +395,7 @@ export default function CustomerLedger({
                 dateFilter,
                 shopFilter,
                 newDuesState,
+                filterArchived,
                 customStart,
                 customEnd,
               );
@@ -351,6 +403,30 @@ export default function CustomerLedger({
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold border transition-all cursor-pointer active:scale-95 ${filterDuesOnly ? "bg-red-50 text-red-600 border-red-200 shadow-inner" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
           >
             {filterDuesOnly ? "Dues Only: ON" : "Dues Only: OFF"}
+          </button>
+
+          {/* ARCHIVED CUSTOMERS TOGGLE */}
+          <button
+            onClick={() => {
+              const newArchivedState = !filterArchived;
+              setFilterArchived(newArchivedState);
+              applyFilters(
+                searchQuery,
+                dateFilter,
+                shopFilter,
+                filterDuesOnly,
+                newArchivedState,
+                customStart,
+                customEnd,
+              );
+            }}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold border transition-all cursor-pointer active:scale-95 ${
+              filterArchived
+                ? "bg-amber-100 text-amber-900 border-amber-300 shadow-inner ring-1 ring-amber-300"
+                : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+            }`}
+          >
+            {filterArchived ? "Archived: ON" : "Archived: OFF"}
           </button>
         </div>
       </div>
@@ -528,7 +604,9 @@ export default function CustomerLedger({
                   colSpan="5"
                   className="block md:table-cell p-8 text-center text-gray-500 border-b"
                 >
-                  No matching customers found.
+                  {filterArchived
+                    ? "No archived customers found."
+                    : "No matching customers found."}
                 </td>
               </tr>
             )}
@@ -539,8 +617,15 @@ export default function CustomerLedger({
                 className="block md:table-row border-b border-gray-100 hover:bg-purple-50/10 transition-colors p-4 md:p-0"
               >
                 <td className="block md:table-cell md:p-4 mb-3 md:mb-0">
-                  <div className="font-bold text-gray-900 text-lg md:text-base">
-                    {c.name}
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-gray-900 text-lg md:text-base">
+                      {c.name}
+                    </div>
+                    {c.isArchived && (
+                      <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        ARCHIVED
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
                     {c.phone || "No Phone"} •{" "}
@@ -606,39 +691,56 @@ export default function CustomerLedger({
                       <FileText className="w-4 h-4" /> Statement
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setOpeningAmount(moneyToString(c.openingBalance || 0));
-                        setOpeningModal({ isOpen: true, customer: c });
-                      }}
-                      className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                    >
-                      <Landmark className="w-4 h-4" /> Set Previous Due
-                    </button>
-
-                    {toDecimal(c.outstandingDues).gt(0) ? (
-                      <button
-                        onClick={() => {
-                          setPayAmount(moneyToString(c.outstandingDues));
-                          setPaymentModal({ isOpen: true, customer: c });
-                        }}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
-                      >
-                        <HandCoins className="w-4 h-4" /> Settle
-                      </button>
-                    ) : (
+                    {c.isArchived ? (
                       <button
                         onClick={() =>
-                          setArchiveModal({
+                          setRestoreModal({
                             isOpen: true,
                             customer: c,
                             customerName: c.name,
                           })
                         }
-                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer shadow-sm"
                       >
-                        <ArchiveX className="w-4 h-4" /> Archive
+                        <RotateCcw className="w-4 h-4" /> Restore
                       </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setOpeningAmount(moneyToString(c.openingBalance || 0));
+                            setOpeningModal({ isOpen: true, customer: c });
+                          }}
+                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 border border-amber-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                        >
+                          <Landmark className="w-4 h-4" /> Set Previous Due
+                        </button>
+
+                        {toDecimal(c.outstandingDues).gt(0) ? (
+                          <button
+                            onClick={() => {
+                              setPayAmount(moneyToString(c.outstandingDues));
+                              setPaymentModal({ isOpen: true, customer: c });
+                            }}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#522874] hover:bg-[#3d1d56] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                          >
+                            <HandCoins className="w-4 h-4" /> Settle
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setArchiveModal({
+                                isOpen: true,
+                                customer: c,
+                                customerName: c.name,
+                              })
+                            }
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors active:scale-95 cursor-pointer"
+                          >
+                            <ArchiveX className="w-4 h-4" /> Archive
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
@@ -695,6 +797,57 @@ export default function CustomerLedger({
                   <ArchiveX className="w-5 h-5" />
                 )}
                 Yes, Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CUSTOM RESTORE CONFIRMATION MODAL --- */}
+      {restoreModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-6 mx-auto border border-emerald-200">
+              <RotateCcw className="w-8 h-8 text-emerald-600" />
+            </div>
+
+            <h3 className="text-2xl font-bold text-center text-gray-900 mb-2">
+              Restore Customer?
+            </h3>
+            <p className="text-center text-gray-500 mb-8 leading-relaxed">
+              Are you sure you want to restore{" "}
+              <strong className="text-gray-900">
+                {restoreModal.customerName}
+              </strong>
+              ? <br />
+              They will be moved back to your active Khata ledger with all their past statements and account history intact.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() =>
+                  setRestoreModal({
+                    isOpen: false,
+                    customer: null,
+                    customerName: "",
+                  })
+                }
+                disabled={isRestoring}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeRestore}
+                disabled={isRestoring}
+                className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors flex justify-center items-center gap-2 cursor-pointer shadow-md disabled:opacity-70"
+              >
+                {isRestoring ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-5 h-5" />
+                )}
+                Yes, Restore
               </button>
             </div>
           </div>

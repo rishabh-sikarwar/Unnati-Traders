@@ -28,6 +28,7 @@ export default async function CustomersPage({ searchParams }) {
   const searchQuery = (queries?.search || "").toLowerCase();
   const shopFilter = queries?.shopId || "ALL";
   const duesOnly = queries?.duesOnly === "true";
+  const showArchived = queries?.archived === "true";
 
   // DEFAULT DATE FILTER: "this_month" in IST
   const dateFilter = queries?.date || "this_month";
@@ -39,10 +40,10 @@ export default async function CustomersPage({ searchParams }) {
   const cutoffStart = dateRange?.gte || null;
   const cutoffEnd = dateRange?.lte || null;
 
-  // --- 2. FETCH ACTIVE CUSTOMERS FOR LEDGER & MARKET DUES ---
+  // --- 2. FETCH CUSTOMERS FOR LEDGER TABLE (ACTIVE OR ARCHIVED) ---
   const customers = await prisma.customer.findMany({
     where: {
-      isArchived: false,
+      isArchived: showArchived,
     },
     include: {
       invoices: {
@@ -82,6 +83,7 @@ export default async function CustomersPage({ searchParams }) {
         phone: c.phone,
         gstNumber: c.gstNumber,
         address: c.address,
+        isArchived: Boolean(c.isArchived),
         ids: [c.id],
         id: c.id,
         globalBilled: toDecimal(0),
@@ -147,8 +149,8 @@ export default async function CustomersPage({ searchParams }) {
       .minus(group.globalPaid);
     group.outstandingDues = outstandingDues;
 
-    // Filter Market Dues respects shopFilter
-    if (shopFilter === "ALL" || group.interactedWithShop) {
+    // Filter Market Dues from active customers
+    if (!showArchived && (shopFilter === "ALL" || group.interactedWithShop)) {
       if (outstandingDues.gt(0)) {
         filteredMarketDues = filteredMarketDues.plus(outstandingDues);
       }
@@ -164,14 +166,65 @@ export default async function CustomersPage({ searchParams }) {
     if (duesOnly && !outstandingDues.gt(0)) continue;
     if (shopFilter !== "ALL" && !group.interactedWithShop) continue;
 
-    // If a date filter is applied (not "all"), show customers active within window or if duesOnly
+    // If a date filter is applied (not "all"), show customers active within window or if duesOnly or viewing archived
     const hasActivity =
       dateFilter === "all" ||
+      showArchived ||
       group.displayBilled.gt(0) ||
       group.displayPaid.gt(0);
     if (!hasActivity && !duesOnly) continue;
 
     processedCustomers.push(group);
+  }
+
+  // If viewing archived customers, ensure top market dues card strictly calculates active customers
+  if (showArchived) {
+    const activeCustomers = await prisma.customer.findMany({
+      where: { isArchived: false },
+      select: {
+        id: true,
+        name: true,
+        openingBalance: true,
+        invoices: { select: { grandTotal: true, locationId: true } },
+        payments: { select: { amount: true } },
+      },
+    });
+
+    const activeGrouped = {};
+    for (const ac of activeCustomers) {
+      const key = ac.name.toLowerCase().trim();
+      if (!activeGrouped[key]) {
+        activeGrouped[key] = {
+          openingBalance: toDecimal(0),
+          billed: toDecimal(0),
+          paid: toDecimal(0),
+          interactedWithShop: false,
+        };
+      }
+      const ag = activeGrouped[key];
+      ag.openingBalance = ag.openingBalance.plus(toDecimal(ac.openingBalance || 0));
+
+      const acShopSet = new Set();
+      for (const inv of ac.invoices) {
+        ag.billed = ag.billed.plus(toDecimal(inv.grandTotal));
+        if (inv.locationId) acShopSet.add(inv.locationId);
+        if (shopFilter === "ALL" || inv.locationId === shopFilter) {
+          ag.interactedWithShop = true;
+        }
+      }
+      for (const pay of ac.payments) {
+        ag.paid = ag.paid.plus(toDecimal(pay.amount));
+      }
+      customerShopMap.set(ac.id, acShopSet);
+    }
+
+    for (const ag of Object.values(activeGrouped)) {
+      if (shopFilter !== "ALL" && !ag.interactedWithShop) continue;
+      const dues = ag.billed.plus(ag.openingBalance).minus(ag.paid);
+      if (dues.gt(0)) {
+        filteredMarketDues = filteredMarketDues.plus(dues);
+      }
+    }
   }
 
   // --- 5. TIMELINE RECOVERY ANALYTICS (Dues Paid / Credit Settlements) ---
@@ -276,6 +329,7 @@ export default async function CustomersPage({ searchParams }) {
     displayBilled: Number(customer.displayBilled),
     displayPaid: Number(customer.displayPaid),
     outstandingDues: Number(customer.outstandingDues),
+    isArchived: Boolean(customer.isArchived),
   }));
 
   const safeCustomers = JSON.parse(JSON.stringify(cleanCustomers));
@@ -310,6 +364,7 @@ export default async function CustomersPage({ searchParams }) {
             customStart,
             customEnd,
             duesOnly,
+            archived: showArchived,
           }}
         />
       </div>
