@@ -166,9 +166,14 @@ export default function SmartTyreSelector({
                     }`}
                   >
                     <div className="flex flex-col min-w-0 pr-2">
-                      <span className="truncate">
+                      <span className="truncate flex items-center gap-1.5">
                         <strong className="font-black text-gray-900">{p.modelName}</strong>{" "}
                         <span className="text-[#522874] font-bold">({p.size})</span>
+                        {(p.hasTube || p.hasFlap) && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 rounded">
+                            TTF Set
+                          </span>
+                        )}
                       </span>
                       <span className="text-[11px] text-gray-400 font-mono truncate">
                         {p.brand ? `${p.brand} • ` : ""}SKU: {p.sku}

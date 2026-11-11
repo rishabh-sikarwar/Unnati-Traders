@@ -10,7 +10,15 @@ export async function GET() {
       include: { inventories: true },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(products);
+
+    const serialized = products.map((p) => ({
+      ...p,
+      basePrice: Number(p.basePrice),
+      tubePrice: Number(p.tubePrice || 0),
+      flapPrice: Number(p.flapPrice || 0),
+    }));
+
+    return NextResponse.json(serialized);
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch catalogue" },
@@ -36,14 +44,68 @@ export async function POST(req) {
         gstRate: 28,
         hsnCode: body.hsnCode || "4011",
         isArchived: false,
+        hasTube: Boolean(body.hasTube),
+        tubeName: body.hasTube ? (body.tubeName || null) : null,
+        tubePrice: body.hasTube && body.tubePrice ? moneyToString(body.tubePrice) : 0,
+        hasFlap: Boolean(body.hasFlap),
+        flapName: body.hasFlap ? (body.flapName || null) : null,
+        flapPrice: body.hasFlap && body.flapPrice ? moneyToString(body.flapPrice) : 0,
       },
     });
 
-    return NextResponse.json({ success: true, product: newProduct });
+    return NextResponse.json({
+      success: true,
+      product: {
+        ...newProduct,
+        basePrice: Number(newProduct.basePrice),
+        tubePrice: Number(newProduct.tubePrice || 0),
+        flapPrice: Number(newProduct.flapPrice || 0),
+      },
+    });
   } catch (error) {
     console.error("Create product error:", error);
     return NextResponse.json(
       { error: "Could not add tyre. Check if SKU already exists." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(req) {
+  try {
+    const body = await req.json();
+
+    const updated = await prisma.product.update({
+      where: { id: body.id },
+      data: {
+        sku: body.sku,
+        modelName: body.modelName,
+        size: body.size,
+        basePrice: moneyToString(body.basePrice),
+        category: body.category,
+        hsnCode: body.hsnCode,
+        hasTube: Boolean(body.hasTube),
+        tubeName: body.hasTube ? (body.tubeName || null) : null,
+        tubePrice: body.hasTube && body.tubePrice ? moneyToString(body.tubePrice) : 0,
+        hasFlap: Boolean(body.hasFlap),
+        flapName: body.hasFlap ? (body.flapName || null) : null,
+        flapPrice: body.hasFlap && body.flapPrice ? moneyToString(body.flapPrice) : 0,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      product: {
+        ...updated,
+        basePrice: Number(updated.basePrice),
+        tubePrice: Number(updated.tubePrice || 0),
+        flapPrice: Number(updated.flapPrice || 0),
+      },
+    });
+  } catch (error) {
+    console.error("Product update error:", error);
+    return NextResponse.json(
+      { error: "Failed to update product. Ensure the SKU is unique." },
       { status: 500 },
     );
   }

@@ -368,31 +368,72 @@ export default function InvoicePDF({ invoiceData }) {
             </View>
           </View>
 
-          {invoiceData.items.map((item, index) => (
-            <View style={styles.tableRow} key={index} wrap={false}>
-              <View style={styles.tableColSmall}>
-                <Text style={styles.tableCell}>{index + 1}</Text>
+          {invoiceData.items.map((item, index) => {
+            const hasTTF = Boolean(item.includeTube || item.includeFlap);
+            return (
+              <View style={styles.tableRow} key={index} wrap={false}>
+                <View style={styles.tableColSmall}>
+                  <Text style={styles.tableCell}>{index + 1}</Text>
+                </View>
+                <View style={styles.tableColItem}>
+                  <Text style={styles.itemMainText}>
+                    {item.product?.modelName || "Unknown Item"} {item.product?.size ? `(${item.product.size})` : ""}
+                    {hasTTF ? " [TYRE]" : ""}
+                  </Text>
+                  <Text style={styles.itemSubText}>
+                    HSN: {item.product?.hsnCode || "4011"} | SKU: {item.product?.sku || "N/A"}
+                    {item.tyreCode ? ` | SN: ${item.tyreCode}` : ""}
+                  </Text>
+                  {item.includeTube && (
+                    <Text style={{ fontSize: 8, color: "#1d4ed8", fontFamily: "Helvetica-Bold", marginTop: 3 }}>
+                      + TUBE: {item.tubeName || "Apollo Tube"}
+                    </Text>
+                  )}
+                  {item.includeFlap && (
+                    <Text style={{ fontSize: 8, color: "#b45309", fontFamily: "Helvetica-Bold", marginTop: 2 }}>
+                      + FLAP: {item.flapName || "Radial Flap"}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.tableColSmall}>
+                  <Text style={[styles.tableCell, styles.boldText]}>{item.quantity}</Text>
+                  {item.includeTube && (
+                    <Text style={[styles.tableCell, { marginTop: 3, fontSize: 8 }]}>{item.quantity}</Text>
+                  )}
+                  {item.includeFlap && (
+                    <Text style={[styles.tableCell, { marginTop: 2, fontSize: 8 }]}>{item.quantity}</Text>
+                  )}
+                </View>
+                <View style={styles.tableColRight}>
+                  <Text style={styles.tableCell}>{`₹${formatNumber(item.unitPrice, 2)}`}</Text>
+                  {item.includeTube && (
+                    <Text style={[styles.tableCell, { marginTop: 3, fontSize: 8 }]}>{`₹${formatNumber(item.tubePrice || 0, 2)}`}</Text>
+                  )}
+                  {item.includeFlap && (
+                    <Text style={[styles.tableCell, { marginTop: 2, fontSize: 8 }]}>{`₹${formatNumber(item.flapPrice || 0, 2)}`}</Text>
+                  )}
+                </View>
+                <View style={styles.tableColRight}>
+                  {hasTTF ? (
+                    <>
+                      <Text style={styles.tableCell}>{`₹${formatNumber(toDecimal(item.quantity).times(toDecimal(item.unitPrice)), 2)}`}</Text>
+                      {item.includeTube && (
+                        <Text style={[styles.tableCell, { marginTop: 3, fontSize: 8 }]}>{`₹${formatNumber(toDecimal(item.quantity).times(toDecimal(item.tubePrice || 0)), 2)}`}</Text>
+                      )}
+                      {item.includeFlap && (
+                        <Text style={[styles.tableCell, { marginTop: 2, fontSize: 8 }]}>{`₹${formatNumber(toDecimal(item.quantity).times(toDecimal(item.flapPrice || 0)), 2)}`}</Text>
+                      )}
+                      <Text style={[styles.tableCell, styles.boldText, { marginTop: 2, borderTopWidth: 0.5, borderTopColor: "#9ca3af" }]}>
+                        {`₹${formatNumber(item.totalPrice, 2)}`}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.tableCell, styles.boldText]}>{`₹${formatNumber(item.totalPrice, 2)}`}</Text>
+                  )}
+                </View>
               </View>
-              <View style={styles.tableColItem}>
-                <Text style={styles.itemMainText}>
-                  {item.product?.modelName || "Unknown Item"} {item.product?.size ? `(${item.product.size})` : ""}
-                </Text>
-                <Text style={styles.itemSubText}>
-                  HSN: {item.product?.hsnCode || "4011"} | SKU: {item.product?.sku || "N/A"}
-                  {item.tyreCode ? ` | SN: ${item.tyreCode}` : ""}
-                </Text>
-              </View>
-              <View style={styles.tableColSmall}>
-                <Text style={[styles.tableCell, styles.boldText]}>{item.quantity}</Text>
-              </View>
-              <View style={styles.tableColRight}>
-                <Text style={styles.tableCell}>{`₹${formatNumber(item.unitPrice, 2)}`}</Text>
-              </View>
-              <View style={styles.tableColRight}>
-                <Text style={[styles.tableCell, styles.boldText]}>{`₹${formatNumber(item.totalPrice, 2)}`}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Summary */}

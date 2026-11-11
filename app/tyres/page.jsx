@@ -12,6 +12,8 @@ export default async function TyresPage() {
   const serializedProducts = products.map((p) => ({
     ...p,
     basePrice: Number(p.basePrice),
+    tubePrice: Number(p.tubePrice || 0),
+    flapPrice: Number(p.flapPrice || 0),
   }));
 
   return (

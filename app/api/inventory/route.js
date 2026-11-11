@@ -17,7 +17,19 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(inventory);
+    const serialized = inventory.map((inv) => ({
+      ...inv,
+      product: inv.product
+        ? {
+            ...inv.product,
+            basePrice: Number(inv.product.basePrice),
+            tubePrice: Number(inv.product.tubePrice || 0),
+            flapPrice: Number(inv.product.flapPrice || 0),
+          }
+        : null,
+    }));
+
+    return NextResponse.json(serialized);
   } catch (error) {
     console.error(error);
     return NextResponse.json(

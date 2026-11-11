@@ -32,6 +32,8 @@ export default async function TransferPage({ searchParams }) {
   const serializedProducts = products.map((p) => ({
     ...p,
     basePrice: Number(p.basePrice),
+    tubePrice: Number(p.tubePrice || 0),
+    flapPrice: Number(p.flapPrice || 0),
   }));
 
   const locations = await prisma.location.findMany({

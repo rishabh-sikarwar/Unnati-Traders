@@ -45,6 +45,12 @@ export default function StockPage() {
   const [newCategory, setNewCategory] = useState("TWO_WHEELER");
   const [newPrice, setNewPrice] = useState("");
   const [newHsn, setNewHsn] = useState("4011");
+  const [newHasTube, setNewHasTube] = useState(false);
+  const [newTubeName, setNewTubeName] = useState("");
+  const [newTubePrice, setNewTubePrice] = useState("");
+  const [newHasFlap, setNewHasFlap] = useState(false);
+  const [newFlapName, setNewFlapName] = useState("");
+  const [newFlapPrice, setNewFlapPrice] = useState("");
   const [addingTyre, setAddingTyre] = useState(false);
 
   // --- MODALS ---
@@ -137,6 +143,12 @@ export default function StockPage() {
           category: newCategory,
           basePrice: newPrice,
           hsnCode: newHsn,
+          hasTube: Boolean(newHasTube),
+          tubeName: newHasTube ? newTubeName : null,
+          tubePrice: newHasTube && newTubePrice ? newTubePrice : 0,
+          hasFlap: Boolean(newHasFlap),
+          flapName: newHasFlap ? newFlapName : null,
+          flapPrice: newHasFlap && newFlapPrice ? newFlapPrice : 0,
         }),
       });
       const data = await res.json();
@@ -148,6 +160,12 @@ export default function StockPage() {
       setNewCategory("TWO_WHEELER");
       setNewPrice("");
       setNewHsn("4011");
+      setNewHasTube(false);
+      setNewTubeName("");
+      setNewTubePrice("");
+      setNewHasFlap(false);
+      setNewFlapName("");
+      setNewFlapPrice("");
       loadCatalogue();
 
       // Bust Next.js client-side router cache so the Purchases page immediately shows the new tyre
@@ -164,7 +182,15 @@ export default function StockPage() {
     // Clone the product data into the modal state so we can edit it safely
     setEditModal({
       isOpen: true,
-      product: { ...product },
+      product: {
+        ...product,
+        hasTube: Boolean(product.hasTube),
+        tubeName: product.tubeName || "",
+        tubePrice: product.tubePrice ? Number(product.tubePrice) : "",
+        hasFlap: Boolean(product.hasFlap),
+        flapName: product.flapName || "",
+        flapPrice: product.flapPrice ? Number(product.flapPrice) : "",
+      },
     });
   }
 
@@ -186,6 +212,12 @@ export default function StockPage() {
           basePrice: editModal.product.basePrice,
           category: editModal.product.category,
           hsnCode: editModal.product.hsnCode,
+          hasTube: Boolean(editModal.product.hasTube),
+          tubeName: editModal.product.hasTube ? editModal.product.tubeName : null,
+          tubePrice: editModal.product.hasTube && editModal.product.tubePrice ? editModal.product.tubePrice : 0,
+          hasFlap: Boolean(editModal.product.hasFlap),
+          flapName: editModal.product.hasFlap ? editModal.product.flapName : null,
+          flapPrice: editModal.product.hasFlap && editModal.product.flapPrice ? editModal.product.flapPrice : 0,
         }),
       });
 
@@ -387,6 +419,162 @@ export default function StockPage() {
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
                   />
                 </div>
+
+                {/* --- TTF (TYRE + TUBE + FLAP) SET CONFIGURATION --- */}
+                <div className="col-span-2 bg-purple-50/60 rounded-xl p-4 border border-purple-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
+                      Includes Tube / Flap Set (TTF)
+                    </span>
+                    <span className="text-[11px] text-[#522874] font-semibold">Commercial / Set Pricing</span>
+                  </div>
+
+                  {/* TUBE CONFIG */}
+                  <div className="space-y-2 pt-2 border-t border-purple-100">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editModal.product.hasTube)}
+                        onChange={(e) =>
+                          setEditModal({
+                            ...editModal,
+                            product: {
+                              ...editModal.product,
+                              hasTube: e.target.checked,
+                              tubeName: e.target.checked
+                                ? editModal.product.tubeName || `${editModal.product.size || ""} APOLLO TUBE`.trim()
+                                : "",
+                              tubePrice: e.target.checked ? editModal.product.tubePrice || "" : "",
+                            },
+                          })
+                        }
+                        className="w-4 h-4 text-[#522874] rounded border-gray-300 focus:ring-[#522874]"
+                      />
+                      <span className="text-xs font-bold text-gray-800">
+                        Includes Tube (hasTube)
+                      </span>
+                    </label>
+
+                    {editModal.product.hasTube && (
+                      <div className="grid grid-cols-2 gap-3 pl-6 animate-in fade-in duration-200">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                            Tube Name / Description
+                          </label>
+                          <input
+                            placeholder="e.g. 10.00R20 APOLLO TUBE"
+                            value={editModal.product.tubeName || ""}
+                            onChange={(e) =>
+                              setEditModal({
+                                ...editModal,
+                                product: {
+                                  ...editModal.product,
+                                  tubeName: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                            Default Tube Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={editModal.product.tubePrice ?? ""}
+                            onChange={(e) =>
+                              setEditModal({
+                                ...editModal,
+                                product: {
+                                  ...editModal.product,
+                                  tubePrice: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FLAP CONFIG */}
+                  <div className="space-y-2 pt-2 border-t border-purple-100">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editModal.product.hasFlap)}
+                        onChange={(e) =>
+                          setEditModal({
+                            ...editModal,
+                            product: {
+                              ...editModal.product,
+                              hasFlap: e.target.checked,
+                              flapName: e.target.checked
+                                ? editModal.product.flapName || `${editModal.product.size || ""} RADIAL FLAP`.trim()
+                                : "",
+                              flapPrice: e.target.checked ? editModal.product.flapPrice || "" : "",
+                            },
+                          })
+                        }
+                        className="w-4 h-4 text-[#522874] rounded border-gray-300 focus:ring-[#522874]"
+                      />
+                      <span className="text-xs font-bold text-gray-800">
+                        Includes Flap (hasFlap)
+                      </span>
+                    </label>
+
+                    {editModal.product.hasFlap && (
+                      <div className="grid grid-cols-2 gap-3 pl-6 animate-in fade-in duration-200">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                            Flap Name / Description
+                          </label>
+                          <input
+                            placeholder="e.g. 20 INCH RADIAL FLAP"
+                            value={editModal.product.flapName || ""}
+                            onChange={(e) =>
+                              setEditModal({
+                                ...editModal,
+                                product: {
+                                  ...editModal.product,
+                                  flapName: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                            Default Flap Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={editModal.product.flapPrice ?? ""}
+                            onChange={(e) =>
+                              setEditModal({
+                                ...editModal,
+                                product: {
+                                  ...editModal.product,
+                                  flapPrice: e.target.value,
+                                },
+                              })
+                            }
+                            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 mt-2 border-t border-gray-100 flex gap-3">
@@ -495,94 +683,206 @@ export default function StockPage() {
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
             <PlusCircle className="w-5 h-5 text-green-600" /> Register New Tyre
           </h2>
-          <form
-            onSubmit={handleAddTyre}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end"
-          >
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                Model Name
-              </label>
-              <input
-                required
-                value={newModel}
-                onChange={(e) => setNewModel(e.target.value)}
-                placeholder="Amazer 4G"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
-              />
+          <form onSubmit={handleAddTyre} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Model Name
+                </label>
+                <input
+                  required
+                  value={newModel}
+                  onChange={(e) => setNewModel(e.target.value)}
+                  placeholder="Amazer 4G"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Size
+                </label>
+                <input
+                  required
+                  value={newSize}
+                  onChange={(e) => setNewSize(e.target.value)}
+                  placeholder="165/80 R14"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Category
+                </label>
+                <select
+                  required
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                >
+                  <option value="TWO_WHEELER">Two Wheeler</option>
+                  <option value="THREE_WHEELER">Three Wheeler</option>
+                  <option value="PASSENGER_CAR">Passenger Car</option>
+                  <option value="PREMIUM_CAR">Premium Car</option>
+                  <option value="TRUCK_BUS_RADIAL">Truck/Bus Radial</option>
+                  <option value="TRUCK_BUS_BIAS">Truck/Bus Bias</option>
+                  <option value="LIGHT_COMMERCIAL">Light Commercial (LCV)</option>
+                  <option value="TUBE">Tube</option>
+                  <option value="TRACTOR_FARM">Tractor/Farm</option>
+                  <option value="INDUSTRIAL">Industrial</option>
+                  <option value="GENERAL">General</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Base Price (₹)
+                </label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  placeholder="3200"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  HSN Code
+                </label>
+                <input
+                  value={newHsn}
+                  onChange={(e) => setNewHsn(e.target.value)}
+                  placeholder="4011"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-mono"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                Size
-              </label>
-              <input
-                required
-                value={newSize}
-                onChange={(e) => setNewSize(e.target.value)}
-                placeholder="165/80 R14"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
-              />
+
+            {/* --- TTF (TYRE + TUBE + FLAP) SET CONFIGURATION --- */}
+            <div className="bg-purple-50/60 rounded-xl p-4 border border-purple-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
+                  Includes Tube / Flap Set (TTF)
+                </span>
+                <span className="text-[11px] text-[#522874] font-semibold">Optional Default Set Details</span>
+              </div>
+
+              {/* TUBE CONFIG */}
+              <div className="space-y-2 pt-2 border-t border-purple-100">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newHasTube}
+                    onChange={(e) => {
+                      setNewHasTube(e.target.checked);
+                      if (e.target.checked && !newTubeName) {
+                        setNewTubeName(`${newSize} APOLLO TUBE`.trim());
+                      }
+                    }}
+                    className="w-4 h-4 text-[#522874] rounded border-gray-300 focus:ring-[#522874]"
+                  />
+                  <span className="text-xs font-bold text-gray-800">
+                    Includes Tube (hasTube)
+                  </span>
+                </label>
+
+                {newHasTube && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6 animate-in fade-in duration-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                        Tube Name / Description
+                      </label>
+                      <input
+                        placeholder="e.g. 10.00R20 APOLLO TUBE"
+                        value={newTubeName}
+                        onChange={(e) => setNewTubeName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                        Default Tube Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={newTubePrice}
+                        onChange={(e) => setNewTubePrice(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* FLAP CONFIG */}
+              <div className="space-y-2 pt-2 border-t border-purple-100">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newHasFlap}
+                    onChange={(e) => {
+                      setNewHasFlap(e.target.checked);
+                      if (e.target.checked && !newFlapName) {
+                        setNewFlapName(`${newSize} RADIAL FLAP`.trim());
+                      }
+                    }}
+                    className="w-4 h-4 text-[#522874] rounded border-gray-300 focus:ring-[#522874]"
+                  />
+                  <span className="text-xs font-bold text-gray-800">
+                    Includes Flap (hasFlap)
+                  </span>
+                </label>
+
+                {newHasFlap && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6 animate-in fade-in duration-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                        Flap Name / Description
+                      </label>
+                      <input
+                        placeholder="e.g. 20 INCH RADIAL FLAP"
+                        value={newFlapName}
+                        onChange={(e) => setNewFlapName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                        Default Flap Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={newFlapPrice}
+                        onChange={(e) => setNewFlapPrice(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                Category
-              </label>
-              <select
-                required
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none bg-white"
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={addingTyre}
+                className="bg-[#522874] hover:bg-[#3d1d56] text-white px-8 py-2.5 rounded-lg font-bold transition-all disabled:opacity-50 flex justify-center items-center h-[42px] shadow-sm cursor-pointer"
               >
-                <option value="TWO_WHEELER">Two Wheeler</option>
-                <option value="THREE_WHEELER">Three Wheeler</option>
-                <option value="PASSENGER_CAR">Passenger Car</option>
-                <option value="PREMIUM_CAR">Premium Car</option>
-                <option value="TRUCK_BUS_RADIAL">Truck/Bus Radial</option>
-                <option value="TRUCK_BUS_BIAS">Truck/Bus Bias</option>
-                <option value="LIGHT_COMMERCIAL">Light Commercial (LCV)</option>
-                <option value="TUBE">Tube</option>
-                <option value="TRACTOR_FARM">Tractor/Farm</option>
-                <option value="INDUSTRIAL">Industrial</option>
-                <option value="GENERAL">General</option>
-              </select>
+                {addingTyre ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "Save Tyre to Catalogue"
+                )}
+              </button>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                Base Price (₹)
-              </label>
-              <input
-                required
-                type="number"
-                min="1"
-                step="0.01"
-                value={newPrice}
-                onChange={(e) => setNewPrice(e.target.value)}
-                placeholder="3200"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                HSN Code
-              </label>
-              <input
-                value={newHsn}
-                onChange={(e) => setNewHsn(e.target.value)}
-                placeholder="4011"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#522874] outline-none font-mono"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={addingTyre}
-              className="w-full bg-[#522874] hover:bg-[#3d1d56] text-white py-2 rounded-lg font-bold transition-all disabled:opacity-50 flex justify-center items-center h-[42px] sm:col-span-2 md:col-span-1"
-            >
-              {addingTyre ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </button>
           </form>
         </div>
 
@@ -693,6 +993,13 @@ export default function StockPage() {
                           {product.isArchived && (
                             <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-red-100 text-red-700 rounded-full">
                               Archived
+                            </span>
+                          )}
+                          {(product.hasTube || product.hasFlap) && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-amber-50 text-amber-800 border border-amber-200 rounded-full">
+                              TTF Set
+                              {product.hasTube && " • Tube"}
+                              {product.hasFlap && " • Flap"}
                             </span>
                           )}
                         </span>

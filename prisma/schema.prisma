@@ -65,6 +65,13 @@ model Product {
   isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  hasTube     Boolean  @default(false)
+  tubeName    String?
+  tubePrice   Decimal? @default(0) @db.Decimal(10, 2)
+  hasFlap     Boolean  @default(false)
+  flapName    String?
+  flapPrice   Decimal? @default(0) @db.Decimal(10, 2)
+
   inventories   Inventory[]
   stockSnapshots StockSnapshot[]
   invoiceItems  InvoiceItem[]
@@ -146,6 +153,13 @@ model InvoiceItem {
   unitPrice  Decimal  @db.Decimal(18, 2)
   totalPrice Decimal  @db.Decimal(18, 2)
   tyreCode   String?
+
+  includeTube Boolean  @default(false)
+  tubeName    String?
+  tubePrice   Decimal? @default(0) @db.Decimal(10, 2)
+  includeFlap Boolean  @default(false)
+  flapName    String?
+  flapPrice   Decimal? @default(0) @db.Decimal(10, 2)
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
