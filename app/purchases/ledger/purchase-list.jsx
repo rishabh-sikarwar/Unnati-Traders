@@ -252,6 +252,13 @@ export default function PurchaseList({
                           <Package className="w-3 h-3 mr-1.5" /> {totalTyres}{" "}
                           Tyres
                         </div>
+                        {purchase.items?.some((it) => it.includeTube || it.includeFlap) && (
+                          <div className="mt-1">
+                            <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-purple-50 text-[#522874] border border-purple-200 rounded">
+                              TTF Set
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-4 px-6 text-right font-black text-green-600 text-lg">
@@ -370,33 +377,127 @@ export default function PurchaseList({
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedPurchase.items.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                      >
-                        <td className="py-4 px-4">
-                          <div className="font-bold text-gray-900">
-                            {item.product.modelName}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            Size: {item.product.size} | SKU: {item.product.sku}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            HSN: {item.product.hsnCode || "4011"}
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-center font-black text-gray-800 text-lg">
-                          {item.quantity}
-                        </td>
-                        <td className="py-4 px-4 text-right text-gray-600 font-medium">
-                          {`₹${formatNumber(item.unitCost, 2)}`}
-                        </td>
-                        <td className="py-4 px-4 text-right font-black text-gray-900 text-lg">
-                          {`₹${formatNumber(item.totalCost, 2)}`}
-                        </td>
-                      </tr>
-                    ))}
+                    {selectedPurchase.items.map((item) => {
+                      const hasTTF = Boolean(item.includeTube || item.includeFlap);
+                      const tyreCost = Number(item.unitCost || 0);
+                      const tubeCost = Number(item.tubePrice || 0);
+                      const flapCost = Number(item.flapPrice || 0);
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50"
+                        >
+                          <td className="py-4 px-4 align-top">
+                            <div className="font-bold text-gray-900 flex items-center gap-1.5">
+                              {item.product.modelName}
+                              {hasTTF && (
+                                <span className="px-1.5 py-0.2 bg-purple-50 text-[#522874] border border-purple-200 text-[9px] font-black rounded uppercase">
+                                  TYRE
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              Size: {item.product.size} | SKU: {item.product.sku}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              HSN: {item.product.hsnCode || "4011"}
+                            </div>
+
+                            {/* TUBE SUB-ROW */}
+                            {item.includeTube && (
+                              <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center gap-1.5 text-xs text-gray-800 font-bold">
+                                <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-black rounded uppercase tracking-wider">
+                                  TUBE
+                                </span>
+                                <span>{item.tubeName || "Apollo Tube"}</span>
+                              </div>
+                            )}
+
+                            {/* FLAP SUB-ROW */}
+                            {item.includeFlap && (
+                              <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center gap-1.5 text-xs text-gray-800 font-bold">
+                                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-black rounded uppercase tracking-wider">
+                                  FLAP
+                                </span>
+                                <span>{item.flapName || "Radial Flap"}</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* QTY COLUMN */}
+                          <td className="py-4 px-4 text-center align-top">
+                            {hasTTF ? (
+                              <div>
+                                <div className="font-black text-gray-800 text-base">{item.quantity}</div>
+                                <div className="text-[10px] text-transparent select-none mt-1">_</div>
+                                {item.includeTube && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-bold text-xs">
+                                    {item.quantity}
+                                  </div>
+                                )}
+                                {item.includeFlap && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-bold text-xs">
+                                    {item.quantity}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="font-black text-gray-800 text-lg">{item.quantity}</div>
+                            )}
+                          </td>
+
+                          {/* UNIT COST COLUMN */}
+                          <td className="py-4 px-4 text-right align-top">
+                            {hasTTF ? (
+                              <div>
+                                <div className="text-gray-900 font-medium">{`₹${formatNumber(tyreCost, 2)}`}</div>
+                                <div className="text-[10px] text-transparent select-none mt-1">_</div>
+                                {item.includeTube && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-medium text-xs">
+                                    {`₹${formatNumber(tubeCost, 2)}`}
+                                  </div>
+                                )}
+                                {item.includeFlap && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-medium text-xs">
+                                    {`₹${formatNumber(flapCost, 2)}`}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-gray-600 font-medium">{`₹${formatNumber(item.unitCost, 2)}`}</div>
+                            )}
+                          </td>
+
+                          {/* TOTAL COST COLUMN */}
+                          <td className="py-4 px-4 text-right align-top">
+                            {hasTTF ? (
+                              <div>
+                                <div className="text-gray-900 font-medium">
+                                  {`₹${formatNumber(item.quantity * tyreCost, 2)}`}
+                                </div>
+                                <div className="text-[10px] text-transparent select-none mt-1">_</div>
+                                {item.includeTube && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-medium text-xs">
+                                    {`₹${formatNumber(item.quantity * tubeCost, 2)}`}
+                                  </div>
+                                )}
+                                {item.includeFlap && (
+                                  <div className="mt-2 pt-1.5 border-t border-gray-100 text-gray-700 font-medium text-xs">
+                                    {`₹${formatNumber(item.quantity * flapCost, 2)}`}
+                                  </div>
+                                )}
+                                <div className="mt-2 pt-1.5 border-t border-gray-300 font-black text-gray-900 text-base">
+                                  {`₹${formatNumber(item.totalCost, 2)}`}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="font-black text-gray-900 text-lg">{`₹${formatNumber(item.totalCost, 2)}`}</div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

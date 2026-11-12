@@ -205,6 +205,13 @@ model PurchaseItem {
   unitCost  Decimal  @db.Decimal(18, 2) // Buying price (Cost), not selling price
   totalCost Decimal   @db.Decimal(18, 2)
 
+  includeTube Boolean  @default(false)
+  tubeName    String?
+  tubePrice   Decimal? @default(0) @db.Decimal(10, 2)
+  includeFlap Boolean  @default(false)
+  flapName    String?
+  flapPrice   Decimal? @default(0) @db.Decimal(10, 2)
+
   purchaseId String
   purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 

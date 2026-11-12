@@ -19,13 +19,27 @@ export default async function PurchasesPage() {
 
   // Fetch the master catalogue so Smart Search works
   const products = await prisma.product.findMany({
-    select: { id: true, modelName: true, size: true, sku: true, basePrice: true },
+    select: {
+      id: true,
+      modelName: true,
+      size: true,
+      sku: true,
+      basePrice: true,
+      hasTube: true,
+      tubeName: true,
+      tubePrice: true,
+      hasFlap: true,
+      flapName: true,
+      flapPrice: true,
+    },
     orderBy: { modelName: "asc" },
   });
 
   const serializedProducts = products.map((p) => ({
     ...p,
     basePrice: Number(p.basePrice),
+    tubePrice: Number(p.tubePrice || 0),
+    flapPrice: Number(p.flapPrice || 0),
   }));
 
   // Fetch active shops to determine where stock unloads

@@ -60,9 +60,13 @@ export default async function PurchaseLedgerPage() {
       ...item,
       unitCost: Number(item.unitCost),
       totalCost: Number(item.totalCost),
+      tubePrice: Number(item.tubePrice || 0),
+      flapPrice: Number(item.flapPrice || 0),
       product: {
         ...item.product,
         basePrice: Number(item.product.basePrice),
+        tubePrice: Number(item.product.tubePrice || 0),
+        flapPrice: Number(item.product.flapPrice || 0),
       },
     })),
   }));

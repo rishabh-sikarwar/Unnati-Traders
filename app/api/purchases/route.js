@@ -50,12 +50,18 @@ export async function POST(req) {
                 quantity: item.quantity,
                 unitCost: moneyToString(item.unitCost),
                 totalCost: moneyToString(item.totalCost),
+                includeTube: Boolean(item.includeTube),
+                tubeName: item.includeTube ? (item.tubeName || null) : null,
+                tubePrice: item.includeTube && item.tubePrice ? moneyToString(item.tubePrice) : 0,
+                includeFlap: Boolean(item.includeFlap),
+                flapName: item.includeFlap ? (item.flapName || null) : null,
+                flapPrice: item.includeFlap && item.flapPrice ? moneyToString(item.flapPrice) : 0,
               })),
             },
           },
         });
 
-        // 2. Add the physical stock to the specific Location
+        // 2. Add the physical stock to the specific Location & sync master product TTF settings
         for (const item of items) {
           await tx.inventory.upsert({
             where: {
@@ -74,9 +80,50 @@ export async function POST(req) {
             },
           });
 
+          // Fetch current product to check existing TTF configuration
+          const currentProduct = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: {
+              hasTube: true,
+              tubeName: true,
+              tubePrice: true,
+              hasFlap: true,
+              flapName: true,
+              flapPrice: true,
+            },
+          });
+
+          const productUpdates = { isArchived: false };
+
+          // Sync with Master Product: If item.includeTube or item.includeFlap was enabled during inward entry,
+          // also update the corresponding Product record so the tyre is automatically ready for TTF set billing
+          if (item.includeTube) {
+            productUpdates.hasTube = true;
+            if (item.tubeName) {
+              productUpdates.tubeName = item.tubeName;
+            }
+            if (!currentProduct?.tubePrice || Number(currentProduct.tubePrice) === 0) {
+              if (item.tubePrice && Number(item.tubePrice) > 0) {
+                productUpdates.tubePrice = moneyToString(item.tubePrice);
+              }
+            }
+          }
+
+          if (item.includeFlap) {
+            productUpdates.hasFlap = true;
+            if (item.flapName) {
+              productUpdates.flapName = item.flapName;
+            }
+            if (!currentProduct?.flapPrice || Number(currentProduct.flapPrice) === 0) {
+              if (item.flapPrice && Number(item.flapPrice) > 0) {
+                productUpdates.flapPrice = moneyToString(item.flapPrice);
+              }
+            }
+          }
+
           await tx.product.update({
             where: { id: item.productId },
-            data: { isArchived: false },
+            data: productUpdates,
           });
         }
 
