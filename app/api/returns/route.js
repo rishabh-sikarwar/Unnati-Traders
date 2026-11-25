@@ -75,6 +75,9 @@ export async function POST(req) {
       }
 
       return returnLog;
+    }, {
+      maxWait: 10000, // 10 seconds max wait to acquire connection
+      timeout: 20000, // 20 seconds max execution time
     });
 
     return NextResponse.json({ success: true, returnId: result.id });

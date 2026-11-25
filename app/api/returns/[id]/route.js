@@ -94,6 +94,9 @@ export async function DELETE(req, { params }) {
       await tx.returnLog.delete({
         where: { id: returnLog.id },
       });
+    }, {
+      maxWait: 10000, // 10 seconds max wait to acquire connection
+      timeout: 20000, // 20 seconds max execution time
     });
 
     return NextResponse.json({ success: true, message: "Return reversed and database updated successfully." });

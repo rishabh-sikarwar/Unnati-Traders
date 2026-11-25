@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { maxTime } from "date-fns/constants";
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { toDecimal, moneyToString } from "@/lib/money";
@@ -130,8 +129,8 @@ export async function POST(req) {
         return purchase;
       },
       {
-        maxTime: 5000, // Set a maximum time for the transaction to prevent hanging,
-        timeout: 20000,
+        maxWait: 10000, // 10 seconds max wait to acquire connection
+        timeout: 20000, // 20 seconds max execution time
       },
     );
 

@@ -10,7 +10,7 @@ export async function DELETE(req, { params }) {
 
     const invoiceId = (await params).id;
 
-    // 1. Fetch the invoice
+    // 1. Fetch the invoice and items (Read-only query before transaction)
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { items: true },
@@ -18,73 +18,77 @@ export async function DELETE(req, { params }) {
 
     if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-    let cancelledDealerOrderId = null;
+    // 2. Check for linked DealerOrder before transaction (Read-only query before transaction)
+    const linkedOrder = await prisma.dealerOrder.findFirst({
+      where: { invoiceId: invoiceId },
+      select: { id: true },
+    });
+    const cancelledDealerOrderId = linkedOrder ? linkedOrder.id : null;
 
-    // 2. Perform cascade delete inside an atomic transaction
-    await prisma.$transaction(async (tx) => {
-      // a. Restore Inventory
-      // Only restore inventory if it's not a generic CUSTOMER fallback location.
-      if (invoice.locationId) {
-        for (const item of invoice.items) {
-          // Check if inventory record mapping exists
-          const inv = await tx.inventory.findUnique({
-            where: {
-              productId_locationId: {
+    // 3. Perform cascade delete inside an atomic transaction with explicit timeout
+    await prisma.$transaction(
+      async (tx) => {
+        // a. Restore Inventory
+        // Only restore inventory if it's not a generic CUSTOMER fallback location.
+        if (invoice.locationId && invoice.items?.length > 0) {
+          for (const item of invoice.items) {
+            await tx.inventory.upsert({
+              where: {
+                productId_locationId: {
+                  productId: item.productId,
+                  locationId: invoice.locationId,
+                },
+              },
+              update: {
+                quantity: { increment: item.quantity },
+              },
+              create: {
                 productId: item.productId,
                 locationId: invoice.locationId,
+                quantity: item.quantity,
               },
-            },
-          });
-
-          // If mapping exists, increment count back.
-          if (inv) {
-            await tx.inventory.update({
-              where: { id: inv.id },
-              data: { quantity: { increment: item.quantity } },
             });
           }
         }
-      }
 
-      // b. Delete PaymentLogs related to this invoice
-      if (invoice.customerId) {
-        await tx.paymentLog.deleteMany({
-          where: {
-            customerId: invoice.customerId,
-            remarks: { contains: invoice.invoiceNumber },
-          },
+        // b. Delete PaymentLogs related to this invoice
+        if (invoice.customerId) {
+          await tx.paymentLog.deleteMany({
+            where: {
+              customerId: invoice.customerId,
+              remarks: { contains: invoice.invoiceNumber },
+            },
+          });
+        }
+
+        // c. Mark linked DealerOrder as CANCELLED (unlinking invoiceId)
+        if (cancelledDealerOrderId) {
+          await tx.dealerOrder.update({
+            where: { id: cancelledDealerOrderId },
+            data: {
+              status: "CANCELLED",
+              invoiceId: null,
+            },
+          });
+        }
+
+        // d. Delete Invoice Items before deleting invoice itself.
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: invoiceId },
         });
-      }
 
-      // c. Check for linked DealerOrder and mark as CANCELLED (unlinking invoiceId)
-      const linkedOrder = await tx.dealerOrder.findFirst({
-        where: { invoiceId: invoiceId },
-      });
-
-      if (linkedOrder) {
-        cancelledDealerOrderId = linkedOrder.id;
-        await tx.dealerOrder.update({
-          where: { id: linkedOrder.id },
-          data: {
-            status: "CANCELLED",
-            invoiceId: null,
-          },
+        // e. Finally Delete the Invoice itself
+        await tx.invoice.delete({
+          where: { id: invoiceId },
         });
+      },
+      {
+        maxWait: 10000, // 10 seconds max wait to acquire connection
+        timeout: 20000, // 20 seconds max execution time
       }
+    );
 
-      // d. Delete Invoice Items before deleting invoice itself.
-      // (Even though cascade delete is usually on, it's safer to explicitly delete elements in Supabase connected Prisma).
-      await tx.invoiceItem.deleteMany({
-        where: { invoiceId: invoiceId },
-      });
-
-      // e. Finally Delete the Invoice itself
-      await tx.invoice.delete({
-        where: { id: invoiceId },
-      });
-    });
-
-    // 3. Cache Invalidation - Forcefully clear Next.js caches
+    // 4. Cache Invalidation - Forcefully clear Next.js caches
     revalidatePath("/dashboard");
     revalidatePath("/orders");
     revalidatePath("/orders/dealer-requests");

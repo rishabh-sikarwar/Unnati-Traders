@@ -265,7 +265,10 @@ export async function POST(req, { params }) {
 
             return invoice;
           },
-          { timeout: 15000 }
+          {
+            maxWait: 10000, // 10 seconds max wait to acquire connection
+            timeout: 20000, // 20 seconds max execution time
+          }
         );
 
         break; // Successfully committed transaction

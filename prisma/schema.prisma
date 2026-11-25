@@ -24,6 +24,8 @@ model Location {
   returns     ReturnLog[]
   transferFromLogs TransferLog[] @relation("TransferFromLocation")
   transferToLogs   TransferLog[] @relation("TransferToLocation")
+  stockTransfersFrom StockTransfer[] @relation("StockTransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("StockTransferTo")
   stockAdjustments StockAdjustmentLog[]
   dealerOrders     DealerOrder[]
 }
@@ -43,6 +45,7 @@ model User {
   purchases Purchase[]
   returns   ReturnLog[]
   transferLogs TransferLog[]
+  stockTransfers StockTransfer[]
   stockAdjustments StockAdjustmentLog[]
   dealerOrders     DealerOrder[]
 }
@@ -78,6 +81,7 @@ model Product {
   purchaseItems PurchaseItem[]
   returns       ReturnLog[]
   transferLogs  TransferLog[]
+  stockTransferItems StockTransferItem[]
   stockAdjustments StockAdjustmentLog[]
   dealerOrderItems DealerOrderItem[]
 }
@@ -256,6 +260,36 @@ model TransferLog {
 
   userId         String?
   user           User?    @relation(fields: [userId], references: [id])
+}
+
+model StockTransfer {
+  id             String              @id @default(uuid())
+  transferNumber String              @unique
+  fromLocationId String
+  fromLocation   Location            @relation("StockTransferFrom", fields: [fromLocationId], references: [id])
+  toLocationId   String
+  toLocation     Location            @relation("StockTransferTo", fields: [toLocationId], references: [id])
+  totalWorth     Decimal             @default(0) @db.Decimal(12, 2)
+  notes          String?
+  createdAt      DateTime            @default(now())
+
+  userId         String?
+  user           User?               @relation(fields: [userId], references: [id])
+
+  items          StockTransferItem[]
+}
+
+model StockTransferItem {
+  id              String        @id @default(uuid())
+  quantity        Int
+  unitPrice       Decimal       @default(0) @db.Decimal(10, 2)
+  totalValue      Decimal       @default(0) @db.Decimal(10, 2)
+
+  stockTransferId String
+  stockTransfer   StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model StockSnapshot {
