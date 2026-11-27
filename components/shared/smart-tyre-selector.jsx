@@ -9,6 +9,7 @@ export default function SmartTyreSelector({
   onSelect,
   locked = false,
   readOnly = false,
+  sourceLocationId = null,
 }) {
   const isLocked = Boolean(locked || readOnly);
   const [searchQuery, setSearchQuery] = useState("");
@@ -153,6 +154,14 @@ export default function SmartTyreSelector({
               {filteredProducts.map((p) => {
                 const isSelected = selectedProductId === p.id;
                 const searchableValue = `${p.modelName} ${p.size} ${p.sku}`;
+                const sourceInv = sourceLocationId
+                  ? p.inventories?.find((i) => i.locationId === sourceLocationId)
+                  : null;
+                const sourceStock = sourceInv
+                  ? sourceInv.quantity
+                  : sourceLocationId
+                  ? 0
+                  : null;
 
                 return (
                   <li
@@ -180,7 +189,21 @@ export default function SmartTyreSelector({
                         {p.hsnCode ? ` • HSN: ${p.hsnCode}` : ""}
                       </span>
                     </div>
-                    {isSelected && <Check className="w-4 h-4 text-[#522874] shrink-0" />}
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {sourceStock !== null && (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                            sourceStock > 0
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              : "bg-red-50 text-red-700 border border-red-200"
+                          }`}
+                        >
+                          {sourceStock > 0 ? `Stock: ${sourceStock}` : "Out of stock"}
+                        </span>
+                      )}
+                      {isSelected && <Check className="w-4 h-4 text-[#522874] shrink-0" />}
+                    </div>
                   </li>
                 );
               })}

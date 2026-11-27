@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Filter, PackageX, Loader2 } from "lucide-react";
+import { Search, Filter, PackageX, Loader2, ArrowLeftRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function InventoryTable({
   products,
@@ -98,6 +99,12 @@ export default function InventoryTable({
             ))}
           </select>
         </div>
+        <Link
+          href="/admin/transfer"
+          className="inline-flex items-center justify-center gap-1.5 bg-[#522874] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95 whitespace-nowrap cursor-pointer text-sm shrink-0"
+        >
+          <ArrowLeftRight size={16} /> Transfer Stock
+        </Link>
       </div>
 
       {/* MOBILE-RESPONSIVE TABLE */}

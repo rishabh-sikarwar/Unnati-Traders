@@ -1,12 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import TransferStockForm from "@/components/admin/transfer-stock-form";
-import BranchTransfersView from "@/components/admin/branch-transfers-view";
-import { ArrowLeftRight } from "lucide-react";
+import RecentTransfersPreview from "@/components/admin/recent-transfers-preview";
+import { ArrowLeftRight, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function TransferPage() {
+  const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+  });
+
+  if (!dbUser) redirect("/");
+
   // CRITICAL: Include inventories & latest purchase item to compute last purchase cost (including TTF sets)
   const products = await prisma.product.findMany({
     include: {
@@ -104,40 +115,51 @@ export default async function TransferPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 pt-24 md:pt-36 lg:pt-28 flex flex-col items-center">
       <div className="w-full max-w-6xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* --- BREADCRUMB / BACK NAVIGATION --- */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
+            <Link
+              href="/inventory"
+              className="inline-flex items-center gap-1.5 text-gray-600 hover:text-[#522874] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Inventory</span>
+            </Link>
+            <span className="text-gray-300">•</span>
+            <Link
+              href="/purchases?tab=transfers"
+              className="inline-flex items-center gap-1.5 text-gray-600 hover:text-[#522874] transition-colors"
+            >
+              <span>View Transfer Inwards</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
         {/* --- HEADER --- */}
         <div>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm font-bold text-gray-500 hover:text-[#522874] mb-4 transition-colors"
-          >
-            <ArrowLeftRight className="w-4 h-4 mr-1.5" /> Back to Dashboard
-          </Link>
-          <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 flex items-center gap-3">
             <div className="p-2 bg-purple-100 text-[#522874] rounded-xl">
               <ArrowLeftRight className="h-6 w-6" />
             </div>
-            Transfer Stock & Valuation
+            Multi-Item Stock Transfer
           </h1>
-          <p className="text-gray-500 mt-2 font-medium">
-            Move commercial inventory between Shop A and Shop B with auto-fetched
-            Apollo purchase rates, live worth calculation, and delivery challans.
+          <p className="text-gray-500 mt-1.5 font-medium text-sm sm:text-base">
+            Batch-dispatch multiple tyres from Shop A to Shop B in a single Delivery Challan with live valuation.
           </p>
         </div>
 
-        {/* --- TRANSFER FORM --- */}
+        {/* --- BATCH TRANSFER FORM --- */}
         <TransferStockForm
           products={serializedProducts}
           locations={locations}
+          userRole={dbUser.role}
+          userLocationId={dbUser.locationId}
         />
 
-        {/* --- VALUED STOCK TRANSFERS HISTORY & SUMMARY --- */}
-        <div className="pt-4 border-t border-gray-200">
-          <BranchTransfersView
-            transfers={serializedTransfers}
-            locations={locations}
-            title="Internal Stock Transfer History & Challans"
-            description="Complete log of valued stock dispatches with live valuation and printable delivery challans."
-          />
+        {/* --- RECENT TRANSFERS COMPACT PREVIEW (LAST 5) --- */}
+        <div className="pt-2">
+          <RecentTransfersPreview transfers={serializedTransfers} />
         </div>
       </div>
     </div>

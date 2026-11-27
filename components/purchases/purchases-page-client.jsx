@@ -17,6 +17,13 @@ export default function PurchasesPageClient({
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
+  // Calculate transfers received this month for subtle notification badge
+  const now = new Date();
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisMonthTransfersCount = transfers.filter(
+    (t) => new Date(t.createdAt) >= startOfCurrentMonth
+  ).length;
+
   return (
     <div className="space-y-6">
       {/* TABS NAVIGATION */}
@@ -31,7 +38,7 @@ export default function PurchasesPageClient({
             }`}
           >
             <PackagePlus className="w-4 h-4 text-[#522874]" />
-            <span>Supplier Purchases (Apollo Inward)</span>
+            <span>Supplier Purchases (Apollo)</span>
           </button>
 
           <button
@@ -43,33 +50,47 @@ export default function PurchasesPageClient({
             }`}
           >
             <Truck className="w-4 h-4 text-[#522874]" />
-            <span>Branch Transfers (Inward to Shop B)</span>
-            {transfers.length > 0 && (
-              <span className="px-1.5 py-0.2 bg-purple-100 text-[#522874] text-xs font-black rounded-full">
+            <span>Branch Transfers (Inward)</span>
+            {thisMonthTransfersCount > 0 ? (
+              <span className="px-2 py-0.5 bg-purple-100 text-[#522874] text-xs font-black rounded-full border border-purple-200 animate-in fade-in">
+                {thisMonthTransfersCount} this month
+              </span>
+            ) : transfers.length > 0 ? (
+              <span className="px-1.5 py-0.2 bg-gray-200 text-gray-700 text-xs font-black rounded-full">
                 {transfers.length}
               </span>
-            )}
+            ) : null}
           </button>
         </div>
 
-        {/* Action Button */}
-        {activeTab === "transfers" ? (
+        {/* Action Buttons (Visible across both tabs) */}
+        <div className="flex items-center gap-2">
           <Link
             href="/admin/transfer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#522874] text-white rounded-xl text-sm font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#522874] text-white rounded-xl text-sm font-bold hover:bg-[#3d1d56] transition-all shadow-sm active:scale-95 whitespace-nowrap cursor-pointer"
           >
             <ArrowLeftRight className="w-4 h-4" />
-            <span>+ Dispatch New Transfer</span>
+            <span>+ New Stock Transfer</span>
           </Link>
-        ) : (
-          <Link
-            href="/purchases/ledger"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 hover:text-[#522874] transition-all shadow-sm active:scale-95"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span>View Purchase Ledger</span>
-          </Link>
-        )}
+
+          {activeTab === "supplier" ? (
+            <Link
+              href="/purchases/ledger"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 hover:text-[#522874] transition-all shadow-sm active:scale-95 whitespace-nowrap"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Purchase Ledger</span>
+            </Link>
+          ) : (
+            <Link
+              href="/purchases/ledger?tab=transfers"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 hover:text-[#522874] transition-all shadow-sm active:scale-95 whitespace-nowrap"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Full Transfer Ledger</span>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* TAB CONTENT 1: SUPPLIER PURCHASE ENTRY */}
@@ -116,4 +137,3 @@ export default function PurchasesPageClient({
     </div>
   );
 }
-
