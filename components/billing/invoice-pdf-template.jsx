@@ -210,10 +210,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 30,
-    right: 30,
+    marginTop: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
@@ -350,7 +347,7 @@ export default function InvoicePDF({ invoiceData }) {
 
         {/* Table */}
         <View style={styles.table}>
-          <View style={styles.tableRow}>
+          <View style={styles.tableRow} fixed>
             <View style={styles.tableColHeaderSmall}>
               <Text style={styles.tableCellHeader}>#</Text>
             </View>
@@ -437,79 +434,83 @@ export default function InvoicePDF({ invoiceData }) {
         </View>
 
         {/* Summary */}
-        <View style={styles.summaryContainer} wrap={false}>
-          <View style={styles.taxBreakdown}>
-            <Text style={styles.sectionTitle}>Tax Breakdown</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>Taxable Amount:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.subtotal, 2)}`}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>CGST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(cgstAmount, 2)}`}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>SGST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(sgstAmount, 2)}`}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>IGST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(igstAmount, 2)}`}</Text>
-            </View>
-            <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 4, marginTop: 2 }]}>
-              <Text style={styles.headerText}>Total Tax:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.totalGst, 2)}`}</Text>
-            </View>
-          </View>
-
-          <View style={styles.totalsContainer}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>Taxable Value:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.subtotal, 2)}`}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.headerText}>Total GST:</Text>
-              <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.totalGst, 2)}`}</Text>
-            </View>
-            {roundOffAmount > 0.001 && (
+        {/* Closing Summary & Footer Block */}
+        <View wrap={false} style={{ marginTop: 15 }}>
+          {/* Summary */}
+          <View style={styles.summaryContainer}>
+            <View style={styles.taxBreakdown}>
+              <Text style={styles.sectionTitle}>Tax Breakdown</Text>
               <View style={styles.summaryRow}>
-                <Text style={styles.headerText}>Round Off:</Text>
-                <Text style={styles.headerText}>{`+${roundOffAmount.toFixed(2)}`}</Text>
+                <Text style={styles.headerText}>Taxable Amount:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.subtotal, 2)}`}</Text>
               </View>
-            )}
-            <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalText}>Grand Total</Text>
-              <Text style={[styles.grandTotalText, { color: "#522874" }]}>{`₹${formatNumber(invoiceData.grandTotal, 2)}`}</Text>
+              <View style={styles.summaryRow}>
+                <Text style={styles.headerText}>CGST:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(cgstAmount, 2)}`}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.headerText}>SGST:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(sgstAmount, 2)}`}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.headerText}>IGST:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(igstAmount, 2)}`}</Text>
+              </View>
+              <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 4, marginTop: 2 }]}>
+                <Text style={styles.headerText}>Total Tax:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.totalGst, 2)}`}</Text>
+              </View>
             </View>
 
-            {(invoiceData.paymentMode === "CREDIT" || invoiceData.paymentMode === "MULTIPLE") && (
-              <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.headerText, styles.boldText]}>Paid: {`₹${formatNumber(invoiceData.amountPaid, 2)}`}</Text>
-                  <Text style={[styles.headerText, styles.boldText, { color: "#ea580c" }]}>
-                    Due: {`₹${formatNumber(invoiceData.grandTotal - invoiceData.amountPaid, 2)}`}
-                  </Text>
-                </View>
+            <View style={styles.totalsContainer}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.headerText}>Taxable Value:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.subtotal, 2)}`}</Text>
               </View>
-            )}
-          </View>
-        </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.headerText}>Total GST:</Text>
+                <Text style={[styles.headerText, styles.boldText]}>{`₹${formatNumber(invoiceData.totalGst, 2)}`}</Text>
+              </View>
+              {roundOffAmount > 0.001 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.headerText}>Round Off:</Text>
+                  <Text style={styles.headerText}>{`+${roundOffAmount.toFixed(2)}`}</Text>
+                </View>
+              )}
+              <View style={styles.grandTotalRow}>
+                <Text style={styles.grandTotalText}>Grand Total</Text>
+                <Text style={[styles.grandTotalText, { color: "#522874" }]}>{`₹${formatNumber(invoiceData.grandTotal, 2)}`}</Text>
+              </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <View style={styles.terms}>
-            <Text style={[styles.boldText, { marginBottom: 2 }]}>Terms & Conditions:</Text>
-            <Text>1. Goods once sold will not be taken back without valid reason.</Text>
-            <Text>2. Warranty claims are subject to Apollo Tyres official policies.</Text>
-            <Text>3. All disputes subject to Bhind Jurisdiction.</Text>
-            <Text style={{ marginTop: 10, fontSize: 7, color: "#9ca3af", textTransform: "uppercase" }}>
-              This is a computer-generated tax invoice.
-            </Text>
+              {(invoiceData.paymentMode === "CREDIT" || invoiceData.paymentMode === "MULTIPLE") && (
+                <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.headerText, styles.boldText]}>Paid: {`₹${formatNumber(invoiceData.amountPaid, 2)}`}</Text>
+                    <Text style={[styles.headerText, styles.boldText, { color: "#ea580c" }]}>
+                      Due: {`₹${formatNumber(invoiceData.grandTotal - invoiceData.amountPaid, 2)}`}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
-          <View style={styles.signature}>
-            <View style={styles.signatureLine}></View>
-            <Text style={[styles.boldText, { fontSize: 9 }]}>For UNNATI TRADERS</Text>
-            <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>Authorized Signatory</Text>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.terms}>
+              <Text style={[styles.boldText, { marginBottom: 2 }]}>Terms & Conditions:</Text>
+              <Text>1. Goods once sold will not be taken back without valid reason.</Text>
+              <Text>2. Warranty claims are subject to Apollo Tyres official policies.</Text>
+              <Text>3. All disputes subject to Bhind Jurisdiction.</Text>
+              <Text style={{ marginTop: 10, fontSize: 7, color: "#9ca3af", textTransform: "uppercase" }}>
+                This is a computer-generated tax invoice.
+              </Text>
+            </View>
+            <View style={styles.signature}>
+              <View style={styles.signatureLine}></View>
+              <Text style={[styles.boldText, { fontSize: 9 }]}>For UNNATI TRADERS</Text>
+              <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>Authorized Signatory</Text>
+            </View>
           </View>
         </View>
       </Page>

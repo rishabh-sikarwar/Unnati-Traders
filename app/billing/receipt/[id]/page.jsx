@@ -109,7 +109,10 @@ export default async function ReceiptPage({ params }) {
         dangerouslySetInnerHTML={{
           __html: `
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page {
+            size: A4;
+            margin: 12mm 10mm;
+          }
 
           body {
             -webkit-print-color-adjust: exact !important;
@@ -140,6 +143,26 @@ export default async function ReceiptPage({ params }) {
             box-shadow: none !important;
             border: none !important;
             background: transparent !important;
+          }
+
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+
+          thead {
+            display: table-header-group !important; /* Repeats table column headers cleanly on Page 2+ */
+          }
+
+          tr, .invoice-item-row {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .invoice-footer-block {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-top: 24px !important;
           }
         }
       `,
@@ -339,7 +362,7 @@ export default async function ReceiptPage({ params }) {
                     return (
                       <tr
                         key={item.id}
-                        className="border-b border-gray-200 group"
+                        className="border-b border-gray-200 group invoice-item-row"
                       >
                         <td className="py-2 px-2 text-center align-top text-gray-500">
                           {index + 1}
@@ -471,138 +494,141 @@ export default async function ReceiptPage({ params }) {
               </table>
             </div>
 
-            {/* --- FINANCIAL SUMMARY --- */}
-            <div className="flex justify-between items-start border-t-2 border-gray-800 pt-4">
-              {/* Left Side: Tax Breakdown */}
-              <div className="w-1/2 text-xs pr-4">
-                <p className="font-black text-gray-800 mb-2 uppercase tracking-wide border-b border-gray-100 pb-1">
-                  Tax Breakdown Summary
-                </p>
+            {/* --- INVOICE FOOTER BLOCK (TAX SUMMARY, TOTALS, TERMS & SIGNATURE) --- */}
+            <div className="invoice-footer-block mt-4">
+              {/* --- FINANCIAL SUMMARY --- */}
+              <div className="flex justify-between items-start border-t-2 border-gray-800 pt-4">
+                {/* Left Side: Tax Breakdown */}
+                <div className="w-1/2 text-xs pr-4">
+                  <p className="font-black text-gray-800 mb-2 uppercase tracking-wide border-b border-gray-100 pb-1">
+                    Tax Breakdown Summary
+                  </p>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-gray-600">
-                  <span>Taxable Amount:</span>{" "}
-                  <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(invoice.subtotal, 2)}`}
-                  </span>
-                  {/* Explicit CA-Level Breakdown */}
-                  <span>CGST:</span>{" "}
-                  <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(cgstAmount, 2)}`}
-                  </span>
-                  <span>SGST:</span>{" "}
-                  <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(sgstAmount, 2)}`}
-                  </span>
-                  <span>IGST:</span>{" "}
-                  <span className="font-bold text-gray-800 text-right">
-                    {`₹${formatNumber(igstAmount, 2)}`}
-                  </span>
-                  <span className="pt-1 border-t border-gray-200">
-                    Total Tax:
-                  </span>
-                  <span className="font-black text-gray-900 text-right pt-1 border-t border-gray-200">
-                    {`₹${formatNumber(invoice.totalGst, 2)}`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Side: Totals */}
-              <div className="w-1/2 text-sm space-y-1.5">
-                <div className="flex justify-between px-2">
-                  <span className="text-gray-600 font-bold">Taxable Value</span>
-                  <span className="font-black text-gray-800">
-                    {`₹${formatNumber(invoice.subtotal, 2)}`}
-                  </span>
-                </div>
-
-                <div className="flex justify-between px-2 border-b border-gray-200 pb-2">
-                  <span className="text-gray-600 font-bold">
-                    Total GST (Inclusive)
-                  </span>
-                  <span className="font-black text-gray-800">
-                    {`₹${formatNumber(invoice.totalGst, 2)}`}
-                  </span>
-                </div>
-
-                {roundOffAmount > 0.001 && (
-                  <div className="flex justify-between px-2 text-sm text-gray-500">
-                    <span>Round Off</span>
-                    <span>{`+${roundOffAmount.toFixed(2)}`}</span>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-gray-600">
+                    <span>Taxable Amount:</span>{" "}
+                    <span className="font-bold text-gray-800 text-right">
+                      {`₹${formatNumber(invoice.subtotal, 2)}`}
+                    </span>
+                    {/* Explicit CA-Level Breakdown */}
+                    <span>CGST:</span>{" "}
+                    <span className="font-bold text-gray-800 text-right">
+                      {`₹${formatNumber(cgstAmount, 2)}`}
+                    </span>
+                    <span>SGST:</span>{" "}
+                    <span className="font-bold text-gray-800 text-right">
+                      {`₹${formatNumber(sgstAmount, 2)}`}
+                    </span>
+                    <span>IGST:</span>{" "}
+                    <span className="font-bold text-gray-800 text-right">
+                      {`₹${formatNumber(igstAmount, 2)}`}
+                    </span>
+                    <span className="pt-1 border-t border-gray-200">
+                      Total Tax:
+                    </span>
+                    <span className="font-black text-gray-900 text-right pt-1 border-t border-gray-200">
+                      {`₹${formatNumber(invoice.totalGst, 2)}`}
+                    </span>
                   </div>
-                )}
-
-                <div className="flex justify-between bg-gray-100 p-2 border border-gray-300 rounded">
-                  <span className="font-black text-lg text-gray-900">
-                    Grand Total
-                  </span>
-                  <span className="font-black text-lg text-[#522874]">
-                    {`₹${formatNumber(invoice.grandTotal, 2)}`}
-                  </span>
                 </div>
 
-                {/* Show Dues if applicable */}
-                {(invoice.paymentMode === "CREDIT" ||
-                  invoice.paymentMode === "MULTIPLE") && (
-                  <div className="text-xs font-bold px-2 pt-2 text-gray-800 space-y-1.5">
-                    <div className="flex justify-between">
-                      <span>
-                        {`Paid: ₹${formatNumber(invoice.amountPaid, 2)}`}
-                      </span>
-                      <span className="text-orange-600">
-                        {`Due: ₹${formatNumber(invoice.grandTotal - invoice.amountPaid, 2)}`}
-                      </span>
-                    </div>
+                {/* Right Side: Totals */}
+                <div className="w-1/2 text-sm space-y-1.5">
+                  <div className="flex justify-between px-2">
+                    <span className="text-gray-600 font-bold">Taxable Value</span>
+                    <span className="font-black text-gray-800">
+                      {`₹${formatNumber(invoice.subtotal, 2)}`}
+                    </span>
+                  </div>
 
-                    {invoice.paymentMode === "MULTIPLE" && (
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-semibold border border-gray-200 bg-gray-50 rounded p-2">
-                        <span>Cash Received:</span>
-                        <span className="text-right">
-                          {`₹${formatNumber(cashAmount, 2)}`}
+                  <div className="flex justify-between px-2 border-b border-gray-200 pb-2">
+                    <span className="text-gray-600 font-bold">
+                      Total GST (Inclusive)
+                    </span>
+                    <span className="font-black text-gray-800">
+                      {`₹${formatNumber(invoice.totalGst, 2)}`}
+                    </span>
+                  </div>
+
+                  {roundOffAmount > 0.001 && (
+                    <div className="flex justify-between px-2 text-sm text-gray-500">
+                      <span>Round Off</span>
+                      <span>{`+${roundOffAmount.toFixed(2)}`}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between bg-gray-100 p-2 border border-gray-300 rounded">
+                    <span className="font-black text-lg text-gray-900">
+                      Grand Total
+                    </span>
+                    <span className="font-black text-lg text-[#522874]">
+                      {`₹${formatNumber(invoice.grandTotal, 2)}`}
+                    </span>
+                  </div>
+
+                  {/* Show Dues if applicable */}
+                  {(invoice.paymentMode === "CREDIT" ||
+                    invoice.paymentMode === "MULTIPLE") && (
+                    <div className="text-xs font-bold px-2 pt-2 text-gray-800 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span>
+                          {`Paid: ₹${formatNumber(invoice.amountPaid, 2)}`}
                         </span>
-                        <span>UPI Received:</span>
-                        <span className="text-right">
-                          {`₹${formatNumber(upiAmount, 2)}`}
-                        </span>
-                        <span>Card Received:</span>
-                        <span className="text-right">
-                          {`₹${formatNumber(cardAmount, 2)}`}
+                        <span className="text-orange-600">
+                          {`Due: ₹${formatNumber(invoice.grandTotal - invoice.amountPaid, 2)}`}
                         </span>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* --- FOOTER / SIGNATURE --- */}
-            <div className="mt-12 pt-6 border-t border-gray-200 flex justify-between items-end">
-              <div className="text-[10px] text-gray-500 space-y-1">
-                <p className="font-bold text-gray-800 uppercase tracking-wider text-xs mb-2">
-                  Terms & Conditions:
-                </p>
-                <p>
-                  1. Goods once sold will not be taken back without valid
-                  reason.
-                </p>
-                <p>
-                  2. Warranty claims are subject to Apollo Tyres official
-                  policies.
-                </p>
-                <p>3. All disputes subject to Bhind Jurisdiction.</p>
+                      {invoice.paymentMode === "MULTIPLE" && (
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-semibold border border-gray-200 bg-gray-50 rounded p-2">
+                          <span>Cash Received:</span>
+                          <span className="text-right">
+                            {`₹${formatNumber(cashAmount, 2)}`}
+                          </span>
+                          <span>UPI Received:</span>
+                          <span className="text-right">
+                            {`₹${formatNumber(upiAmount, 2)}`}
+                          </span>
+                          <span>Card Received:</span>
+                          <span className="text-right">
+                            {`₹${formatNumber(cardAmount, 2)}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="text-center w-48">
-                <div className="border-b border-gray-400 h-10 mb-2"></div>
-                <p className="font-black text-gray-800 text-xs">
-                  For UNNATI TRADERS
-                </p>
-                <p className="text-[10px] text-gray-500">
-                  Authorized Signatory
-                </p>
-              </div>
-            </div>
 
-            <div className="mt-6 text-[9px] text-gray-400 text-center uppercase tracking-widest">
-              This is a computer-generated tax invoice.
+              {/* --- FOOTER / SIGNATURE --- */}
+              <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-end">
+                <div className="text-[10px] text-gray-500 space-y-1">
+                  <p className="font-bold text-gray-800 uppercase tracking-wider text-xs mb-2">
+                    Terms & Conditions:
+                  </p>
+                  <p>
+                    1. Goods once sold will not be taken back without valid
+                    reason.
+                  </p>
+                  <p>
+                    2. Warranty claims are subject to Apollo Tyres official
+                    policies.
+                  </p>
+                  <p>3. All disputes subject to Bhind Jurisdiction.</p>
+                </div>
+                <div className="text-center w-48">
+                  <div className="border-b border-gray-400 h-10 mb-2"></div>
+                  <p className="font-black text-gray-800 text-xs">
+                    For UNNATI TRADERS
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Authorized Signatory
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 text-[9px] text-gray-400 text-center uppercase tracking-widest">
+                This is a computer-generated tax invoice.
+              </div>
             </div>
           </div>
         </div>
